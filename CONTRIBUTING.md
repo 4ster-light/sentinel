@@ -62,6 +62,10 @@ Make sure your changes pass all checks:
 2. **Type check**: `uv run ty check`
 3. **Tests**: `uv run pytest`
 
+> [!IMPORTANT]
+> This project follows
+> [conventional commits](https://gist.github.com/qoomon/5dfcdf8eec66a051ecd85625518cfd13).
+
 ## Project Structure
 
 ```text
