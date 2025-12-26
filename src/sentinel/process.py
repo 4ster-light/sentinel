@@ -126,7 +126,7 @@ def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
 
 	# Start new process with same settings
 	os.chdir(cwd)
-	return start_process(state, cmd, name=name, restart=restart, env=env)
+	return start_process(state, cmd, name, restart, env)
 
 
 def get_process_status(info: ProcessInfo) -> dict:
