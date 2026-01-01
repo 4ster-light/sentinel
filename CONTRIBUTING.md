@@ -32,7 +32,19 @@ Run with coverage:
 uv run pytest --cov=sentinel
 ```
 
-### Code formatting with ruff
+### Code formatting and checking
+
+The tasks module provides a unified script for formatting, linting, and type
+checking that can be run as follows:
+
+```bash
+uv run check
+```
+
+But in case of wanting any specific step `ruff` and `ty`, which are the used
+tools, are available as dev dependencies and can be used individually:
+
+#### Ruff
 
 Format all code:
 
@@ -40,13 +52,13 @@ Format all code:
 uv run ruff format
 ```
 
-Check formatting without making changes:
+Lint and fix any fizable errors:
 
 ```bash
-uv run ruff check
+uv run ruff check --fix
 ```
 
-### Type checking with ty
+#### Type checking with ty
 
 Type-check the codebase:
 
@@ -58,9 +70,9 @@ uv run ty check
 
 Make sure your changes pass all checks:
 
-1. **Format**: `uv run ruff format`
-2. **Type check**: `uv run ty check`
-3. **Tests**: `uv run pytest`
+```bash
+uv run check
+```
 
 > [!IMPORTANT]
 > This project follows
@@ -70,6 +82,7 @@ Make sure your changes pass all checks:
 
 ```text
 src/sentinel/       # Main package code
+src/tasks/          # Runnable tasks
 tests/              # Test files
 pyproject.toml      # Project configuration
 ```
