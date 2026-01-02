@@ -14,18 +14,17 @@ ease.
 
 ## Installation
 
-Clone the repository and install from source:
+It's recommended to use the [uv](https://docs.astral.sh/uv) package manager for
+python:
 
 ```bash
-git clone https://github.com/4ster-light/sentinel
-cd sentinel
-uv sync
+uv tool install git+https://github.com/4ster-light/sentinel
 ```
 
-Then install the package system wide:
+But you can also do it with `pip` as follows:
 
 ```bash
-uv tool install .
+pip install git+https://github.com/4ster-light/sentinel
 ```
 
 ## Quick Start
