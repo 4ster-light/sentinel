@@ -26,10 +26,13 @@ Run the test suite:
 uv run pytest
 ```
 
-Run with coverage:
+Already configured in `pyproject.toml` with minimum coverage and all extra
+flags. If the coverage fails or you just want to check the missing parts, an
+automatic html report is created so just run the task to open it in the browser
+for better readability:
 
 ```bash
-uv run pytest --cov=sentinel
+uv run coverage-view
 ```
 
 ### Code formatting and checking
