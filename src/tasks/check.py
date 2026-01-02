@@ -1,3 +1,5 @@
+"""Task to run code formatting, linting, and type checking."""
+
 from .uv import uv_run, CMD
 
 
