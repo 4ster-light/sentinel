@@ -26,48 +26,123 @@ Run the test suite:
 uv run pytest
 ```
 
-Already configured in `pyproject.toml` with minimum coverage and all extra
-flags. If the coverage fails or you just want to check the missing parts, an
-automatic html report is created so just run the task to open it in the browser
-for better readability:
+Tests are configured in `pyproject.toml` with a minimum coverage threshold of
+80%. An HTML coverage report is automatically generated after each test run.
+
+#### View coverage report
+
+Open the coverage report in your browser:
 
 ```bash
 uv run coverage-view
 ```
 
-### Code formatting and checking
+This starts a local HTTP server and opens the HTML coverage report, allowing you
+to review which lines are covered by tests.
 
-The tasks module provides a unified script for formatting, linting, and type
-checking that can be run as follows:
+### Code Quality Tasks
+
+We provide automated tasks for code formatting, linting, and type checking.
+
+#### Run all checks
+
+Execute formatting, linting, and type checking in one command:
 
 ```bash
 uv run check
 ```
 
-But in case of wanting any specific step `ruff` and `ty`, which are the used
-tools, are available as dev dependencies and can be used individually:
+This runs the following checks in sequence with clear output:
 
-#### Ruff
+- **Formatting**: Using `ruff format`
+- **Linting**: Using `ruff check --fix`
+- **Type Checking**: Using `ty check`
 
-Format all code:
+#### Individual tools
+
+If you need to run specific checks manually, the underlying tools are available
+as dev dependencies:
+
+**Format all code:**
 
 ```bash
 uv run ruff format
 ```
 
-Lint and fix any fizable errors:
+**Lint and fix issues:**
 
 ```bash
 uv run ruff check --fix
 ```
 
-#### Type checking with ty
-
-Type-check the codebase:
+**Type-check the codebase:**
 
 ```bash
 uv run ty check
 ```
+
+## Task System
+
+Tasks in this project are defined in [src/tasks.py](src/tasks.py) and registered
+in `pyproject.toml` under `[project.scripts]`.
+
+### How Tasks Work
+
+Tasks are organized into classes with static methods. Each task:
+
+1. **Defines commands** using the `CMD` dataclass:
+
+   ```python
+   CMD(name="Task Description", args=["tool", "subcommand"])
+   ```
+
+2. **Executes via `uv_run()`** which runs `uv run` with the given arguments and
+   displays formatted output
+
+3. **Registered in pyproject.toml** for easy invocation:
+
+   ```toml
+   [project.scripts]
+   check = "tasks:Check.main"
+   coverage-view = "tasks:Coverage.view"
+   ```
+
+### Defining New Tasks
+
+To add a new task:
+
+1. Create a class in [src/tasks.py](src/tasks.py):
+
+   ```python
+   class MyTask:
+       @staticmethod
+       def main() -> None:
+           """Description of what the task does."""
+           commands: list[CMD] = [
+               CMD(name="Step 1", args=["tool", "action"]),
+               CMD(name="Step 2", args=["another-tool", "action"]),
+           ]
+           for cmd in commands:
+               uv_run(cmd)
+   ```
+
+2. Register in `pyproject.toml`:
+
+   ```toml
+   my-task = "tasks:MyTask.main"
+   ```
+
+3. Run it:
+
+   ```bash
+   uv run my-task
+   ```
+
+### Task Design Principles
+
+- **Organize logically**: Group related commands in classes
+- **Provide clear names**: Use descriptive `CMD` names for output visibility
+- **Keep it simple**: Each task should have a single, clear purpose
 
 ## Before Submitting
 
