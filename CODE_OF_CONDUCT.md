@@ -45,4 +45,4 @@ confidentiality with regard to the reporter of an incident.
 This Code of Conduct is adapted from the
 [Contributor Covenant](https://www.contributor-covenant.org/), version 2.0,
 available at
-https://www.contributor-covenant.org/version/2_0/code_of_conduct.html.
+<https://www.contributor-covenant.org/version/2_0/code_of_conduct.html>.
