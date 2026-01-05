@@ -97,9 +97,3 @@ sentinel <command> --help
 ## License
 
 MIT
-
-## Sponsor
-
-If you like this project, consider supporting me by buying me a coffee.
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/B0B41HVJUR)
