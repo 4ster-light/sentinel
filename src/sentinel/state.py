@@ -31,6 +31,7 @@ class ProcessInfo:
 	stderr_log: str
 	env: dict[str, str] = field(default_factory=dict)
 	group: str | None = None
+	env_file: str | None = None
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
@@ -45,6 +46,7 @@ class ProcessInfo:
 			"stderr_log": self.stderr_log,
 			"env": self.env,
 			"group": self.group,
+			"env_file": self.env_file,
 		}
 
 	@classmethod
@@ -61,6 +63,7 @@ class ProcessInfo:
 			stderr_log=data["stderr_log"],
 			env=data.get("env", {}),
 			group=data.get("group"),
+			env_file=data.get("env_file"),
 		)
 
 
@@ -71,12 +74,14 @@ class GroupInfo:
 	name: str
 	created_at: str
 	env: dict[str, str] = field(default_factory=dict)
+	env_file: str | None = None
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
 			"name": self.name,
 			"created_at": self.created_at,
 			"env": self.env,
+			"env_file": self.env_file,
 		}
 
 	@classmethod
@@ -85,6 +90,7 @@ class GroupInfo:
 			name=data["name"],
 			created_at=data["created_at"],
 			env=data.get("env", {}),
+			env_file=data.get("env_file"),
 		)
 
 
@@ -218,7 +224,9 @@ class State:
 			ports = [p for p in ports if p.name == name]
 		return ports
 
-	def create_group(self, name: str, env: dict[str, str] | None = None) -> GroupInfo | None:
+	def create_group(
+		self, name: str, env: dict[str, str] | None = None, env_file: str | None = None
+	) -> GroupInfo | None:
 		"""Create a new group"""
 		if name in self.groups:
 			return None
@@ -226,6 +234,7 @@ class State:
 			name=name,
 			created_at=datetime.now().isoformat(),
 			env=env or {},
+			env_file=env_file,
 		)
 		self.groups[name] = group
 		self.save()

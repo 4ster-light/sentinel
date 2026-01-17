@@ -18,6 +18,7 @@ class TestGroupInfo:
 			"name": "test_group",
 			"created_at": "2025-01-18T00:00:00",
 			"env": {"KEY": "VALUE"},
+			"env_file": None,
 		}
 
 	def test_to_dict_no_env(self):
@@ -29,6 +30,7 @@ class TestGroupInfo:
 			"name": "test_group",
 			"created_at": "2025-01-18T00:00:00",
 			"env": {},
+			"env_file": None,
 		}
 
 	def test_from_dict(self):

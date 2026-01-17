@@ -6,6 +6,7 @@ from datetime import datetime
 
 import psutil
 
+from .env import build_process_environment
 from .state import ProcessInfo, State, get_log_paths
 
 
@@ -15,8 +16,33 @@ def start_process(
 	name: str | None = None,
 	restart: bool = False,
 	env: dict[str, str] | None = None,
+	env_file: str | None = None,
 ) -> ProcessInfo:
-	"""Start a new background process"""
+	"""Start a new background process
+
+	Environment variables are merged with the following priority (lowest to highest):
+	1. System environment
+	2. Global ~/.sentinel/.env and ./.env files
+	3. Group-level env vars (if process is in a group)
+	4. Group env file (if group has env_file specified)
+	5. Process-level env dict (if provided)
+	6. Process env file (if env_file specified)
+	7. Override env vars (highest priority)
+
+	Args:
+		state: State object for managing process data
+		cmd: Command to execute
+		name: Optional process name (auto-generated from command if not provided)
+		restart: Whether to auto-restart on exit
+		env: Optional environment variables dict
+		env_file: Optional path to .env file to load for this process
+
+	Returns:
+		ProcessInfo object with process details
+
+	Raises:
+		ValueError: If process name already exists or env files cannot be loaded
+	"""
 	cwd = os.getcwd()
 
 	# Generate name from command if not provided
@@ -31,10 +57,13 @@ def start_process(
 	# Setup log files
 	stdout_path, stderr_path = get_log_paths(name)
 
-	# Merge current environment with provided env
-	process_env = os.environ.copy()
-	if env:
-		process_env.update(env)
+	# Build merged environment with proper precedence
+	process_env = build_process_environment(
+		system_env=True,
+		global_env_files=True,
+		process_env=env,
+		process_env_file=env_file,
+	)
 
 	# Open log files
 	stdout_file = open(stdout_path, "a")
@@ -68,6 +97,7 @@ def start_process(
 		stdout_log=str(stdout_path),
 		stderr_log=str(stderr_path),
 		env=env or {},
+		env_file=env_file,
 	)
 
 	state.add_process(info)
