@@ -10,9 +10,8 @@ features for developers and DevOps.
 **Focus:** Improve core features, usability, and robustness. **Target:** Q1 2026
 
 - [x] **v0.1.1** ✅ COMPLETED
-  - [x] Process Groups: Batch management (start/stop/restart all) ✅
-  - [ ] Environment File Support: Load `.env` files for process environment
-        variables
+	- [x] Process Groups: Batch management (start/stop/restart all) ✅
+	- [x] Environment File Support: Load `.env` files for process environment variables ✅
 
 - [ ] **v0.1.2**
   - [ ] Log Rotation: Rotate logs based on size limits

@@ -21,6 +21,7 @@ group_app = typer.Typer(
 def group_create(
 	name: Annotated[str, typer.Argument(help="Group name")],
 	env: Annotated[list[str], typer.Option("--env", "-e", help="Environment variables (KEY=VALUE)")] = [],
+	env_file: Annotated[str | None, typer.Option("--env-file", "-f", help="Path to .env file")] = None,
 ) -> None:
 	"""Create a new process group"""
 	state = State()
@@ -34,7 +35,15 @@ def group_create(
 		key, value = env_var.split("=", 1)
 		env_dict[key] = value
 
-	group = state.create_group(name, env=env_dict if env_dict else None)
+	# Validate env_file if provided
+	if env_file:
+		from pathlib import Path
+
+		if not Path(env_file).exists():
+			console.print(f"[red]✗[/] Environment file not found: {env_file}")
+			raise typer.Exit(1)
+
+	group = state.create_group(name, env=env_dict if env_dict else None, env_file=env_file)
 
 	if group:
 		console.print(f"[green]✓[/] Created group [bold]{name}[/]")
@@ -108,6 +117,8 @@ def group_list(
 		processes = state.get_processes_in_group(name)
 		console.print(f"\n[bold]Group: {name}[/]")
 		console.print(f"Created: {group.created_at}")
+		if group.env_file:
+			console.print(f"Environment file: {group.env_file}")
 		if group.env:
 			console.print(f"Environment variables:")
 			for key, value in group.env.items():

@@ -56,13 +56,14 @@ def register_main_commands(app: typer.Typer) -> None:
 		name: Annotated[str | None, typer.Option("--name", "-n", help="Process name")] = None,
 		restart: Annotated[bool, typer.Option("--restart", "-r", help="Auto-restart on exit")] = False,
 		group: Annotated[str | None, typer.Option("--group", "-g", help="Process group")] = None,
+		env_file: Annotated[str | None, typer.Option("--env-file", "-e", help="Path to .env file")] = None,
 	) -> None:
 		"""Start a background process"""
 		state = State()
 		cmd = " ".join(command)
 
 		try:
-			info = start_process(state, cmd, name=name, restart=restart)
+			info = start_process(state, cmd, name=name, restart=restart, env_file=env_file)
 			if group:
 				if not state.add_process_to_group(group, info.id):
 					console.print(
