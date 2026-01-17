@@ -180,3 +180,89 @@ def check_restart_needed(state: State) -> list[ProcessInfo]:
 			except Exception:
 				pass
 	return restarted
+
+
+def merge_process_env(group_env: dict[str, str] | None, process_env: dict[str, str] | None) -> dict[str, str]:
+	"""Merge group-level and process-level environment variables. Process-level takes precedence."""
+	merged: dict[str, str] = {}
+	if group_env:
+		merged.update(group_env)
+	if process_env:
+		merged.update(process_env)
+	return merged
+
+
+def batch_start_processes(
+	state: State,
+	processes: list[ProcessInfo],
+) -> tuple[list[ProcessInfo], list[tuple[ProcessInfo, str]]]:
+	"""
+	Start multiple processes.
+	Returns (successful_processes, [(failed_process, error_msg), ...])
+	"""
+	successful: list[ProcessInfo] = []
+	failed: list[tuple[ProcessInfo, str]] = []
+
+	for info in processes:
+		try:
+			# Get group env if process is in a group
+			group_env: dict[str, str] | None = None
+			if info.group:
+				group = state.get_group(info.group)
+				if group:
+					group_env = group.env
+
+			# Merge environment variables (process-level takes precedence)
+			merged_env = merge_process_env(group_env, info.env)
+
+			# Start the process
+			os.chdir(info.cwd)
+			new_info = start_process(
+				state,
+				info.cmd,
+				name=info.name,
+				restart=info.restart,
+				env=merged_env if merged_env else None,
+			)
+			successful.append(new_info)
+		except Exception as e:
+			failed.append((info, str(e)))
+
+	return successful, failed
+
+
+def batch_stop_processes(
+	state: State,
+	processes: list[ProcessInfo],
+	force: bool = False,
+) -> tuple[list[ProcessInfo], list[tuple[ProcessInfo, str]]]:
+	"""Stop multiple processes. Returns (successful_processes, [(failed_process, error_msg), ...])"""
+	successful: list[ProcessInfo] = []
+	failed: list[tuple[ProcessInfo, str]] = []
+
+	for info in processes:
+		try:
+			stopped_info = stop_process(state, info.id, force=force)
+			successful.append(stopped_info)
+		except Exception as e:
+			failed.append((info, str(e)))
+
+	return successful, failed
+
+
+def batch_restart_processes(
+	state: State,
+	processes: list[ProcessInfo],
+) -> tuple[list[ProcessInfo], list[tuple[ProcessInfo, str]]]:
+	"""Restart multiple processes. Returns (successful_processes, [(failed_process, error_msg), ...])"""
+	successful: list[ProcessInfo] = []
+	failed: list[tuple[ProcessInfo, str]] = []
+
+	for info in processes:
+		try:
+			restarted_info = restart_process(state, info.id)
+			successful.append(restarted_info)
+		except Exception as e:
+			failed.append((info, str(e)))
+
+	return successful, failed

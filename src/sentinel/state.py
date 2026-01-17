@@ -30,6 +30,7 @@ class ProcessInfo:
 	stdout_log: str
 	stderr_log: str
 	env: dict[str, str] = field(default_factory=dict)
+	group: str | None = None
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
@@ -43,6 +44,7 @@ class ProcessInfo:
 			"stdout_log": self.stdout_log,
 			"stderr_log": self.stderr_log,
 			"env": self.env,
+			"group": self.group,
 		}
 
 	@classmethod
@@ -57,6 +59,31 @@ class ProcessInfo:
 			started_at=data["started_at"],
 			stdout_log=data["stdout_log"],
 			stderr_log=data["stderr_log"],
+			env=data.get("env", {}),
+			group=data.get("group"),
+		)
+
+
+@dataclass
+class GroupInfo:
+	"""Information about a process group"""
+
+	name: str
+	created_at: str
+	env: dict[str, str] = field(default_factory=dict)
+
+	def to_dict(self) -> dict[str, Any]:
+		return {
+			"name": self.name,
+			"created_at": self.created_at,
+			"env": self.env,
+		}
+
+	@classmethod
+	def from_dict(cls, data: dict[str, Any]) -> GroupInfo:
+		return cls(
+			name=data["name"],
+			created_at=data["created_at"],
 			env=data.get("env", {}),
 		)
 
@@ -93,6 +120,7 @@ class State:
 		LOGS_DIR.mkdir(parents=True, exist_ok=True)
 		self.processes: dict[int, ProcessInfo] = {}
 		self.ports: dict[int, PortInfo] = {}
+		self.groups: dict[str, GroupInfo] = {}
 		self.next_id: int = 1
 		self._load()
 
@@ -104,6 +132,7 @@ class State:
 				self.next_id = data.get("next_id", 1)
 				self.processes = {int(k): ProcessInfo.from_dict(v) for k, v in data.get("processes", {}).items()}
 				self.ports = {int(k): PortInfo.from_dict(v) for k, v in data.get("ports", {}).items()}
+				self.groups = {k: GroupInfo.from_dict(v) for k, v in data.get("groups", {}).items()}
 			except (json.JSONDecodeError, KeyError):
 				pass
 
@@ -113,6 +142,7 @@ class State:
 			"next_id": self.next_id,
 			"processes": {k: v.to_dict() for k, v in self.processes.items()},
 			"ports": {k: v.to_dict() for k, v in self.ports.items()},
+			"groups": {k: v.to_dict() for k, v in self.groups.items()},
 		}
 		STATE_FILE.write_text(json.dumps(data, indent=2))
 
@@ -187,6 +217,61 @@ class State:
 		if name:
 			ports = [p for p in ports if p.name == name]
 		return ports
+
+	def create_group(self, name: str, env: dict[str, str] | None = None) -> GroupInfo | None:
+		"""Create a new group"""
+		if name in self.groups:
+			return None
+		group = GroupInfo(
+			name=name,
+			created_at=datetime.now().isoformat(),
+			env=env or {},
+		)
+		self.groups[name] = group
+		self.save()
+		return group
+
+	def remove_group(self, name: str) -> bool:
+		"""Delete a group and unassign all processes"""
+		if name not in self.groups:
+			return False
+		del self.groups[name]
+		# Unassign all processes from this group
+		for info in self.processes.values():
+			if info.group == name:
+				info.group = None
+		self.save()
+		return True
+
+	def get_group(self, name: str) -> GroupInfo | None:
+		"""Get group by name"""
+		return self.groups.get(name)
+
+	def add_process_to_group(self, group_name: str, process_id: int) -> bool:
+		"""Add (or move) a process to a group"""
+		if group_name not in self.groups:
+			return False
+		if process_id not in self.processes:
+			return False
+		self.processes[process_id].group = group_name
+		self.save()
+		return True
+
+	def remove_process_from_group(self, process_id: int) -> bool:
+		"""Remove process from its group (if any)"""
+		if process_id not in self.processes:
+			return False
+		self.processes[process_id].group = None
+		self.save()
+		return True
+
+	def list_groups(self) -> list[GroupInfo]:
+		"""List all groups"""
+		return list(self.groups.values())
+
+	def get_processes_in_group(self, group_name: str) -> list[ProcessInfo]:
+		"""Get all processes in a specific group"""
+		return [info for info in self.processes.values() if info.group == group_name]
 
 
 def _is_port_available(port: int) -> bool:
