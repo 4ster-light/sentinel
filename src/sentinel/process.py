@@ -18,31 +18,6 @@ def start_process(
 	env: dict[str, str] | None = None,
 	env_file: str | None = None,
 ) -> ProcessInfo:
-	"""Start a new background process
-
-	Environment variables are merged with the following priority (lowest to highest):
-	1. System environment
-	2. Global ~/.sentinel/.env and ./.env files
-	3. Group-level env vars (if process is in a group)
-	4. Group env file (if group has env_file specified)
-	5. Process-level env dict (if provided)
-	6. Process env file (if env_file specified)
-	7. Override env vars (highest priority)
-
-	Args:
-		state: State object for managing process data
-		cmd: Command to execute
-		name: Optional process name (auto-generated from command if not provided)
-		restart: Whether to auto-restart on exit
-		env: Optional environment variables dict
-		env_file: Optional path to .env file to load for this process
-
-	Returns:
-		ProcessInfo object with process details
-
-	Raises:
-		ValueError: If process name already exists or env files cannot be loaded
-	"""
 	cwd = os.getcwd()
 
 	# Generate name from command if not provided
@@ -105,7 +80,6 @@ def start_process(
 
 
 def stop_process(state: State, id_or_name: int | str, force: bool = False) -> ProcessInfo:
-	"""Stop a running process"""
 	# Find process
 	if isinstance(id_or_name, int):
 		info = state.get_process(id_or_name)
@@ -134,7 +108,6 @@ def stop_process(state: State, id_or_name: int | str, force: bool = False) -> Pr
 
 
 def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
-	"""Restart a process"""
 	# Find process
 	if isinstance(id_or_name, int):
 		info = state.get_process(id_or_name)
@@ -160,7 +133,6 @@ def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
 
 
 def get_process_status(info: ProcessInfo) -> dict:
-	"""Get the status of a process"""
 	try:
 		proc = psutil.Process(info.pid)
 		status = proc.status()
@@ -182,7 +154,6 @@ def get_process_status(info: ProcessInfo) -> dict:
 
 
 def cleanup_dead_processes(state: State) -> list[ProcessInfo]:
-	"""Remove processes that are no longer running"""
 	dead = []
 	for info in list(state.processes.values()):
 		if not psutil.pid_exists(info.pid):
@@ -192,7 +163,7 @@ def cleanup_dead_processes(state: State) -> list[ProcessInfo]:
 
 
 def check_restart_needed(state: State) -> list[ProcessInfo]:
-	"""Check for processes that need restart and restart them"""
+	# Check for processes that need restart and restart them
 	restarted = []
 	for info in list(state.processes.values()):
 		if info.restart and not psutil.pid_exists(info.pid):
@@ -226,10 +197,6 @@ def batch_start_processes(
 	state: State,
 	processes: list[ProcessInfo],
 ) -> tuple[list[ProcessInfo], list[tuple[ProcessInfo, str]]]:
-	"""
-	Start multiple processes.
-	Returns (successful_processes, [(failed_process, error_msg), ...])
-	"""
 	successful: list[ProcessInfo] = []
 	failed: list[tuple[ProcessInfo, str]] = []
 
@@ -266,7 +233,6 @@ def batch_stop_processes(
 	processes: list[ProcessInfo],
 	force: bool = False,
 ) -> tuple[list[ProcessInfo], list[tuple[ProcessInfo, str]]]:
-	"""Stop multiple processes. Returns (successful_processes, [(failed_process, error_msg), ...])"""
 	successful: list[ProcessInfo] = []
 	failed: list[tuple[ProcessInfo, str]] = []
 
@@ -284,7 +250,6 @@ def batch_restart_processes(
 	state: State,
 	processes: list[ProcessInfo],
 ) -> tuple[list[ProcessInfo], list[tuple[ProcessInfo, str]]]:
-	"""Restart multiple processes. Returns (successful_processes, [(failed_process, error_msg), ...])"""
 	successful: list[ProcessInfo] = []
 	failed: list[tuple[ProcessInfo, str]] = []
 

@@ -69,7 +69,7 @@ def group_add(
 		elif not process:
 			console.print(f"[red]✗[/] Process {process_id} not found")
 		else:
-			console.print(f"[red]✗[/] Failed to add process to group")
+			console.print("[red]✗[/] Failed to add process to group")
 
 		raise typer.Exit(1)
 
@@ -120,7 +120,7 @@ def group_list(
 		if group.env_file:
 			console.print(f"Environment file: {group.env_file}")
 		if group.env:
-			console.print(f"Environment variables:")
+			console.print("Environment variables:")
 			for key, value in group.env.items():
 				console.print(f"  {key}={value}")
 
