@@ -18,8 +18,6 @@ MAX_PORT = 65535
 
 @dataclass
 class ProcessInfo:
-	"""Information about a managed process"""
-
 	id: int
 	pid: int
 	name: str
@@ -69,8 +67,6 @@ class ProcessInfo:
 
 @dataclass
 class GroupInfo:
-	"""Information about a process group"""
-
 	name: str
 	created_at: str
 	env: dict[str, str] = field(default_factory=dict)
@@ -96,8 +92,6 @@ class GroupInfo:
 
 @dataclass
 class PortInfo:
-	"""Information about an allocated port"""
-
 	port: int
 	name: str
 	allocated_at: str
@@ -119,8 +113,6 @@ class PortInfo:
 
 
 class State:
-	"""Manages process and port state"""
-
 	def __init__(self) -> None:
 		STATE_DIR.mkdir(parents=True, exist_ok=True)
 		LOGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -131,7 +123,6 @@ class State:
 		self._load()
 
 	def _load(self) -> None:
-		"""Load state from disk"""
 		if STATE_FILE.exists():
 			try:
 				data = json.loads(STATE_FILE.read_text())
@@ -143,7 +134,6 @@ class State:
 				pass
 
 	def save(self) -> None:
-		"""Save state to disk"""
 		data = {
 			"next_id": self.next_id,
 			"processes": {k: v.to_dict() for k, v in self.processes.items()},
@@ -153,41 +143,34 @@ class State:
 		STATE_FILE.write_text(json.dumps(data, indent=2))
 
 	def get_next_id(self) -> int:
-		"""Get the next process ID"""
 		id_ = self.next_id
 		self.next_id += 1
 		self.save()
 		return id_
 
 	def add_process(self, info: ProcessInfo) -> None:
-		"""Add a process to state"""
 		self.processes[info.id] = info
 		self.save()
 
 	def remove_process(self, id_: int) -> ProcessInfo | None:
-		"""Remove a process from state"""
 		info = self.processes.pop(id_, None)
 		if info:
 			self.save()
 		return info
 
 	def get_process(self, id_: int) -> ProcessInfo | None:
-		"""Get a process by ID"""
 		return self.processes.get(id_)
 
 	def find_process_by_name(self, name: str) -> ProcessInfo | None:
-		"""Find a process by name"""
 		for info in self.processes.values():
 			if info.name == name:
 				return info
 		return None
 
 	def list_processes(self) -> list[ProcessInfo]:
-		"""List all processes"""
 		return list(self.processes.values())
 
 	def allocate_port(self, name: str, port: int | None = None) -> int | None:
-		"""Allocate a port"""
 		if port is not None:
 			if port in self.ports or not _is_port_available(port):
 				return None
@@ -206,7 +189,6 @@ class State:
 		return allocated
 
 	def free_port(self, port: int) -> bool:
-		"""Free a port"""
 		if port in self.ports:
 			del self.ports[port]
 			self.save()
@@ -214,11 +196,10 @@ class State:
 		return False
 
 	def get_port(self, port: int) -> PortInfo | None:
-		"""Get port info"""
 		return self.ports.get(port)
 
 	def list_ports(self, name: str | None = None) -> list[PortInfo]:
-		"""List ports, optionally filtered by name"""
+		"""Optionally filtered by name"""
 		ports = list(self.ports.values())
 		if name:
 			ports = [p for p in ports if p.name == name]
@@ -227,7 +208,6 @@ class State:
 	def create_group(
 		self, name: str, env: dict[str, str] | None = None, env_file: str | None = None
 	) -> GroupInfo | None:
-		"""Create a new group"""
 		if name in self.groups:
 			return None
 		group = GroupInfo(
@@ -241,10 +221,10 @@ class State:
 		return group
 
 	def remove_group(self, name: str) -> bool:
-		"""Delete a group and unassign all processes"""
 		if name not in self.groups:
 			return False
 		del self.groups[name]
+
 		# Unassign all processes from this group
 		for info in self.processes.values():
 			if info.group == name:
@@ -253,11 +233,9 @@ class State:
 		return True
 
 	def get_group(self, name: str) -> GroupInfo | None:
-		"""Get group by name"""
 		return self.groups.get(name)
 
 	def add_process_to_group(self, group_name: str, process_id: int) -> bool:
-		"""Add (or move) a process to a group"""
 		if group_name not in self.groups:
 			return False
 		if process_id not in self.processes:
@@ -267,7 +245,6 @@ class State:
 		return True
 
 	def remove_process_from_group(self, process_id: int) -> bool:
-		"""Remove process from its group (if any)"""
 		if process_id not in self.processes:
 			return False
 		self.processes[process_id].group = None
@@ -275,16 +252,13 @@ class State:
 		return True
 
 	def list_groups(self) -> list[GroupInfo]:
-		"""List all groups"""
 		return list(self.groups.values())
 
 	def get_processes_in_group(self, group_name: str) -> list[ProcessInfo]:
-		"""Get all processes in a specific group"""
 		return [info for info in self.processes.values() if info.group == group_name]
 
 
 def _is_port_available(port: int) -> bool:
-	"""Check if a port is available"""
 	if not MIN_PORT <= port <= MAX_PORT:
 		return False
 	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -296,7 +270,6 @@ def _is_port_available(port: int) -> bool:
 
 
 def _find_available_port(allocated: set[int]) -> int | None:
-	"""Find an available port"""
 	for _ in range(100):
 		port = random.randint(MIN_PORT, MAX_PORT)
 		if port not in allocated and _is_port_available(port):
@@ -305,7 +278,6 @@ def _find_available_port(allocated: set[int]) -> int | None:
 
 
 def get_log_paths(name: str) -> tuple[Path, Path]:
-	"""Get log file paths for a process"""
 	safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
 	stdout = LOGS_DIR / f"{safe_name}.stdout.log"
 	stderr = LOGS_DIR / f"{safe_name}.stderr.log"

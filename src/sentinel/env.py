@@ -7,18 +7,6 @@ from dotenv import dotenv_values
 
 
 def load_env_file(file_path: str | Path) -> dict[str, str]:
-	"""Load environment variables from a .env file
-
-	Args:
-		file_path: Path to the .env file
-
-	Returns:
-		Dictionary of environment variables loaded from the file
-
-	Raises:
-		FileNotFoundError: If the file does not exist
-		ValueError: If the file cannot be read
-	"""
 	path = Path(file_path)
 
 	if not path.exists():
@@ -28,21 +16,13 @@ def load_env_file(file_path: str | Path) -> dict[str, str]:
 		raise ValueError(f"Environment path is not a file: {path}")
 
 	try:
-		return dict(dotenv_values(path))
+		env_vars = dotenv_values(path)
+		return {k: v for k, v in env_vars.items() if v is not None}
 	except Exception as e:
 		raise ValueError(f"Failed to load environment file {path}: {e}")
 
 
 def find_global_env_files() -> list[Path]:
-	"""Find global .env files in standard locations
-
-	Searches for .env files in:
-	1. ~/.sentinel/.env (Sentinel-specific)
-	2. ./.env (Current working directory)
-
-	Returns:
-		List of existing .env file paths in order of precedence
-	"""
 	env_files: list[Path] = []
 
 	# Check Sentinel-specific .env
@@ -59,16 +39,6 @@ def find_global_env_files() -> list[Path]:
 
 
 def merge_environments(*env_dicts: dict[str, str] | None) -> dict[str, str]:
-	"""Merge multiple environment variable dictionaries
-
-	Later dictionaries override earlier ones (left-to-right precedence).
-
-	Args:
-		*env_dicts: Variable number of environment dictionaries (can be None)
-
-	Returns:
-		Merged environment dictionary with later values taking precedence
-	"""
 	result: dict[str, str] = {}
 
 	for env_dict in env_dicts:
@@ -87,8 +57,7 @@ def build_process_environment(
 	process_env_file: str | Path | None = None,
 	override_env: dict[str, str] | None = None,
 ) -> dict[str, str]:
-	"""Build a complete process environment with proper merge precedence
-
+	"""
 	Merge order (lowest to highest priority):
 	1. System environment (if system_env=True)
 	2. Global ~/.sentinel/.env and ./.env files (if global_env_files=True)
@@ -97,22 +66,8 @@ def build_process_environment(
 	5. Process env vars dict
 	6. Process env file (if specified)
 	7. Override env vars (highest priority)
-
-	Args:
-		system_env: Whether to include system environment variables
-		global_env_files: Whether to search and load global .env files
-		group_env: Group-level environment variables dict
-		group_env_file: Path to group .env file
-		process_env: Process-level environment variables dict
-		process_env_file: Path to process .env file
-		override_env: Override environment variables (highest priority)
-
-	Returns:
-		Merged environment dictionary ready for subprocess
-
-	Raises:
-		ValueError: If any env file cannot be loaded
 	"""
+
 	env_dicts: list[dict[str, str] | None] = []
 
 	# Start with system environment if requested

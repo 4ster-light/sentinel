@@ -257,17 +257,20 @@ def register_main_commands(app: typer.Typer) -> None:
 		"""Stop all managed processes"""
 		state = State()
 		processes = state.list_processes()
+		successful, failed = batch_stop_processes(state, processes, force=force)
 
-		if not processes:
-			console.print("[dim]No processes to stop[/]")
-			return
+		for info in successful:
+			console.print(f"[green]✓[/] Stopped [bold]{info.name}[/]")
 
-		for info in processes:
-			try:
-				stop_process(state, info.id, force=force)
-				console.print(f"[green]✓[/] Stopped [bold]{info.name}[/]")
-			except Exception as e:
-				console.print(f"[red]✗[/] Failed to stop {info.name}: {e}")
+		for info, error in failed:
+			console.print(f"[red]✗[/] Failed to stop {info.name}: {error}")
+
+		if successful:
+			console.print(f"\n[green]Stopped {len(successful)} process(es)[/]", end="")
+			if failed:
+				console.print(f", [red]failed {len(failed)} process(es)[/]")
+			else:
+				console.print()
 
 	@app.command()
 	def startall() -> None:
