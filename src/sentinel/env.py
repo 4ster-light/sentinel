@@ -1,9 +1,41 @@
 """Environment variable loading and management utilities"""
 
 import os
+import re
 from pathlib import Path
 
-from dotenv import dotenv_values
+
+def _parse_env_value(value: str) -> str:
+	"""Parse a value from .env file, handling quotes and escaping."""
+	value = value.strip()
+
+	# Handle quoted values
+	if value.startswith('"') and value.endswith('"') and len(value) > 1:
+		return value[1:-1].replace('\\"', '"').replace("\\n", "\n")
+	elif value.startswith("'") and value.endswith("'") and len(value) > 1:
+		return value[1:-1]
+
+	# Unquoted value
+	return value
+
+
+def _parse_env_line(line: str) -> tuple[str, str] | None:
+	"""Parse a single line from .env file, returning (key, value) or None."""
+	line = line.strip()
+
+	# Skip empty lines and comments
+	if not line or line.startswith("#"):
+		return None
+
+	# Match KEY=VALUE format
+	match = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$", line)
+	if not match:
+		return None
+
+	key = match.group(1)
+	value = _parse_env_value(match.group(2))
+
+	return key, value
 
 
 def load_env_file(file_path: str | Path) -> dict[str, str]:
@@ -16,8 +48,13 @@ def load_env_file(file_path: str | Path) -> dict[str, str]:
 		raise ValueError(f"Environment path is not a file: {path}")
 
 	try:
-		env_vars = dotenv_values(path)
-		return {k: v for k, v in env_vars.items() if v is not None}
+		env_vars: dict[str, str] = {}
+		with open(path, encoding="utf-8") as f:
+			for line in f:
+				result = _parse_env_line(line)
+				if result:
+					env_vars[result[0]] = result[1]
+		return env_vars
 	except Exception as e:
 		raise ValueError(f"Failed to load environment file {path}: {e}")
 
@@ -79,7 +116,7 @@ def build_process_environment(
 		for env_file in find_global_env_files():
 			try:
 				env_dicts.append(load_env_file(env_file))
-			except (FileNotFoundError, ValueError):
+			except FileNotFoundError, ValueError:
 				# Log warning but continue (graceful)
 				pass
 

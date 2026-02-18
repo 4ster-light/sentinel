@@ -4,7 +4,7 @@ version = "0.1.1"
 description = "A simple process supervisor CLI"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = ["psutil>=7.1.3", "rich>=14.2.0", "typer>=0.20.1", "python-dotenv>=1.0.0"]
+dependencies = ["psutil>=7.1.3", "rich>=14.2.0", "typer>=0.20.1"]
 
 [dependency-groups]
 dev = ["pytest>=9.0.2", "pytest-cov>=7.0.0", "ruff>=0.14.10", "ty>=0.0.8"]
