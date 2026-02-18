@@ -1,6 +1,5 @@
 """Tests for CLI main commands"""
 
-import pytest
 from typer.testing import CliRunner
 
 from sentinel.cli import app

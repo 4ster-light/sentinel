@@ -1,6 +1,5 @@
 """Tests for environment variable loading and management"""
 
-import os
 from pathlib import Path
 
 import pytest

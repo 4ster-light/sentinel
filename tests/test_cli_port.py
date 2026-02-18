@@ -1,6 +1,5 @@
 """Tests for CLI port commands"""
 
-import pytest
 from typer.testing import CliRunner
 
 from sentinel.cli import app

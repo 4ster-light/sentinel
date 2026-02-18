@@ -1,7 +1,5 @@
 """Tests for process group management"""
 
-import pytest
-
 from sentinel.process import start_process
 from sentinel.state import GroupInfo, State
 

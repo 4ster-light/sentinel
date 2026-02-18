@@ -1,7 +1,5 @@
 """Tests for process batch operations and environment merging"""
 
-import pytest
-
 from sentinel.process import (
 	batch_restart_processes,
 	batch_start_processes,
