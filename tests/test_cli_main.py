@@ -61,7 +61,7 @@ class TestMainCommands:
 
 	def test_stop_command_by_name(self, state: State):
 		"""Test stopping a process by name"""
-		info = start_process(state, "sleep 10", name="stoptest2")
+		_ = start_process(state, "sleep 10", name="stoptest2")
 		result = runner.invoke(app, ["stop", "stoptest2"])
 		assert result.exit_code == 0
 		assert "Stopped" in result.stdout
@@ -86,7 +86,7 @@ class TestMainCommands:
 
 	def test_restart_command_by_name(self, state: State):
 		"""Test restarting a process by name"""
-		info = start_process(state, "echo test", name="restarttest2")
+		_ = start_process(state, "echo test", name="restarttest2")
 		result = runner.invoke(app, ["restart", "restarttest2"])
 		assert result.exit_code == 0
 		assert "Restarted" in result.stdout
@@ -105,7 +105,7 @@ class TestMainCommands:
 
 	def test_status_command_by_name(self, state: State):
 		"""Test getting status by name"""
-		info = start_process(state, "sleep 10", name="statustest2")
+		_ = start_process(state, "sleep 10", name="statustest2")
 		result = runner.invoke(app, ["status", "statustest2"])
 		assert result.exit_code == 0
 		assert "statustest2" in result.stdout
@@ -123,7 +123,7 @@ class TestMainCommands:
 
 	def test_logs_command_by_name(self, state: State):
 		"""Test viewing logs by name"""
-		info = start_process(state, "echo test", name="logstest2")
+		_ = start_process(state, "echo test", name="logstest2")
 		result = runner.invoke(app, ["logs", "logstest2"])
 		assert result.exit_code == 0
 
@@ -151,8 +151,8 @@ class TestMainCommands:
 
 	def test_startall_command_with_processes(self, state: State):
 		"""Test startall with processes"""
-		info1 = start_process(state, "echo test1", name="start1")
-		info2 = start_process(state, "echo test2", name="start2")
+		_ = start_process(state, "echo test1", name="start1")
+		_ = start_process(state, "echo test2", name="start2")
 
 		# The processes are already running, just verify command works
 		result = runner.invoke(app, ["startall"])
@@ -165,22 +165,22 @@ class TestMainCommands:
 
 	def test_restartall_command_with_processes(self, state: State):
 		"""Test restartall with processes"""
-		info1 = start_process(state, "echo test1", name="restart1")
-		info2 = start_process(state, "echo test2", name="restart2")
+		_ = start_process(state, "echo test1", name="restart1")
+		_ = start_process(state, "echo test2", name="restart2")
 
 		result = runner.invoke(app, ["restartall"])
 		assert result.exit_code == 0
 
 	def test_stopall_command(self, state: State):
 		"""Test stopping all processes"""
-		info1 = start_process(state, "sleep 10", name="stopall1")
-		info2 = start_process(state, "sleep 10", name="stopall2")
+		_ = start_process(state, "sleep 10", name="stopall1")
+		_ = start_process(state, "sleep 10", name="stopall2")
 
 		result = runner.invoke(app, ["stopall"])
 		assert result.exit_code == 0
 
 	def test_stopall_force(self, state: State):
 		"""Test stopping all with force"""
-		info1 = start_process(state, "sleep 10", name="forcestopall1")
+		_ = start_process(state, "sleep 10", name="forcestopall1")
 		result = runner.invoke(app, ["stopall", "--force"])
 		assert result.exit_code == 0
