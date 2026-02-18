@@ -15,14 +15,21 @@ features for developers and DevOps.
         variables
 
 - [ ] **v0.1.2**
+  - [ ] Fix `--restart` Flag: Implement proper automatic process restarting on
+        crash/exit. Currently the flag is stored but never acted upon.
+        Implementation will leverage Python standard library (threading/asyncio)
+        and psutil to monitor processes and schedule system-level automatic
+        restarts on error for both Unix-based and Windows systems.
+
+- [ ] **v0.1.3**
   - [ ] Log Rotation: Rotate logs based on size limits
   - [ ] Process Health Checks: Add periodic HTTP/TCP checks
 
-- [ ] **v0.1.3**
+- [ ] **v0.1.4**
   - [ ] Process Timeouts: Set timeouts for process startup
   - [ ] Process Priority: Set nice/ionice values
 
-- [ ] **v0.1.4**
+- [ ] **v0.1.5**
   - [ ] Process User: Run processes as specific users
   - [ ] General Bug Fixes and Documentation: Address issues and improve docs
 
