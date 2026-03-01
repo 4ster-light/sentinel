@@ -7,12 +7,7 @@ from unittest.mock import Mock
 import psutil
 
 from sentinel.process import start_process, stop_process
-from sentinel.restart_monitor import (
-	RestartMonitor,
-	get_restart_monitor,
-	start_restart_monitor,
-	stop_restart_monitor,
-)
+from sentinel.restart_monitor import RestartMonitor
 from sentinel.state import State
 
 
@@ -167,47 +162,8 @@ class TestRestartMonitor:
 				pass
 
 
-class TestGlobalRestartMonitor:
-	"""Test the global restart monitor functions"""
-
-	def teardown_method(self):
-		"""Ensure monitor is stopped after each test"""
-		stop_restart_monitor()
-
-	def test_get_restart_monitor_creates_instance(self):
-		"""Test that get_restart_monitor creates an instance"""
-		monitor = get_restart_monitor()
-		assert monitor is not None
-		assert isinstance(monitor, RestartMonitor)
-
-	def test_get_restart_monitor_singleton(self):
-		"""Test that get_restart_monitor returns the same instance"""
-		monitor1 = get_restart_monitor()
-		monitor2 = get_restart_monitor()
-		assert monitor1 is monitor2
-
-	def test_start_restart_monitor(self):
-		"""Test starting the global monitor"""
-		monitor = start_restart_monitor(check_interval=0.1)
-		assert monitor.is_running()
-		stop_restart_monitor()
-		assert not monitor.is_running()
-
-	def test_start_monitor_idempotent(self):
-		"""Test that starting monitor multiple times is safe"""
-		monitor1 = start_restart_monitor(check_interval=0.1)
-		monitor2 = start_restart_monitor(check_interval=0.1)
-		assert monitor1 is monitor2
-		assert monitor1.is_running()
-		stop_restart_monitor()
-
-
 class TestRestartMonitorIntegration:
 	"""Integration tests with the process management system"""
-
-	def teardown_method(self):
-		"""Ensure monitor is stopped after each test"""
-		stop_restart_monitor()
 
 	def test_multiple_process_restart(self, state: State, temp_state_dir: Path):
 		"""Test that monitor can restart multiple processes concurrently"""

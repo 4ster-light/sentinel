@@ -8,6 +8,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from .daemon import is_daemon_running
 from ..logs import clear_logs, show_logs
 from ..process import (
 	batch_restart_processes,
@@ -18,9 +19,27 @@ from ..process import (
 	start_process,
 	stop_process,
 )
-from ..state import State
+from ..restart_monitor import check_and_restart_processes
+from ..state import ProcessInfo, State
 
 console = Console()
+
+
+def _perform_lazy_restart_check(state: State) -> None:
+	"""Perform a one-time check for dead processes and restart/cleanup as needed."""
+
+	def on_restart(old_info: ProcessInfo, new_info: ProcessInfo) -> None:
+		console.print(
+			f"[yellow]⚠[/] Auto-restarted [bold]{new_info.name}[/] (old_pid: {old_info.pid}, new_pid: {new_info.pid})"
+		)
+
+	def on_cleanup(info: ProcessInfo) -> None:
+		console.print(f"[dim]Cleaned up dead process [bold]{info.name}[/] (id: {info.id})[/]")
+
+	restarted, cleaned_up = check_and_restart_processes(state, on_restart=on_restart, on_cleanup=on_cleanup)
+
+	if restarted or cleaned_up:
+		console.print()
 
 
 def _format_uptime(started_at: str) -> str:
@@ -75,6 +94,13 @@ def register_main_commands(app: typer.Typer) -> None:
 					)
 			else:
 				console.print(f"[green]✓[/] Started [bold]{info.name}[/] (id: {info.id}, pid: {info.pid})")
+
+			if restart and not is_daemon_running():
+				console.print(
+					"[yellow]⚠[/] Restart flag set but daemon is not running. "
+					"Restarts will only happen when you run other sentinel commands."
+				)
+				console.print("[dim]  Run 'sentinel daemon start' for continuous monitoring.[/]")
 		except ValueError as e:
 			console.print(f"[red]✗[/] {e}")
 			raise typer.Exit(1)
@@ -123,6 +149,7 @@ def register_main_commands(app: typer.Typer) -> None:
 	def list_cmd() -> None:
 		"""List all managed processes"""
 		state = State()
+		_perform_lazy_restart_check(state)
 		processes = state.list_processes()
 
 		if not processes:
@@ -168,6 +195,7 @@ def register_main_commands(app: typer.Typer) -> None:
 	) -> None:
 		"""Show detailed status of a process"""
 		state = State()
+		_perform_lazy_restart_check(state)
 
 		try:
 			target = int(id_or_name)

@@ -130,7 +130,7 @@ class State:
 				self.processes = {int(k): ProcessInfo.from_dict(v) for k, v in data.get("processes", {}).items()}
 				self.ports = {int(k): PortInfo.from_dict(v) for k, v in data.get("ports", {}).items()}
 				self.groups = {k: GroupInfo.from_dict(v) for k, v in data.get("groups", {}).items()}
-			except (json.JSONDecodeError, KeyError):
+			except json.JSONDecodeError, KeyError:
 				pass
 
 	def save(self) -> None:
