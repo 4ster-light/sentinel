@@ -14,12 +14,10 @@ features for developers and DevOps.
   - [x] Environment File Support: Load `.env` files for process environment
         variables
 
-- [ ] **v0.1.2**
-  - [ ] Fix `--restart` Flag: Implement proper automatic process restarting on
-        crash/exit. Currently the flag is stored but never acted upon.
-        Implementation will leverage Python standard library (threading/asyncio)
-        and psutil to monitor processes and schedule system-level automatic
-        restarts on error for both Unix-based and Windows systems.
+- [x] ~~**v0.1.2**~~ _**COMPLETED**_
+  - [x] Fix `--restart` Flag: Implement proper automatic process restarting on
+        crash/exit. Added daemon mode for continuous monitoring and lazy restart
+        checks on CLI commands.
 
 - [ ] **v0.1.3**
   - [ ] Log Rotation: Rotate logs based on size limits
