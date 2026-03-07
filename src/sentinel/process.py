@@ -41,24 +41,18 @@ def start_process(
 	)
 
 	# Open log files
-	stdout_file = open(stdout_path, "a")
-	stderr_file = open(stderr_path, "a")
-
-	# Start the process
-	proc = subprocess.Popen(
-		cmd,
-		shell=True,
-		cwd=cwd,
-		env=process_env,
-		stdout=stdout_file,
-		stderr=stderr_file,
-		stdin=subprocess.DEVNULL,
-		start_new_session=True,
-	)
-
-	# Close file handles in parent process
-	stdout_file.close()
-	stderr_file.close()
+	with open(stdout_path, "a") as stdout_file, open(stderr_path, "a") as stderr_file:
+		# Start the process
+		proc = subprocess.Popen(
+			cmd,
+			shell=True,
+			cwd=cwd,
+			env=process_env,
+			stdout=stdout_file,
+			stderr=stderr_file,
+			stdin=subprocess.DEVNULL,
+			start_new_session=True,
+		)
 
 	# Create process info
 	info = ProcessInfo(

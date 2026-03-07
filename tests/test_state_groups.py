@@ -88,6 +88,7 @@ class TestStateGroupOperations:
 		retrieved = state.get_group("test_group")
 
 		assert retrieved is not None
+		assert created is not None
 		assert retrieved.name == created.name
 
 	def test_get_nonexistent_group(self, state: State):
@@ -119,6 +120,7 @@ class TestStateGroupOperations:
 		state.remove_group("test_group")
 
 		process = state.get_process(info.id)
+		assert process is not None
 		assert process.group is None
 
 	def test_add_process_to_group(self, state: State):
@@ -130,6 +132,7 @@ class TestStateGroupOperations:
 
 		assert result is True
 		process = state.get_process(info.id)
+		assert process is not None
 		assert process.group == "test_group"
 
 	def test_add_process_to_nonexistent_group(self, state: State):
@@ -154,10 +157,12 @@ class TestStateGroupOperations:
 
 		state.add_process_to_group("group1", info.id)
 		process = state.get_process(info.id)
+		assert process is not None
 		assert process.group == "group1"
 
 		state.add_process_to_group("group2", info.id)
 		process = state.get_process(info.id)
+		assert process is not None
 		assert process.group == "group2"
 
 	def test_remove_process_from_group(self, state: State):
@@ -170,6 +175,7 @@ class TestStateGroupOperations:
 
 		assert result is True
 		process = state.get_process(info.id)
+		assert process is not None
 		assert process.group is None
 
 	def test_remove_nonexistent_process_from_group(self, state: State):
@@ -239,4 +245,5 @@ class TestStateGroupOperations:
 		assert group.name == "test_group"
 
 		process = state2.get_process(info.id)
+		assert process is not None
 		assert process.group == "test_group"
