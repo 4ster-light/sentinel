@@ -1,0 +1,48 @@
+[
+  {
+    "label": "test: Run Pytest full suite",
+    "command": "uv",
+    "args": ["run", "pytest"],
+    "reveal_target": "center",
+    "use_new_terminal": true,
+  },
+  {
+    "label": "format: Run Ruff formatter",
+    "command": "uv",
+    "args": ["run", "ruff", "format"],
+    "use_new_terminal": true,
+  },
+  {
+    "label": "lint: Run Ruff linter with fixes",
+    "command": "uv",
+    "args": ["run", "ruff", "check", "--fix"],
+    "use_new_terminal": true,
+  },
+  {
+    "label": "check: Run Ty type checker",
+    "command": "uv",
+    "args": ["run", "ty", "check"],
+    "use_new_terminal": true,
+  },
+  {
+    "label": "all: Format, lint, and type check",
+    "command": "uv",
+    "args": [
+      "run",
+      "ruff",
+      "format",
+      "&&",
+      "uv",
+      "run",
+      "ruff",
+      "check",
+      "--fix",
+      "&&",
+      "uv",
+      "run",
+      "ty",
+      "check",
+    ],
+    "use_new_terminal": true,
+  },
+]
