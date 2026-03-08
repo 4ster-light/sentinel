@@ -17,8 +17,9 @@ def start_process(
 	restart: bool = False,
 	env: dict[str, str] | None = None,
 	env_file: str | None = None,
+	cwd: str | None = None,
 ) -> ProcessInfo:
-	cwd = os.getcwd()
+	process_cwd = cwd or os.getcwd()
 
 	# Generate name from command if not provided
 	if name is None:
@@ -46,7 +47,7 @@ def start_process(
 		proc = subprocess.Popen(
 			cmd,
 			shell=True,
-			cwd=cwd,
+			cwd=process_cwd,
 			env=process_env,
 			stdout=stdout_file,
 			stderr=stderr_file,
@@ -60,7 +61,7 @@ def start_process(
 		pid=proc.pid,
 		name=name,
 		cmd=cmd,
-		cwd=cwd,
+		cwd=process_cwd,
 		restart=restart,
 		started_at=datetime.now().isoformat(),
 		stdout_log=str(stdout_path),
@@ -122,8 +123,7 @@ def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
 	stop_process(state, info.id)
 
 	# Start new process with same settings
-	os.chdir(cwd)
-	return start_process(state, cmd, name, restart, env)
+	return start_process(state, cmd, name, restart, env, cwd=cwd)
 
 
 def get_process_status(info: ProcessInfo) -> dict:
@@ -162,13 +162,13 @@ def check_restart_needed(state: State) -> list[ProcessInfo]:
 	for info in list(state.processes.values()):
 		if info.restart and not psutil.pid_exists(info.pid):
 			try:
-				os.chdir(info.cwd)
 				new_info = start_process(
 					state,
 					info.cmd,
 					name=info.name,
 					restart=True,
 					env=info.env,
+					cwd=info.cwd,
 				)
 				state.remove_process(info.id)
 				restarted.append(new_info)
@@ -207,13 +207,13 @@ def batch_start_processes(
 			merged_env = merge_process_env(group_env, info.env)
 
 			# Start the process
-			os.chdir(info.cwd)
 			new_info = start_process(
 				state,
 				info.cmd,
 				name=info.name,
 				restart=info.restart,
 				env=merged_env if merged_env else None,
+				cwd=info.cwd,
 			)
 			successful.append(new_info)
 		except Exception as e:

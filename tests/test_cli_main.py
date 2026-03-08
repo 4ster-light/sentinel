@@ -36,6 +36,17 @@ class TestMainCommands:
 		assert result.exit_code == 0
 		assert "Started" in result.stdout
 
+	def test_run_command_with_cwd(self, state: State, tmp_path):
+		"""Test run command with cwd option"""
+		result = runner.invoke(app, ["run", "pwd", "--name", "cwd_test", "--cwd", str(tmp_path)])
+		assert result.exit_code == 0
+		assert "Started" in result.stdout
+
+		reloaded_state = State()
+		info = reloaded_state.find_process_by_name("cwd_test")
+		assert info is not None
+		assert info.cwd == str(tmp_path)
+
 	def test_list_command_empty(self):
 		"""Test list command with no processes"""
 		result = runner.invoke(app, ["list"])

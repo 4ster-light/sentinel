@@ -8,7 +8,6 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from .daemon import is_daemon_running
 from ..logs import clear_logs, show_logs
 from ..process import (
 	batch_restart_processes,
@@ -21,6 +20,7 @@ from ..process import (
 )
 from ..restart_monitor import check_and_restart_processes
 from ..state import ProcessInfo, State
+from .daemon import is_daemon_running
 
 console = Console()
 
@@ -76,13 +76,14 @@ def register_main_commands(app: typer.Typer) -> None:
 		restart: Annotated[bool, typer.Option("--restart", "-r", help="Auto-restart on exit")] = False,
 		group: Annotated[str | None, typer.Option("--group", "-g", help="Process group")] = None,
 		env_file: Annotated[str | None, typer.Option("--env-file", "-e", help="Path to .env file")] = None,
+		cwd: Annotated[str | None, typer.Option("--cwd", help="Working directory for the process")] = None,
 	) -> None:
 		"""Start a background process"""
 		state = State()
 		cmd = " ".join(command)
 
 		try:
-			info = start_process(state, cmd, name=name, restart=restart, env_file=env_file)
+			info = start_process(state, cmd, name=name, restart=restart, env_file=env_file, cwd=cwd)
 			if group:
 				if not state.add_process_to_group(group, info.id):
 					console.print(
