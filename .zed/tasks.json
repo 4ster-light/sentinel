@@ -45,4 +45,11 @@
     ],
     "use_new_terminal": true,
   },
+  {
+    "label": "test: serve coverage",
+    "command": "python",
+    "args": ["-m", "http.server", "8000", "--directory", "htmlcov"],
+    "hide": "always",
+    "use_new_terminal": true,
+  },
 ]
