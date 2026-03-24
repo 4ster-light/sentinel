@@ -7,6 +7,45 @@ from rich.console import Console
 
 console = Console()
 
+DEFAULT_LOG_ROTATION_MAX_BYTES = 10 * 1024 * 1024
+DEFAULT_LOG_ROTATION_BACKUPS = 3
+
+
+def rotate_log_file(
+	path: Path, max_bytes: int = DEFAULT_LOG_ROTATION_MAX_BYTES, backups: int = DEFAULT_LOG_ROTATION_BACKUPS
+) -> bool:
+	if max_bytes <= 0:
+		raise ValueError("max_bytes must be greater than 0")
+	if backups < 1:
+		raise ValueError("backups must be at least 1")
+	if not path.exists() or path.stat().st_size < max_bytes:
+		return False
+
+	oldest_backup_path = path.with_name(f"{path.name}.{backups}")
+	oldest_backup_path.unlink(missing_ok=True)
+
+	for backup_index in range(backups - 1, 0, -1):
+		current_backup_path = path.with_name(f"{path.name}.{backup_index}")
+		next_backup_path = path.with_name(f"{path.name}.{backup_index + 1}")
+		if current_backup_path.exists():
+			current_backup_path.replace(next_backup_path)
+
+	first_backup_path = path.with_name(f"{path.name}.1")
+	path.replace(first_backup_path)
+	path.touch()
+	return True
+
+
+def rotate_process_logs(
+	stdout_path: str,
+	stderr_path: str,
+	max_bytes: int = DEFAULT_LOG_ROTATION_MAX_BYTES,
+	backups: int = DEFAULT_LOG_ROTATION_BACKUPS,
+) -> tuple[bool, bool]:
+	stdout_rotated = rotate_log_file(Path(stdout_path), max_bytes=max_bytes, backups=backups)
+	stderr_rotated = rotate_log_file(Path(stderr_path), max_bytes=max_bytes, backups=backups)
+	return stdout_rotated, stderr_rotated
+
 
 def tail_file(path: Path, lines: int = 50) -> list[str]:
 	"""Get the last N lines from a file"""
@@ -17,7 +56,7 @@ def tail_file(path: Path, lines: int = 50) -> list[str]:
 		content = path.read_text()
 		all_lines = content.splitlines()
 		return all_lines[-lines:] if len(all_lines) > lines else all_lines
-	except Exception:
+	except OSError:
 		return []
 
 

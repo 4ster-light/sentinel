@@ -17,6 +17,34 @@ MAX_PORT = 65535
 
 
 @dataclass
+class HealthCheckConfig:
+	kind: str
+	target: str
+	interval_seconds: float = 30.0
+	timeout_seconds: float = 3.0
+	failure_threshold: int = 3
+
+	def to_dict(self) -> dict[str, Any]:
+		return {
+			"kind": self.kind,
+			"target": self.target,
+			"interval_seconds": self.interval_seconds,
+			"timeout_seconds": self.timeout_seconds,
+			"failure_threshold": self.failure_threshold,
+		}
+
+	@classmethod
+	def from_dict(cls, data: dict[str, Any]) -> HealthCheckConfig:
+		return cls(
+			kind=data["kind"],
+			target=data["target"],
+			interval_seconds=data.get("interval_seconds", 30.0),
+			timeout_seconds=data.get("timeout_seconds", 3.0),
+			failure_threshold=data.get("failure_threshold", 3),
+		)
+
+
+@dataclass
 class ProcessInfo:
 	id: int
 	pid: int
@@ -30,6 +58,9 @@ class ProcessInfo:
 	env: dict[str, str] = field(default_factory=dict)
 	group: str | None = None
 	env_file: str | None = None
+	health_check: HealthCheckConfig | None = None
+	health_failures: int = 0
+	health_last_checked_at: str | None = None
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
@@ -45,6 +76,9 @@ class ProcessInfo:
 			"env": self.env,
 			"group": self.group,
 			"env_file": self.env_file,
+			"health_check": self.health_check.to_dict() if self.health_check else None,
+			"health_failures": self.health_failures,
+			"health_last_checked_at": self.health_last_checked_at,
 		}
 
 	@classmethod
@@ -62,6 +96,9 @@ class ProcessInfo:
 			env=data.get("env", {}),
 			group=data.get("group"),
 			env_file=data.get("env_file"),
+			health_check=HealthCheckConfig.from_dict(data["health_check"]) if data.get("health_check") else None,
+			health_failures=data.get("health_failures", 0),
+			health_last_checked_at=data.get("health_last_checked_at"),
 		)
 
 

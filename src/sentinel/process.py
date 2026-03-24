@@ -7,7 +7,8 @@ from datetime import datetime
 import psutil
 
 from .env import build_process_environment
-from .state import ProcessInfo, State, get_log_paths
+from .logs import rotate_process_logs
+from .state import HealthCheckConfig, ProcessInfo, State, get_log_paths
 
 
 def start_process(
@@ -18,6 +19,7 @@ def start_process(
 	env: dict[str, str] | None = None,
 	env_file: str | None = None,
 	cwd: str | None = None,
+	health_check: HealthCheckConfig | None = None,
 ) -> ProcessInfo:
 	process_cwd = cwd or os.getcwd()
 
@@ -32,6 +34,7 @@ def start_process(
 
 	# Setup log files
 	stdout_path, stderr_path = get_log_paths(name)
+	rotate_process_logs(str(stdout_path), str(stderr_path))
 
 	# Build merged environment with proper precedence
 	process_env = build_process_environment(
@@ -68,6 +71,7 @@ def start_process(
 		stderr_log=str(stderr_path),
 		env=env or {},
 		env_file=env_file,
+		health_check=health_check,
 	)
 
 	state.add_process(info)
@@ -123,7 +127,16 @@ def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
 	stop_process(state, info.id)
 
 	# Start new process with same settings
-	return start_process(state, cmd, name, restart, env, cwd=cwd)
+	return start_process(
+		state,
+		cmd,
+		name=name,
+		restart=restart,
+		env=env,
+		env_file=info.env_file,
+		cwd=cwd,
+		health_check=info.health_check,
+	)
 
 
 def get_process_status(info: ProcessInfo) -> dict:
@@ -168,7 +181,9 @@ def check_restart_needed(state: State) -> list[ProcessInfo]:
 					name=info.name,
 					restart=True,
 					env=info.env,
+					env_file=info.env_file,
 					cwd=info.cwd,
+					health_check=info.health_check,
 				)
 				state.remove_process(info.id)
 				restarted.append(new_info)
@@ -213,7 +228,9 @@ def batch_start_processes(
 				name=info.name,
 				restart=info.restart,
 				env=merged_env if merged_env else None,
+				env_file=info.env_file,
 				cwd=info.cwd,
+				health_check=info.health_check,
 			)
 			successful.append(new_info)
 		except Exception as e:

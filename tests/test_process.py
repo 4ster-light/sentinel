@@ -14,7 +14,7 @@ from sentinel.process import (
 	start_process,
 	stop_process,
 )
-from sentinel.state import ProcessInfo
+from sentinel.state import HealthCheckConfig, ProcessInfo
 
 
 class TestStartProcess:
@@ -63,6 +63,24 @@ class TestStartProcess:
 		assert psutil.pid_exists(info.pid)
 
 		# Cleanup
+		proc = psutil.Process(info.pid)
+		proc.terminate()
+		proc.wait()
+
+	def test_start_process_with_health_check(self, state, temp_state_dir: Path):
+		health_check = HealthCheckConfig(
+			kind="http",
+			target="http://127.0.0.1:8080/health",
+			interval_seconds=10.0,
+			timeout_seconds=1.0,
+			failure_threshold=2,
+		)
+		info = start_process(state, "sleep 5", name="health_test", health_check=health_check)
+
+		assert info.health_check is not None
+		assert info.health_check.kind == "http"
+		assert info.health_check.target == "http://127.0.0.1:8080/health"
+
 		proc = psutil.Process(info.pid)
 		proc.terminate()
 		proc.wait()

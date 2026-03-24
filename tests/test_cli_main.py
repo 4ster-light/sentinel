@@ -47,6 +47,74 @@ class TestMainCommands:
 		assert info is not None
 		assert info.cwd == str(tmp_path)
 
+	def test_run_command_with_http_health_check(self, state: State):
+		result = runner.invoke(
+			app,
+			[
+				"run",
+				"echo",
+				"test",
+				"--name",
+				"health_http_test",
+				"--health-http",
+				"http://127.0.0.1:8080/health",
+			],
+		)
+		assert result.exit_code == 0
+		assert "Health checks are configured" in result.stdout
+
+		reloaded_state = State()
+		info = reloaded_state.find_process_by_name("health_http_test")
+		assert info is not None
+		assert info.health_check is not None
+		assert info.health_check.kind == "http"
+		assert info.health_check.target == "http://127.0.0.1:8080/health"
+
+	def test_run_command_with_tcp_health_check(self, state: State):
+		result = runner.invoke(
+			app,
+			[
+				"run",
+				"echo",
+				"test",
+				"--name",
+				"health_tcp_test",
+				"--health-tcp",
+				"127.0.0.1:8080",
+			],
+		)
+		assert result.exit_code == 0
+
+		reloaded_state = State()
+		info = reloaded_state.find_process_by_name("health_tcp_test")
+		assert info is not None
+		assert info.health_check is not None
+		assert info.health_check.kind == "tcp"
+		assert info.health_check.target == "127.0.0.1:8080"
+
+	def test_run_command_rejects_multiple_health_check_types(self, state: State):
+		result = runner.invoke(
+			app,
+			[
+				"run",
+				"echo",
+				"test",
+				"--health-http",
+				"http://127.0.0.1:8080/health",
+				"--health-tcp",
+				"127.0.0.1:8080",
+			],
+		)
+		assert result.exit_code != 0
+		assert "Use only one" in result.stdout
+
+	def test_run_command_rejects_invalid_health_failures(self, state: State):
+		result = runner.invoke(
+			app, ["run", "echo", "test", "--health-http", "http://127.0.0.1", "--health-failures", "0"]
+		)
+		assert result.exit_code != 0
+		assert "--health-failures" in result.stdout
+
 	def test_list_command_empty(self):
 		"""Test list command with no processes"""
 		result = runner.invoke(app, ["list"])

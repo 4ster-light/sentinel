@@ -19,7 +19,7 @@ from ..process import (
 	stop_process,
 )
 from ..restart_monitor import check_and_restart_processes
-from ..state import ProcessInfo, State
+from ..state import HealthCheckConfig, ProcessInfo, State
 from .daemon import is_daemon_running
 
 console = Console()
@@ -77,13 +77,71 @@ def register_main_commands(app: typer.Typer) -> None:
 		group: Annotated[str | None, typer.Option("--group", "-g", help="Process group")] = None,
 		env_file: Annotated[str | None, typer.Option("--env-file", "-e", help="Path to .env file")] = None,
 		cwd: Annotated[str | None, typer.Option("--cwd", help="Working directory for the process")] = None,
+		health_http: Annotated[str | None, typer.Option("--health-http", help="HTTP health check URL")] = None,
+		health_tcp: Annotated[
+			str | None, typer.Option("--health-tcp", help="TCP health check target host:port")
+		] = None,
+		health_interval: Annotated[
+			float,
+			typer.Option("--health-interval", help="Health check interval in seconds"),
+		] = 30.0,
+		health_timeout: Annotated[
+			float,
+			typer.Option("--health-timeout", help="Health check timeout in seconds"),
+		] = 3.0,
+		health_failures: Annotated[
+			int,
+			typer.Option("--health-failures", help="Consecutive health check failures before restart"),
+		] = 3,
 	) -> None:
 		"""Start a background process"""
 		state = State()
 		cmd = " ".join(command)
+		health_check: HealthCheckConfig | None = None
+
+		if health_http and health_tcp:
+			console.print("[red]✗[/] Use only one of --health-http or --health-tcp")
+			raise typer.Exit(1)
+
+		if health_interval <= 0:
+			console.print("[red]✗[/] --health-interval must be greater than 0")
+			raise typer.Exit(1)
+
+		if health_timeout <= 0:
+			console.print("[red]✗[/] --health-timeout must be greater than 0")
+			raise typer.Exit(1)
+
+		if health_failures < 1:
+			console.print("[red]✗[/] --health-failures must be at least 1")
+			raise typer.Exit(1)
+
+		if health_http:
+			health_check = HealthCheckConfig(
+				kind="http",
+				target=health_http,
+				interval_seconds=health_interval,
+				timeout_seconds=health_timeout,
+				failure_threshold=health_failures,
+			)
+		elif health_tcp:
+			health_check = HealthCheckConfig(
+				kind="tcp",
+				target=health_tcp,
+				interval_seconds=health_interval,
+				timeout_seconds=health_timeout,
+				failure_threshold=health_failures,
+			)
 
 		try:
-			info = start_process(state, cmd, name=name, restart=restart, env_file=env_file, cwd=cwd)
+			info = start_process(
+				state,
+				cmd,
+				name=name,
+				restart=restart,
+				env_file=env_file,
+				cwd=cwd,
+				health_check=health_check,
+			)
 			if group:
 				if not state.add_process_to_group(group, info.id):
 					console.print(
@@ -100,6 +158,13 @@ def register_main_commands(app: typer.Typer) -> None:
 				console.print(
 					"[yellow]⚠[/] Restart flag set but daemon is not running. "
 					"Restarts will only happen when you run other sentinel commands."
+				)
+				console.print("[dim]  Run 'sentinel daemon start' for continuous monitoring.[/]")
+
+			if health_check and not is_daemon_running():
+				console.print(
+					"[yellow]⚠[/] Health checks are configured but daemon is not running. "
+					"Checks will only happen when you run other sentinel commands."
 				)
 				console.print("[dim]  Run 'sentinel daemon start' for continuous monitoring.[/]")
 		except ValueError as e:

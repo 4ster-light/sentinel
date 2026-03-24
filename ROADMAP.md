@@ -19,9 +19,9 @@ features for developers and DevOps.
         crash/exit. Added daemon mode for continuous monitoring and lazy restart
         checks on CLI commands.
 
-- [ ] **v0.1.3**
-  - [ ] Log Rotation: Rotate logs based on size limits
-  - [ ] Process Health Checks: Add periodic HTTP/TCP checks
+- [x] ~~**v0.1.3**~~ _**COMPLETED**_
+  - [x] Log Rotation: Rotate logs based on size limits
+  - [x] Process Health Checks: Add periodic HTTP/TCP checks
 
 - [ ] **v0.1.4**
   - [ ] Process Timeouts: Set timeouts for process startup

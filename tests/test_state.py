@@ -1,11 +1,12 @@
 from datetime import datetime
 from pathlib import Path
 
-from sentinel.state import PortInfo, ProcessInfo, State, get_log_paths
+from sentinel.state import HealthCheckConfig, PortInfo, ProcessInfo, State, get_log_paths
 
 
 class TestProcessInfo:
 	def test_to_dict(self):
+		health_check = HealthCheckConfig(kind="http", target="http://127.0.0.1:8080/health")
 		info = ProcessInfo(
 			id=1,
 			pid=12345,
@@ -17,6 +18,9 @@ class TestProcessInfo:
 			stdout_log="/tmp/test.stdout.log",
 			stderr_log="/tmp/test.stderr.log",
 			env={"VAR": "value"},
+			health_check=health_check,
+			health_failures=2,
+			health_last_checked_at="2024-01-01T00:00:10",
 		)
 
 		data = info.to_dict()
@@ -31,6 +35,15 @@ class TestProcessInfo:
 		assert data["stdout_log"] == "/tmp/test.stdout.log"
 		assert data["stderr_log"] == "/tmp/test.stderr.log"
 		assert data["env"] == {"VAR": "value"}
+		assert data["health_check"] == {
+			"kind": "http",
+			"target": "http://127.0.0.1:8080/health",
+			"interval_seconds": 30.0,
+			"timeout_seconds": 3.0,
+			"failure_threshold": 3,
+		}
+		assert data["health_failures"] == 2
+		assert data["health_last_checked_at"] == "2024-01-01T00:00:10"
 
 	def test_from_dict(self):
 		data = {
@@ -44,6 +57,15 @@ class TestProcessInfo:
 			"stdout_log": "/tmp/test.stdout.log",
 			"stderr_log": "/tmp/test.stderr.log",
 			"env": {"VAR": "value"},
+			"health_check": {
+				"kind": "tcp",
+				"target": "127.0.0.1:3000",
+				"interval_seconds": 10.0,
+				"timeout_seconds": 1.5,
+				"failure_threshold": 2,
+			},
+			"health_failures": 1,
+			"health_last_checked_at": "2024-01-01T00:00:01",
 		}
 
 		info = ProcessInfo.from_dict(data)
@@ -58,6 +80,11 @@ class TestProcessInfo:
 		assert info.stdout_log == "/tmp/test.stdout.log"
 		assert info.stderr_log == "/tmp/test.stderr.log"
 		assert info.env == {"VAR": "value"}
+		assert info.health_check is not None
+		assert info.health_check.kind == "tcp"
+		assert info.health_check.target == "127.0.0.1:3000"
+		assert info.health_failures == 1
+		assert info.health_last_checked_at == "2024-01-01T00:00:01"
 
 	def test_from_dict_without_env(self):
 		data = {
@@ -75,6 +102,9 @@ class TestProcessInfo:
 		info = ProcessInfo.from_dict(data)
 
 		assert info.env == {}
+		assert info.health_check is None
+		assert info.health_failures == 0
+		assert info.health_last_checked_at is None
 
 
 class TestPortInfo:

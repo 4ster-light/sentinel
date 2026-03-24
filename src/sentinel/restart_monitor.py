@@ -5,14 +5,21 @@ import os
 import threading
 import time
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Callable, Generator
 
 import psutil
 
+from .health import run_health_check, should_run_health_check
+from .logs import rotate_process_logs
 from .process import start_process
 from .state import ProcessInfo, State
 
 logger = logging.getLogger(__name__)
+
+
+def _now_isoformat() -> str:
+	return datetime.now().isoformat()
 
 
 def _is_process_running(pid: int) -> bool:
@@ -62,13 +69,35 @@ class RestartMonitor:
 				state = State()
 				processes_to_restart: list[ProcessInfo] = []
 				processes_to_cleanup: list[ProcessInfo] = []
+				updated_processes: list[ProcessInfo] = []
 
 				for info in list(state.processes.values()):
+					rotate_process_logs(info.stdout_log, info.stderr_log)
+
 					if not psutil.pid_exists(info.pid) or not _is_process_running(info.pid):
 						if info.restart:
 							processes_to_restart.append(info)
 						else:
 							processes_to_cleanup.append(info)
+						continue
+
+					if should_run_health_check(info):
+						is_healthy = run_health_check(info)
+						info.health_last_checked_at = _now_isoformat()
+						if is_healthy:
+							info.health_failures = 0
+						else:
+							info.health_failures += 1
+							if (
+								info.health_check
+								and info.restart
+								and info.health_failures >= info.health_check.failure_threshold
+							):
+								processes_to_restart.append(info)
+						updated_processes.append(info)
+
+				for info in updated_processes:
+					state.add_process(info)
 
 				for info in processes_to_cleanup:
 					try:
@@ -88,6 +117,7 @@ class RestartMonitor:
 							restart=True,
 							env=info.env,
 							env_file=info.env_file,
+							health_check=info.health_check,
 						)
 						if self._restart_callback:
 							self._restart_callback(new_info)
@@ -153,11 +183,25 @@ def check_and_restart_processes(
 	processes_to_cleanup: list[ProcessInfo] = []
 
 	for info in list(state.processes.values()):
+		rotate_process_logs(info.stdout_log, info.stderr_log)
+
 		if not psutil.pid_exists(info.pid) or not _is_process_running(info.pid):
 			if info.restart:
 				processes_to_restart.append(info)
 			else:
 				processes_to_cleanup.append(info)
+			continue
+
+		if should_run_health_check(info):
+			is_healthy = run_health_check(info)
+			info.health_last_checked_at = _now_isoformat()
+			if is_healthy:
+				info.health_failures = 0
+			else:
+				info.health_failures += 1
+				if info.health_check and info.restart and info.health_failures >= info.health_check.failure_threshold:
+					processes_to_restart.append(info)
+			state.add_process(info)
 
 	for info in processes_to_cleanup:
 		try:
@@ -181,6 +225,7 @@ def check_and_restart_processes(
 				restart=True,
 				env=info.env,
 				env_file=info.env_file,
+				health_check=info.health_check,
 			)
 			os.chdir(old_cwd)
 			restarted.append(new_info)

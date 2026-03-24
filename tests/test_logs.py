@@ -1,4 +1,4 @@
-from sentinel.logs import clear_logs, tail_file
+from sentinel.logs import clear_logs, rotate_log_file, rotate_process_logs, tail_file
 
 from pathlib import Path
 
@@ -157,3 +157,55 @@ class TestShowLogs:
 
 		# Should not raise an error
 		show_logs(str(stdout_log), str(stderr_log), lines=50, follow=False, stream="both")
+
+
+class TestLogRotation:
+	def test_rotate_log_file_when_above_max_size(self, temp_logs_dir: Path) -> None:
+		log_file = temp_logs_dir / "rotate.log"
+		log_file.write_text("abcdef")
+
+		rotated = rotate_log_file(log_file, max_bytes=4, backups=2)
+
+		assert rotated is True
+		assert log_file.exists()
+		assert log_file.read_text() == ""
+		assert (temp_logs_dir / "rotate.log.1").read_text() == "abcdef"
+
+	def test_rotate_log_file_when_below_max_size(self, temp_logs_dir: Path) -> None:
+		log_file = temp_logs_dir / "rotate.log"
+		log_file.write_text("abc")
+
+		rotated = rotate_log_file(log_file, max_bytes=4, backups=2)
+
+		assert rotated is False
+		assert log_file.read_text() == "abc"
+		assert not (temp_logs_dir / "rotate.log.1").exists()
+
+	def test_rotate_log_file_shifts_existing_backups(self, temp_logs_dir: Path) -> None:
+		log_file = temp_logs_dir / "rotate.log"
+		log_file.write_text("newest")
+		(temp_logs_dir / "rotate.log.1").write_text("old-1")
+		(temp_logs_dir / "rotate.log.2").write_text("old-2")
+
+		rotate_log_file(log_file, max_bytes=1, backups=2)
+
+		assert (temp_logs_dir / "rotate.log.1").read_text() == "newest"
+		assert (temp_logs_dir / "rotate.log.2").read_text() == "old-1"
+
+	def test_rotate_process_logs_for_both_streams(self, temp_logs_dir: Path) -> None:
+		stdout_log = temp_logs_dir / "test.stdout.log"
+		stderr_log = temp_logs_dir / "test.stderr.log"
+		stdout_log.write_text("stdout data")
+		stderr_log.write_text("stderr data")
+
+		stdout_rotated, stderr_rotated = rotate_process_logs(
+			str(stdout_log),
+			str(stderr_log),
+			max_bytes=1,
+			backups=2,
+		)
+
+		assert stdout_rotated is True
+		assert stderr_rotated is True
+		assert (temp_logs_dir / "test.stdout.log.1").read_text() == "stdout data"
+		assert (temp_logs_dir / "test.stderr.log.1").read_text() == "stderr data"

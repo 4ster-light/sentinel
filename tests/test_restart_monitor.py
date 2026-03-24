@@ -8,7 +8,7 @@ import psutil
 
 from sentinel.process import start_process, stop_process
 from sentinel.restart_monitor import RestartMonitor
-from sentinel.state import State
+from sentinel.state import HealthCheckConfig, State
 
 
 class TestRestartMonitor:
@@ -228,3 +228,44 @@ class TestRestartMonitorIntegration:
 					stop_process(state_after, new_info.id)
 			except Exception:
 				pass
+
+	def test_monitor_restarts_after_health_check_failures(self, state: State, temp_state_dir: Path):
+		health_check = HealthCheckConfig(
+			kind="tcp",
+			target="127.0.0.1:1",
+			interval_seconds=0.1,
+			timeout_seconds=0.1,
+			failure_threshold=2,
+		)
+
+		info = start_process(
+			state,
+			"sleep 60",
+			name="health_restart_test",
+			restart=True,
+			health_check=health_check,
+		)
+		original_pid = info.pid
+
+		monitor = RestartMonitor(check_interval=0.1)
+		monitor.start()
+
+		try:
+			for _ in range(30):
+				time.sleep(0.2)
+				state_after = State()
+				new_info = state_after.find_process_by_name("health_restart_test")
+				if new_info and new_info.pid != original_pid:
+					break
+			else:
+				raise AssertionError("Process was not restarted after health check failures")
+
+			assert new_info is not None
+			assert new_info.health_check is not None
+			assert new_info.health_check.kind == "tcp"
+		finally:
+			monitor.stop()
+			state_after = State()
+			new_info = state_after.find_process_by_name("health_restart_test")
+			if new_info:
+				stop_process(state_after, new_info.id)

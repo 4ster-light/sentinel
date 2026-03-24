@@ -8,6 +8,8 @@ A lightweight process supervisor CLI for managing background processes.
 - Real-time CPU, memory, and uptime monitoring
 - Automatic restart on process crash or exit
 - Process groups for organizing related processes
+- Size-based log rotation for stdout/stderr logs
+- Optional HTTP/TCP process health checks
 - Port allocation and management
 - Persistent state across sessions
 
@@ -64,6 +66,12 @@ sentinel run "python worker.py" --name worker1 --group workers
 
 # Use environment variables from a file
 sentinel run "node app.js" --name app --env-file .env
+
+# Add an HTTP health check (auto-restart still requires --restart)
+sentinel run "python api.py" --name api --restart --health-http http://127.0.0.1:8000/health
+
+# Add a TCP health check with custom thresholds
+sentinel run "python worker.py" --name worker --restart --health-tcp 127.0.0.1:9000 --health-interval 10 --health-failures 2
 ```
 
 When you use `--restart` without the daemon running, you will see a warning:
@@ -170,6 +178,9 @@ sentinel logs myserver --stream stderr
 # Clear logs
 sentinel logs myserver --clear
 ```
+
+Sentinel rotates process logs automatically when they exceed 10MB, keeping up to
+3 backup files per stream (`.1`, `.2`, `.3`).
 
 ### Bulk Operations
 
