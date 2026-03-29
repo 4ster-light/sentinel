@@ -85,6 +85,47 @@ class TestStartProcess:
 		proc.terminate()
 		proc.wait()
 
+	def test_start_process_startup_timeout_exits_immediately(self, state, temp_state_dir: Path):
+		with pytest.raises(ValueError, match="exited during startup"):
+			start_process(state, "false", name="failfast", startup_timeout_seconds=2.0)
+
+		assert state.find_process_by_name("failfast") is None
+
+	def test_start_process_startup_timeout_long_running_ok(self, state, temp_state_dir: Path):
+		info = start_process(state, "sleep 30", name="slow_ok", startup_timeout_seconds=0.3)
+		assert state.find_process_by_name("slow_ok") is not None
+		proc = psutil.Process(info.pid)
+		proc.terminate()
+		proc.wait()
+
+	def test_start_process_with_nice(self, state, temp_state_dir: Path):
+		info = start_process(state, "sleep 5", name="nice_test", nice=10)
+		assert psutil.Process(info.pid).nice() == 10
+		proc = psutil.Process(info.pid)
+		proc.terminate()
+		proc.wait()
+
+	def test_start_process_with_ionice_idle(self, state, temp_state_dir: Path):
+		warnings: list[str] = []
+		info = start_process(
+			state,
+			"sleep 5",
+			name="ionice_test",
+			ionice_ioclass="idle",
+			priority_warnings=warnings,
+		)
+		child = psutil.Process(info.pid)
+		read_ionice = getattr(child, "ionice", None)
+		if warnings:
+			assert any("ionice" in w.lower() for w in warnings)
+		else:
+			assert read_ionice is not None
+			ioc = read_ionice()
+			assert ioc.ioclass == psutil.IOPRIO_CLASS_IDLE
+		proc = psutil.Process(info.pid)
+		proc.terminate()
+		proc.wait()
+
 	def test_start_process_duplicate_name(self, state, temp_state_dir: Path):
 		start_process(state, "sleep 10", name="duplicate")
 
@@ -212,6 +253,29 @@ class TestRestartProcess:
 		assert psutil.pid_exists(restarted.pid)
 
 		# Cleanup
+		proc = psutil.Process(restarted.pid)
+		proc.terminate()
+		proc.wait()
+
+	def test_restart_preserves_startup_and_priority_settings(self, state, temp_state_dir: Path):
+		original = start_process(
+			state,
+			"sleep 60",
+			name="prio_restart",
+			startup_timeout_seconds=0.2,
+			nice=10,
+			ionice_ioclass="idle",
+		)
+		restarted = restart_process(state, original.id)
+		assert restarted.startup_timeout_seconds == 0.2
+		assert restarted.nice == 10
+		assert restarted.ionice_ioclass == "idle"
+		assert restarted.ionice_value is None
+		restarted_proc = psutil.Process(restarted.pid)
+		assert restarted_proc.nice() == 10
+		read_ionice = getattr(restarted_proc, "ionice", None)
+		if read_ionice is not None and hasattr(psutil, "IOPRIO_CLASS_IDLE"):
+			assert read_ionice().ioclass == psutil.IOPRIO_CLASS_IDLE
 		proc = psutil.Process(restarted.pid)
 		proc.terminate()
 		proc.wait()

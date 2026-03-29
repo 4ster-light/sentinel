@@ -23,9 +23,9 @@ features for developers and DevOps.
   - [x] Log Rotation: Rotate logs based on size limits
   - [x] Process Health Checks: Add periodic HTTP/TCP checks
 
-- [ ] **v0.1.4**
-  - [ ] Process Timeouts: Set timeouts for process startup
-  - [ ] Process Priority: Set nice/ionice values
+- [x] ~~**v0.1.4**~~ _**COMPLETED**_
+  - [x] Process Timeouts: Set timeouts for process startup
+  - [x] Process Priority: Set nice/ionice values
 
 - [ ] **v0.1.5**
   - [ ] Process User: Run processes as specific users

@@ -61,6 +61,10 @@ class ProcessInfo:
 	health_check: HealthCheckConfig | None = None
 	health_failures: int = 0
 	health_last_checked_at: str | None = None
+	startup_timeout_seconds: float | None = None
+	nice: int | None = None
+	ionice_ioclass: str | None = None
+	ionice_value: int | None = None
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
@@ -79,6 +83,10 @@ class ProcessInfo:
 			"health_check": self.health_check.to_dict() if self.health_check else None,
 			"health_failures": self.health_failures,
 			"health_last_checked_at": self.health_last_checked_at,
+			"startup_timeout_seconds": self.startup_timeout_seconds,
+			"nice": self.nice,
+			"ionice_ioclass": self.ionice_ioclass,
+			"ionice_value": self.ionice_value,
 		}
 
 	@classmethod
@@ -99,6 +107,10 @@ class ProcessInfo:
 			health_check=HealthCheckConfig.from_dict(data["health_check"]) if data.get("health_check") else None,
 			health_failures=data.get("health_failures", 0),
 			health_last_checked_at=data.get("health_last_checked_at"),
+			startup_timeout_seconds=data.get("startup_timeout_seconds"),
+			nice=data.get("nice"),
+			ionice_ioclass=data.get("ionice_ioclass"),
+			ionice_value=data.get("ionice_value"),
 		)
 
 

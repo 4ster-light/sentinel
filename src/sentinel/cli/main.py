@@ -66,6 +66,37 @@ def _format_memory(mb: float) -> str:
 		return f"{mb / 1024:.2f}GB"
 
 
+def _parse_ionice_option(raw: str | None) -> tuple[str | None, int | None]:
+	if raw is None or not raw.strip():
+		return None, None
+	s = raw.strip().lower()
+	if s == "idle":
+		return "idle", None
+	if s == "best-effort" or s.startswith("best-effort:"):
+		rest = s.removeprefix("best-effort").lstrip(":").strip()
+		if not rest:
+			return "best_effort", None
+		try:
+			value = int(rest)
+		except ValueError as e:
+			raise ValueError(f"invalid ionice priority in {raw!r}") from e
+		if not 0 <= value <= 7:
+			raise ValueError("ionice best-effort priority must be between 0 and 7")
+		return "best_effort", value
+	if s == "realtime" or s.startswith("realtime:"):
+		rest = s.removeprefix("realtime").lstrip(":").strip()
+		if not rest:
+			return "realtime", None
+		try:
+			value = int(rest)
+		except ValueError as e:
+			raise ValueError(f"invalid ionice priority in {raw!r}") from e
+		if not 0 <= value <= 7:
+			raise ValueError("ionice realtime priority must be between 0 and 7")
+		return "realtime", value
+	raise ValueError("invalid --ionice value (use idle, best-effort[:0-7], or realtime[:0-7])")
+
+
 def register_main_commands(app: typer.Typer) -> None:
 	"""Register all main commands with the app"""
 
@@ -93,11 +124,44 @@ def register_main_commands(app: typer.Typer) -> None:
 			int,
 			typer.Option("--health-failures", help="Consecutive health check failures before restart"),
 		] = 3,
+		startup_timeout: Annotated[
+			float | None,
+			typer.Option(
+				"--startup-timeout",
+				"-S",
+				help="Wait up to this many seconds; fail if the process exits before then",
+			),
+		] = None,
+		nice: Annotated[
+			int | None,
+			typer.Option("--nice", help="Nice value (-20 to 19) for the process"),
+		] = None,
+		ionice: Annotated[
+			str | None,
+			typer.Option(
+				"--ionice",
+				help="I/O scheduling class: idle, best-effort[:0-7], or realtime[:0-7]",
+			),
+		] = None,
 	) -> None:
 		"""Start a background process"""
 		state = State()
 		cmd = " ".join(command)
 		health_check: HealthCheckConfig | None = None
+
+		if startup_timeout is not None and startup_timeout <= 0:
+			console.print("[red]✗[/] --startup-timeout must be greater than 0")
+			raise typer.Exit(1)
+
+		if nice is not None and not -20 <= nice <= 19:
+			console.print("[red]✗[/] --nice must be between -20 and 19")
+			raise typer.Exit(1)
+
+		try:
+			ionice_ioclass, ionice_value = _parse_ionice_option(ionice)
+		except ValueError as e:
+			console.print(f"[red]✗[/] {e}")
+			raise typer.Exit(1)
 
 		if health_http and health_tcp:
 			console.print("[red]✗[/] Use only one of --health-http or --health-tcp")
@@ -133,6 +197,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			)
 
 		try:
+			priority_notes: list[str] = []
 			info = start_process(
 				state,
 				cmd,
@@ -141,7 +206,16 @@ def register_main_commands(app: typer.Typer) -> None:
 				env_file=env_file,
 				cwd=cwd,
 				health_check=health_check,
+				startup_timeout_seconds=startup_timeout,
+				nice=nice,
+				ionice_ioclass=ionice_ioclass,
+				ionice_value=ionice_value,
+				priority_warnings=priority_notes,
 			)
+			for note in priority_notes:
+				console.print(f"[yellow]⚠[/] {note}")
+			if priority_notes:
+				console.print()
 			if group:
 				if not state.add_process_to_group(group, info.id):
 					console.print(

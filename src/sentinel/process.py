@@ -2,13 +2,98 @@
 
 import os
 import subprocess
+import time
 from datetime import datetime
+from typing import Protocol
 
 import psutil
 
 from .env import build_process_environment
 from .logs import rotate_process_logs
 from .state import HealthCheckConfig, ProcessInfo, State, get_log_paths
+
+
+class _SpawnedChild(Protocol):
+	pid: int
+
+	def poll(self) -> int | None: ...
+
+
+def _terminate_pid_if_alive(pid: int) -> None:
+	try:
+		proc = psutil.Process(pid)
+		proc.terminate()
+		try:
+			proc.wait(timeout=5)
+		except psutil.TimeoutExpired:
+			proc.kill()
+	except psutil.NoSuchProcess:
+		pass
+
+
+def _apply_process_priority(
+	pid: int,
+	nice: int | None,
+	ionice_ioclass: str | None,
+	ionice_value: int | None,
+) -> list[str]:
+	warnings: list[str] = []
+	proc = psutil.Process(pid)
+	if nice is not None:
+		try:
+			proc.nice(nice)
+		except (psutil.Error, PermissionError, OSError, AttributeError) as e:
+			warnings.append(f"Could not set CPU priority (nice={nice}): {e}. Using default CPU priority.")
+	
+	if ionice_ioclass is None:
+		return warnings
+	
+	if ionice_ioclass == "idle":
+		pass
+	elif ionice_ioclass == "best_effort":
+		value = ionice_value if ionice_value is not None else 4
+		if not 0 <= value <= 7:
+			raise ValueError("ionice best-effort priority must be between 0 and 7")
+	elif ionice_ioclass == "realtime":
+		value = ionice_value if ionice_value is not None else 0
+		if not 0 <= value <= 7:
+			raise ValueError("ionice realtime priority must be between 0 and 7")
+	else:
+		raise ValueError(f"unknown ionice class: {ionice_ioclass}")
+	
+	if not hasattr(psutil, "IOPRIO_CLASS_IDLE"):
+		warnings.append("I/O scheduling class (ionice) is not available on this platform; ionice was skipped.")
+		return warnings
+	
+	ionice_fn = getattr(proc, "ionice", None)
+	if ionice_fn is None:
+		warnings.append("I/O scheduling class (ionice) is not available on this platform; ionice was skipped.")
+		return warnings
+	
+	try:
+		if ionice_ioclass == "idle":
+			ionice_fn(psutil.IOPRIO_CLASS_IDLE)
+		elif ionice_ioclass == "best_effort":
+			value = ionice_value if ionice_value is not None else 4
+			ionice_fn(psutil.IOPRIO_CLASS_BE, value)
+		else:
+			value = ionice_value if ionice_value is not None else 0
+			ionice_fn(psutil.IOPRIO_CLASS_RT, value)
+	except (psutil.Error, PermissionError, OSError, ValueError) as e:
+		warnings.append(f"Could not apply ionice ({ionice_ioclass}): {e}. Using default I/O scheduling.")
+	
+	return warnings
+
+
+def _wait_startup_or_fail(proc: _SpawnedChild, startup_timeout_seconds: float) -> None:
+	deadline = time.monotonic() + startup_timeout_seconds
+	while True:
+		code = proc.poll()
+		if code is not None:
+			raise ValueError(f"Process exited during startup timeout (exit code: {code})")
+		if time.monotonic() >= deadline:
+			return
+		time.sleep(0.05)
 
 
 def start_process(
@@ -20,6 +105,11 @@ def start_process(
 	env_file: str | None = None,
 	cwd: str | None = None,
 	health_check: HealthCheckConfig | None = None,
+	startup_timeout_seconds: float | None = None,
+	nice: int | None = None,
+	ionice_ioclass: str | None = None,
+	ionice_value: int | None = None,
+	priority_warnings: list[str] | None = None,
 ) -> ProcessInfo:
 	process_cwd = cwd or os.getcwd()
 
@@ -44,21 +134,43 @@ def start_process(
 		process_env_file=env_file,
 	)
 
-	# Open log files
-	with open(stdout_path, "a") as stdout_file, open(stderr_path, "a") as stderr_file:
-		# Start the process
-		proc = subprocess.Popen(
-			cmd,
-			shell=True,
-			cwd=process_cwd,
-			env=process_env,
-			stdout=stdout_file,
-			stderr=stderr_file,
-			stdin=subprocess.DEVNULL,
-			start_new_session=True,
-		)
+	proc: subprocess.Popen[bytes] | None = None
+	try:
+		with open(stdout_path, "a") as stdout_file, open(stderr_path, "a") as stderr_file:
+			proc = subprocess.Popen(
+				cmd,
+				shell=True,
+				cwd=process_cwd,
+				env=process_env,
+				stdout=stdout_file,
+				stderr=stderr_file,
+				stdin=subprocess.DEVNULL,
+				start_new_session=True,
+			)
 
-	# Create process info
+		assert proc is not None
+		pid = proc.pid
+
+		try:
+			prio_warnings = _apply_process_priority(pid, nice, ionice_ioclass, ionice_value)
+		except ValueError:
+			_terminate_pid_if_alive(pid)
+			raise
+		if priority_warnings is not None:
+			priority_warnings.extend(prio_warnings)
+
+		if startup_timeout_seconds is not None and startup_timeout_seconds > 0:
+			try:
+				_wait_startup_or_fail(proc, startup_timeout_seconds)
+			except ValueError:
+				_terminate_pid_if_alive(pid)
+				raise
+	except BaseException:
+		if proc is not None and proc.poll() is None:
+			_terminate_pid_if_alive(proc.pid)
+		raise
+
+	assert proc is not None
 	info = ProcessInfo(
 		id=state.get_next_id(),
 		pid=proc.pid,
@@ -72,6 +184,10 @@ def start_process(
 		env=env or {},
 		env_file=env_file,
 		health_check=health_check,
+		startup_timeout_seconds=startup_timeout_seconds,
+		nice=nice,
+		ionice_ioclass=ionice_ioclass,
+		ionice_value=ionice_value,
 	)
 
 	state.add_process(info)
@@ -136,6 +252,10 @@ def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
 		env_file=info.env_file,
 		cwd=cwd,
 		health_check=info.health_check,
+		startup_timeout_seconds=info.startup_timeout_seconds,
+		nice=info.nice,
+		ionice_ioclass=info.ionice_ioclass,
+		ionice_value=info.ionice_value,
 	)
 
 
@@ -184,6 +304,10 @@ def check_restart_needed(state: State) -> list[ProcessInfo]:
 					env_file=info.env_file,
 					cwd=info.cwd,
 					health_check=info.health_check,
+					startup_timeout_seconds=info.startup_timeout_seconds,
+					nice=info.nice,
+					ionice_ioclass=info.ionice_ioclass,
+					ionice_value=info.ionice_value,
 				)
 				state.remove_process(info.id)
 				restarted.append(new_info)
@@ -231,6 +355,10 @@ def batch_start_processes(
 				env_file=info.env_file,
 				cwd=info.cwd,
 				health_check=info.health_check,
+				startup_timeout_seconds=info.startup_timeout_seconds,
+				nice=info.nice,
+				ionice_ioclass=info.ionice_ioclass,
+				ionice_value=info.ionice_value,
 			)
 			successful.append(new_info)
 		except Exception as e:

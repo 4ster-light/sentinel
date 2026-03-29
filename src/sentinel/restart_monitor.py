@@ -117,7 +117,12 @@ class RestartMonitor:
 							restart=True,
 							env=info.env,
 							env_file=info.env_file,
+							cwd=info.cwd,
 							health_check=info.health_check,
+							startup_timeout_seconds=info.startup_timeout_seconds,
+							nice=info.nice,
+							ionice_ioclass=info.ionice_ioclass,
+							ionice_value=info.ionice_value,
 						)
 						if self._restart_callback:
 							self._restart_callback(new_info)
@@ -225,7 +230,12 @@ def check_and_restart_processes(
 				restart=True,
 				env=info.env,
 				env_file=info.env_file,
+				cwd=info.cwd,
 				health_check=info.health_check,
+				startup_timeout_seconds=info.startup_timeout_seconds,
+				nice=info.nice,
+				ionice_ioclass=info.ionice_ioclass,
+				ionice_value=info.ionice_value,
 			)
 			os.chdir(old_cwd)
 			restarted.append(new_info)

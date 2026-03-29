@@ -1,8 +1,10 @@
 """Tests for CLI main commands"""
 
+import pytest
 from typer.testing import CliRunner
 
 from sentinel.cli import app
+from sentinel.cli.main import _parse_ionice_option
 from sentinel.process import start_process
 from sentinel.state import State
 
@@ -114,6 +116,28 @@ class TestMainCommands:
 		)
 		assert result.exit_code != 0
 		assert "--health-failures" in result.stdout
+
+	def test_run_command_rejects_invalid_startup_timeout(self, state: State):
+		result = runner.invoke(app, ["run", "sleep", "5", "--name", "sto_timeout_bad", "--startup-timeout", "0"])
+		assert result.exit_code != 0
+		assert "startup-timeout" in result.stdout
+
+	def test_run_command_rejects_invalid_nice(self, state: State):
+		result = runner.invoke(app, ["run", "sleep", "5", "--name", "nice_bad", "--nice", "99"])
+		assert result.exit_code != 0
+		assert "nice" in result.stdout.lower()
+
+	def test_run_command_rejects_invalid_ionice(self, state: State):
+		result = runner.invoke(app, ["run", "sleep", "5", "--name", "ionice_bad", "--ionice", "nope"])
+		assert result.exit_code != 0
+
+	def test_parse_ionice_option(self) -> None:
+		assert _parse_ionice_option(None) == (None, None)
+		assert _parse_ionice_option("idle") == ("idle", None)
+		assert _parse_ionice_option("best-effort") == ("best_effort", None)
+		assert _parse_ionice_option("best-effort:6") == ("best_effort", 6)
+		with pytest.raises(ValueError):
+			_parse_ionice_option("best-effort:99")
 
 	def test_list_command_empty(self):
 		"""Test list command with no processes"""

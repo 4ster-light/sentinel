@@ -44,6 +44,32 @@ class TestProcessInfo:
 		}
 		assert data["health_failures"] == 2
 		assert data["health_last_checked_at"] == "2024-01-01T00:00:10"
+		assert data["startup_timeout_seconds"] is None
+		assert data["nice"] is None
+		assert data["ionice_ioclass"] is None
+		assert data["ionice_value"] is None
+
+	def test_to_dict_with_priority_and_startup_timeout(self):
+		info = ProcessInfo(
+			id=1,
+			pid=12345,
+			name="test",
+			cmd="echo hello",
+			cwd="/tmp",
+			restart=False,
+			started_at="2024-01-01T00:00:00",
+			stdout_log="/tmp/a.stdout.log",
+			stderr_log="/tmp/a.stderr.log",
+			startup_timeout_seconds=12.5,
+			nice=5,
+			ionice_ioclass="best_effort",
+			ionice_value=3,
+		)
+		data = info.to_dict()
+		assert data["startup_timeout_seconds"] == 12.5
+		assert data["nice"] == 5
+		assert data["ionice_ioclass"] == "best_effort"
+		assert data["ionice_value"] == 3
 
 	def test_from_dict(self):
 		data = {
@@ -105,6 +131,10 @@ class TestProcessInfo:
 		assert info.health_check is None
 		assert info.health_failures == 0
 		assert info.health_last_checked_at is None
+		assert info.startup_timeout_seconds is None
+		assert info.nice is None
+		assert info.ionice_ioclass is None
+		assert info.ionice_value is None
 
 
 class TestPortInfo:
