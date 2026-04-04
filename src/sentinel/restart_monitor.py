@@ -1,7 +1,6 @@
 """Background restart monitor for processes with restart flag enabled"""
 
 import logging
-import os
 import threading
 import time
 from contextlib import contextmanager
@@ -109,12 +108,12 @@ class RestartMonitor:
 					try:
 						old_id = info.id
 						state.remove_process(old_id)
-						os.chdir(info.cwd)
 						new_info = start_process(
 							state,
 							info.cmd,
 							name=info.name,
 							restart=True,
+							user=info.user,
 							env=info.env,
 							env_file=info.env_file,
 							cwd=info.cwd,
@@ -220,14 +219,13 @@ def check_and_restart_processes(
 	for info in processes_to_restart:
 		try:
 			old_id = info.id
-			old_cwd = os.getcwd()
 			state.remove_process(old_id)
-			os.chdir(info.cwd)
 			new_info = start_process(
 				state,
 				info.cmd,
 				name=info.name,
 				restart=True,
+				user=info.user,
 				env=info.env,
 				env_file=info.env_file,
 				cwd=info.cwd,
@@ -237,7 +235,6 @@ def check_and_restart_processes(
 				ionice_ioclass=info.ionice_ioclass,
 				ionice_value=info.ionice_value,
 			)
-			os.chdir(old_cwd)
 			restarted.append(new_info)
 			if on_restart:
 				on_restart(info, new_info)

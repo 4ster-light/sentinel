@@ -17,6 +17,7 @@ class TestProcessInfo:
 			started_at="2024-01-01T00:00:00",
 			stdout_log="/tmp/test.stdout.log",
 			stderr_log="/tmp/test.stderr.log",
+			user="runner",
 			env={"VAR": "value"},
 			health_check=health_check,
 			health_failures=2,
@@ -31,6 +32,7 @@ class TestProcessInfo:
 		assert data["cmd"] == "echo hello"
 		assert data["cwd"] == "/tmp"
 		assert data["restart"] is True
+		assert data["user"] == "runner"
 		assert data["started_at"] == "2024-01-01T00:00:00"
 		assert data["stdout_log"] == "/tmp/test.stdout.log"
 		assert data["stderr_log"] == "/tmp/test.stderr.log"
@@ -60,12 +62,14 @@ class TestProcessInfo:
 			started_at="2024-01-01T00:00:00",
 			stdout_log="/tmp/a.stdout.log",
 			stderr_log="/tmp/a.stderr.log",
+			user="builder",
 			startup_timeout_seconds=12.5,
 			nice=5,
 			ionice_ioclass="best_effort",
 			ionice_value=3,
 		)
 		data = info.to_dict()
+		assert data["user"] == "builder"
 		assert data["startup_timeout_seconds"] == 12.5
 		assert data["nice"] == 5
 		assert data["ionice_ioclass"] == "best_effort"
@@ -79,6 +83,7 @@ class TestProcessInfo:
 			"cmd": "echo hello",
 			"cwd": "/tmp",
 			"restart": True,
+			"user": "service",
 			"started_at": "2024-01-01T00:00:00",
 			"stdout_log": "/tmp/test.stdout.log",
 			"stderr_log": "/tmp/test.stderr.log",
@@ -102,6 +107,7 @@ class TestProcessInfo:
 		assert info.cmd == "echo hello"
 		assert info.cwd == "/tmp"
 		assert info.restart is True
+		assert info.user == "service"
 		assert info.started_at == "2024-01-01T00:00:00"
 		assert info.stdout_log == "/tmp/test.stdout.log"
 		assert info.stderr_log == "/tmp/test.stderr.log"
@@ -128,6 +134,7 @@ class TestProcessInfo:
 		info = ProcessInfo.from_dict(data)
 
 		assert info.env == {}
+		assert info.user is None
 		assert info.health_check is None
 		assert info.health_failures == 0
 		assert info.health_last_checked_at is None
@@ -378,6 +385,7 @@ class TestState:
 			cmd="echo hello",
 			cwd="/tmp",
 			restart=True,
+			user="svc",
 			started_at="2024-01-01T00:00:00",
 			stdout_log="/tmp/test.stdout.log",
 			stderr_log="/tmp/test.stderr.log",
@@ -398,6 +406,7 @@ class TestState:
 		assert new_state.next_id == 2
 		assert 1 in new_state.processes
 		assert new_state.processes[1].name == "test"
+		assert new_state.processes[1].user == "svc"
 		assert new_state.processes[1].env == {"VAR": "value"}
 		assert 8080 in new_state.ports
 		assert new_state.ports[8080].name == "webapp"

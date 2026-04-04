@@ -10,6 +10,7 @@ A lightweight process supervisor CLI for managing background processes.
 - Process groups for organizing related processes
 - Size-based log rotation for stdout/stderr logs
 - Optional HTTP/TCP process health checks
+- Run processes as specific system users
 - Port allocation and management
 - Persistent state across sessions
 
@@ -45,6 +46,9 @@ pip install git+https://github.com/4ster-light/sentinel
 | `sentinel group`      | Manage process groups             |
 | `sentinel port`       | Manage port allocations           |
 
+Run `sentinel run --help` to see process runtime options including `--user`,
+`--startup-timeout`, `--nice`, and `--ionice`.
+
 ## Process Management
 
 ### Starting a Process
@@ -66,6 +70,9 @@ sentinel run "python worker.py" --name worker1 --group workers
 
 # Use environment variables from a file
 sentinel run "node app.js" --name app --env-file .env
+
+# Run as a specific system user (name or uid)
+sentinel run "python worker.py" --name worker --user deploy
 
 # Add an HTTP health check (auto-restart still requires --restart)
 sentinel run "python api.py" --name api --restart --health-http http://127.0.0.1:8000/health
@@ -95,12 +102,12 @@ Output shows a table with ID, name, PID, status, CPU usage, memory usage,
 uptime, restart flag, group, and command:
 
 ```txt
-+----+----------+-------+---------+------+-------+--------+---------+-------+-----------+
-| ID | NAME     |   PID | STATUS  |  CPU |   MEM | UPTIME | RESTART | GROUP | COMMAND   |
-+----+----------+-------+---------+------+-------+--------+---------+-------+-----------+
-|  1 | myserver | 12345 | running | 2.1% | 45 MB |   5m 3s|    -    |   -   | python ...|
-|  2 | frontend | 12346 | running | 0.5% | 120MB |   2m 1s|    X    |   -   | npm start |
-+----+----------+-------+---------+------+-------+--------+---------+-------+-----------+
++----+----------+-------+---------+------+-------+--------+---------+---------+-------+-----------+
+| ID | NAME     |   PID | STATUS  |  CPU |   MEM | UPTIME | RESTART | USER    | GROUP | COMMAND   |
++----+----------+-------+---------+------+-------+--------+---------+---------+-------+-----------+
+|  1 | myserver | 12345 | running | 2.1% | 45 MB |   5m 3s|    -    |    -    |   -   | python ...|
+|  2 | frontend | 12346 | running | 0.5% | 120MB |   2m 1s|    X    | deploy  |   -   | npm start |
++----+----------+-------+---------+------+-------+--------+---------+---------+-------+-----------+
 ```
 
 ### Process Status
@@ -125,6 +132,7 @@ myserver (id: 1)
   Memory:    45.2MB
   Uptime:    5m 32s
   Restart:   no
+  User:      default
   Group:     none
   CWD:       /home/user/project
   Command:   python server.py
@@ -310,6 +318,9 @@ sentinel group restart workers
 sentinel group delete workers
 
 # Delete a group and stop all its processes
+sentinel group delete workers --with-processes
+
+# Alias for --with-processes
 sentinel group delete workers --stop
 ```
 
@@ -378,6 +389,23 @@ Sentinel also looks for environment files in:
 
 - `~/.sentinel/.env` (global)
 - `./.env` (current directory)
+
+### Process User
+
+Run commands as a specific local system user:
+
+```bash
+# Run by username
+sentinel run "python worker.py" --name worker --user deploy
+
+# Run by uid
+sentinel run "python worker.py" --name worker --user 1001
+```
+
+Notes:
+
+- Switching to another user generally requires root privileges.
+- If you run Sentinel without root, use your current user.
 
 ### Group Environment
 

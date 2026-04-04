@@ -161,6 +161,29 @@ class TestRestartMonitor:
 			except Exception:
 				pass
 
+	def test_monitor_restarts_process_with_empty_cwd(self, state: State, temp_state_dir: Path):
+		"""Test monitor restart path does not depend on os.chdir side effects"""
+		info = start_process(state, "sleep 0.5", name="cwd_independent", restart=True)
+		state.remove_process(info.id)
+		info.cwd = ""
+		state.add_process(info)
+
+		monitor = RestartMonitor(check_interval=0.1)
+		monitor.start()
+
+		try:
+			time.sleep(2.0)
+			state_after = State()
+			new_info = state_after.find_process_by_name("cwd_independent")
+			assert new_info is not None
+			assert new_info.restart is True
+		finally:
+			monitor.stop()
+			state_after = State()
+			new_info = state_after.find_process_by_name("cwd_independent")
+			if new_info:
+				stop_process(state_after, new_info.id)
+
 
 class TestRestartMonitorIntegration:
 	"""Integration tests with the process management system"""

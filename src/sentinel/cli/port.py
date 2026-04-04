@@ -20,11 +20,20 @@ port_app = typer.Typer(
 @port_app.command("allocate")
 def port_allocate(
 	port: Annotated[int | None, typer.Argument(help="Specific port to allocate")] = None,
+	port_option: Annotated[
+		int | None,
+		typer.Option("--port", "-p", help="Specific port to allocate"),
+	] = None,
 	name: Annotated[str, typer.Option("--name", "-n", help="Name for the allocation")] = "default",
 ) -> None:
 	"""Allocate a port"""
 	state = State()
-	allocated = state.allocate_port(name, port)
+	if port is not None and port_option is not None:
+		console.print("[red]✗[/] Provide either positional port or --port, not both")
+		raise typer.Exit(1)
+
+	requested_port = port_option if port_option is not None else port
+	allocated = state.allocate_port(name, requested_port)
 
 	if allocated:
 		console.print(f"[green]✓[/] Allocated port [bold]{allocated}[/] ({name})")

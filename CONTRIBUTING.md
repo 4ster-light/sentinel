@@ -92,6 +92,17 @@ tests/              # Test files
 pyproject.toml      # Project configuration
 ```
 
+## Feature Notes (v0.1.5)
+
+`sentinel run` supports running a process as a specific system user:
+
+```bash
+sentinel run "python worker.py" --name worker --user deploy
+```
+
+Use `--user` with either a username or a uid. Switching to another user
+typically requires root privileges on POSIX systems.
+
 ## Questions?
 
 Feel free to open an issue if you have any questions or need clarification!

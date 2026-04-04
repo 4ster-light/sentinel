@@ -55,6 +55,7 @@ class ProcessInfo:
 	started_at: str
 	stdout_log: str
 	stderr_log: str
+	user: str | None = None
 	env: dict[str, str] = field(default_factory=dict)
 	group: str | None = None
 	env_file: str | None = None
@@ -74,6 +75,7 @@ class ProcessInfo:
 			"cmd": self.cmd,
 			"cwd": self.cwd,
 			"restart": self.restart,
+			"user": self.user,
 			"started_at": self.started_at,
 			"stdout_log": self.stdout_log,
 			"stderr_log": self.stderr_log,
@@ -98,6 +100,7 @@ class ProcessInfo:
 			cmd=data["cmd"],
 			cwd=data["cwd"],
 			restart=data["restart"],
+			user=data.get("user"),
 			started_at=data["started_at"],
 			stdout_log=data["stdout_log"],
 			stderr_log=data["stderr_log"],

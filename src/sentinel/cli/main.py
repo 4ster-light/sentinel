@@ -105,6 +105,10 @@ def register_main_commands(app: typer.Typer) -> None:
 		command: Annotated[list[str], typer.Argument(help="Command to run")],
 		name: Annotated[str | None, typer.Option("--name", "-n", help="Process name")] = None,
 		restart: Annotated[bool, typer.Option("--restart", "-r", help="Auto-restart on exit")] = False,
+		user: Annotated[
+			str | None,
+			typer.Option("--user", "-u", help="Run process as this system user (name or uid)"),
+		] = None,
 		group: Annotated[str | None, typer.Option("--group", "-g", help="Process group")] = None,
 		env_file: Annotated[str | None, typer.Option("--env-file", "-e", help="Path to .env file")] = None,
 		cwd: Annotated[str | None, typer.Option("--cwd", help="Working directory for the process")] = None,
@@ -203,6 +207,7 @@ def register_main_commands(app: typer.Typer) -> None:
 				cmd,
 				name=name,
 				restart=restart,
+				user=user,
 				env_file=env_file,
 				cwd=cwd,
 				health_check=health_check,
@@ -305,6 +310,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		table.add_column("MEM", justify="right")
 		table.add_column("UPTIME", justify="right")
 		table.add_column("RESTART")
+		table.add_column("USER")
 		table.add_column("GROUP", style="magenta")
 		table.add_column("COMMAND", max_width=40)
 
@@ -312,6 +318,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			status = get_process_status(info)
 			status_str = "[green]running[/]" if status["running"] else "[red]stopped[/]"
 			restart_str = "[green]✓[/]" if info.restart else "[dim]-[/]"
+			user_str = info.user if info.user else "[dim]-[/]"
 			group_str = info.group if info.group else "[dim]-[/]"
 
 			table.add_row(
@@ -323,6 +330,7 @@ def register_main_commands(app: typer.Typer) -> None:
 				_format_memory(status["memory_mb"]),
 				_format_uptime(info.started_at),
 				restart_str,
+				user_str,
 				group_str,
 				info.cmd[:40] + "..." if len(info.cmd) > 40 else info.cmd,
 			)
@@ -360,6 +368,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		console.print(f"  Memory:    {_format_memory(proc_status['memory_mb'])}")
 		console.print(f"  Uptime:    {_format_uptime(info.started_at)}")
 		console.print(f"  Restart:   {'yes' if info.restart else 'no'}")
+		console.print(f"  User:      {info.user if info.user else 'default'}")
 		console.print(f"  Group:     {info.group if info.group else 'none'}")
 		console.print(f"  CWD:       {info.cwd}")
 		console.print(f"  Command:   {info.cmd}")

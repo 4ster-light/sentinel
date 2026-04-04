@@ -265,7 +265,12 @@ def group_restart(
 def group_delete(
 	group_name: Annotated[str, typer.Argument(help="Group name")],
 	with_processes: Annotated[
-		bool, typer.Option("--with-processes", help="Stop and remove all processes in the group")
+		bool,
+		typer.Option(
+			"--with-processes",
+			"--stop",
+			help="Stop and remove all processes in the group",
+		),
 	] = False,
 ) -> None:
 	"""Delete a process group"""

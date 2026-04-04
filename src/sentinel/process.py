@@ -19,6 +19,62 @@ class _SpawnedChild(Protocol):
 	def poll(self) -> int | None: ...
 
 
+def _resolve_process_user(user: str) -> tuple[str, int, int, list[int]]:
+	if os.name == "nt":
+		raise ValueError("Running a process as a specific user is not supported on Windows")
+
+	user_spec = user.strip()
+	if not user_spec:
+		raise ValueError("Process user cannot be empty")
+
+	import pwd
+
+	if user_spec.isdigit():
+		uid = int(user_spec)
+		try:
+			entry = pwd.getpwuid(uid)
+		except KeyError as e:
+			raise ValueError(f"User with UID {uid} was not found") from e
+		return entry.pw_name, entry.pw_uid, entry.pw_gid, os.getgrouplist(entry.pw_name, entry.pw_gid)
+
+	try:
+		entry = pwd.getpwnam(user_spec)
+	except KeyError as e:
+		raise ValueError(f"User '{user_spec}' was not found") from e
+	return entry.pw_name, entry.pw_uid, entry.pw_gid, os.getgrouplist(entry.pw_name, entry.pw_gid)
+
+
+def _validate_user_permissions(username: str, uid: int, gid: int) -> None:
+	if os.name == "nt":
+		raise ValueError("Running a process as a specific user is not supported on Windows")
+
+	current_uid = os.geteuid()
+	current_gid = os.getegid()
+
+	if current_uid == 0:
+		return
+
+	if uid != current_uid:
+		raise ValueError(
+			f"Cannot run as user '{username}' (uid: {uid}) without root privileges; current uid is {current_uid}"
+		)
+
+	if gid != current_gid:
+		raise ValueError(
+			f"Cannot switch to primary gid {gid} for user '{username}' without root privileges; current gid is {current_gid}"
+		)
+
+
+def _build_extra_groups(gid: int | None, group_ids: list[int] | None) -> list[int] | None:
+	if os.name == "nt" or gid is None or group_ids is None:
+		return None
+
+	if os.geteuid() != 0:
+		return None
+
+	return [group_id for group_id in group_ids if group_id != gid]
+
+
 def _terminate_pid_if_alive(pid: int) -> None:
 	try:
 		proc = psutil.Process(pid)
@@ -44,10 +100,10 @@ def _apply_process_priority(
 			proc.nice(nice)
 		except (psutil.Error, PermissionError, OSError, AttributeError) as e:
 			warnings.append(f"Could not set CPU priority (nice={nice}): {e}. Using default CPU priority.")
-	
+
 	if ionice_ioclass is None:
 		return warnings
-	
+
 	if ionice_ioclass == "idle":
 		pass
 	elif ionice_ioclass == "best_effort":
@@ -60,16 +116,16 @@ def _apply_process_priority(
 			raise ValueError("ionice realtime priority must be between 0 and 7")
 	else:
 		raise ValueError(f"unknown ionice class: {ionice_ioclass}")
-	
+
 	if not hasattr(psutil, "IOPRIO_CLASS_IDLE"):
 		warnings.append("I/O scheduling class (ionice) is not available on this platform; ionice was skipped.")
 		return warnings
-	
+
 	ionice_fn = getattr(proc, "ionice", None)
 	if ionice_fn is None:
 		warnings.append("I/O scheduling class (ionice) is not available on this platform; ionice was skipped.")
 		return warnings
-	
+
 	try:
 		if ionice_ioclass == "idle":
 			ionice_fn(psutil.IOPRIO_CLASS_IDLE)
@@ -81,7 +137,7 @@ def _apply_process_priority(
 			ionice_fn(psutil.IOPRIO_CLASS_RT, value)
 	except (psutil.Error, PermissionError, OSError, ValueError) as e:
 		warnings.append(f"Could not apply ionice ({ionice_ioclass}): {e}. Using default I/O scheduling.")
-	
+
 	return warnings
 
 
@@ -101,6 +157,7 @@ def start_process(
 	cmd: str,
 	name: str | None = None,
 	restart: bool = False,
+	user: str | None = None,
 	env: dict[str, str] | None = None,
 	env_file: str | None = None,
 	cwd: str | None = None,
@@ -111,11 +168,15 @@ def start_process(
 	ionice_value: int | None = None,
 	priority_warnings: list[str] | None = None,
 ) -> ProcessInfo:
+	command = cmd.strip()
+	if not command:
+		raise ValueError("Command cannot be empty")
+
 	process_cwd = cwd or os.getcwd()
 
 	# Generate name from command if not provided
 	if name is None:
-		name = cmd.split()[0].split("/")[-1]
+		name = command.split()[0].split("/")[-1]
 
 	# Check for duplicate names
 	existing = state.find_process_by_name(name)
@@ -134,19 +195,77 @@ def start_process(
 		process_env_file=env_file,
 	)
 
+	resolved_username: str | None = None
+	resolved_uid: int | None = None
+	resolved_gid: int | None = None
+	resolved_group_ids: list[int] | None = None
+	if user is not None:
+		resolved_username, resolved_uid, resolved_gid, resolved_group_ids = _resolve_process_user(user)
+		_validate_user_permissions(resolved_username, resolved_uid, resolved_gid)
+
+	extra_groups = _build_extra_groups(resolved_gid, resolved_group_ids)
+
 	proc: subprocess.Popen[bytes] | None = None
 	try:
 		with open(stdout_path, "a") as stdout_file, open(stderr_path, "a") as stderr_file:
-			proc = subprocess.Popen(
-				cmd,
-				shell=True,
-				cwd=process_cwd,
-				env=process_env,
-				stdout=stdout_file,
-				stderr=stderr_file,
-				stdin=subprocess.DEVNULL,
-				start_new_session=True,
-			)
+			try:
+				if resolved_uid is not None and resolved_gid is not None:
+					has_extra_groups = extra_groups is not None and len(extra_groups) > 0
+					need_spawn_credentials = has_extra_groups or (
+						resolved_uid != os.geteuid() or resolved_gid != os.getegid()
+					)
+					if need_spawn_credentials:
+						if extra_groups is not None:
+							proc = subprocess.Popen(
+								command,
+								shell=True,
+								cwd=process_cwd,
+								env=process_env,
+								stdout=stdout_file,
+								stderr=stderr_file,
+								stdin=subprocess.DEVNULL,
+								start_new_session=True,
+								user=resolved_uid,
+								group=resolved_gid,
+								extra_groups=extra_groups,
+							)
+						else:
+							proc = subprocess.Popen(
+								command,
+								shell=True,
+								cwd=process_cwd,
+								env=process_env,
+								stdout=stdout_file,
+								stderr=stderr_file,
+								stdin=subprocess.DEVNULL,
+								start_new_session=True,
+								user=resolved_uid,
+								group=resolved_gid,
+							)
+					else:
+						proc = subprocess.Popen(
+							command,
+							shell=True,
+							cwd=process_cwd,
+							env=process_env,
+							stdout=stdout_file,
+							stderr=stderr_file,
+							stdin=subprocess.DEVNULL,
+							start_new_session=True,
+						)
+				else:
+					proc = subprocess.Popen(
+						command,
+						shell=True,
+						cwd=process_cwd,
+						env=process_env,
+						stdout=stdout_file,
+						stderr=stderr_file,
+						stdin=subprocess.DEVNULL,
+						start_new_session=True,
+					)
+			except (OSError, subprocess.SubprocessError) as e:
+				raise ValueError(f"Failed to start process '{name}': {e}") from e
 
 		assert proc is not None
 		pid = proc.pid
@@ -175,9 +294,10 @@ def start_process(
 		id=state.get_next_id(),
 		pid=proc.pid,
 		name=name,
-		cmd=cmd,
+		cmd=command,
 		cwd=process_cwd,
 		restart=restart,
+		user=resolved_username,
 		started_at=datetime.now().isoformat(),
 		stdout_log=str(stdout_path),
 		stderr_log=str(stderr_path),
@@ -236,6 +356,7 @@ def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
 	cmd = info.cmd
 	name = info.name
 	restart = info.restart
+	user = info.user
 	env = info.env
 	cwd = info.cwd
 
@@ -248,6 +369,7 @@ def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
 		cmd,
 		name=name,
 		restart=restart,
+		user=user,
 		env=env,
 		env_file=info.env_file,
 		cwd=cwd,
@@ -300,6 +422,7 @@ def check_restart_needed(state: State) -> list[ProcessInfo]:
 					info.cmd,
 					name=info.name,
 					restart=True,
+					user=info.user,
 					env=info.env,
 					env_file=info.env_file,
 					cwd=info.cwd,
@@ -351,6 +474,7 @@ def batch_start_processes(
 				info.cmd,
 				name=info.name,
 				restart=info.restart,
+				user=info.user,
 				env=merged_env if merged_env else None,
 				env_file=info.env_file,
 				cwd=info.cwd,

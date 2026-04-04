@@ -1,5 +1,7 @@
 """Tests for CLI main commands"""
 
+import os
+
 import pytest
 from typer.testing import CliRunner
 
@@ -37,6 +39,26 @@ class TestMainCommands:
 		result = runner.invoke(app, ["run", "echo", "test", "--name", "restart_test", "--restart"])
 		assert result.exit_code == 0
 		assert "Started" in result.stdout
+
+	@pytest.mark.skipif(not hasattr(os, "geteuid"), reason="POSIX-only user switching")
+	def test_run_command_with_user(self, state: State):
+		result = runner.invoke(app, ["run", "sleep", "5", "--name", "user_cli_test", "--user", str(os.geteuid())])
+		assert result.exit_code == 0
+		reloaded_state = State()
+		info = reloaded_state.find_process_by_name("user_cli_test")
+		assert info is not None
+		assert info.user is not None
+
+	@pytest.mark.skipif(os.name == "nt", reason="POSIX-only user switching")
+	def test_run_command_rejects_unknown_user(self, state: State):
+		result = runner.invoke(app, ["run", "sleep", "5", "--name", "unknown_user", "--user", "__missing_user__"])
+		assert result.exit_code != 0
+		assert "not found" in result.stdout.lower()
+
+	def test_run_command_rejects_empty_command(self, state: State):
+		result = runner.invoke(app, ["run", "   ", "--name", "empty_cli_cmd"])
+		assert result.exit_code != 0
+		assert "cannot be empty" in result.stdout.lower()
 
 	def test_run_command_with_cwd(self, state: State, tmp_path):
 		"""Test run command with cwd option"""
@@ -145,6 +167,8 @@ class TestMainCommands:
 		assert result.exit_code == 0
 		# Either shows no processes or an empty table
 		assert "No processes" in result.stdout or "ID" in result.stdout
+		if "ID" in result.stdout:
+			assert "USER" in result.stdout
 
 	def test_list_command_with_processes(self, state: State):
 		"""Test list command with processes"""
@@ -205,6 +229,7 @@ class TestMainCommands:
 		result = runner.invoke(app, ["status", str(info.id)])
 		assert result.exit_code == 0
 		assert "statustest" in result.stdout
+		assert "User:" in result.stdout
 
 	def test_status_command_by_name(self, state: State):
 		"""Test getting status by name"""

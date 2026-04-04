@@ -85,6 +85,24 @@ class TestStartProcess:
 		proc.terminate()
 		proc.wait()
 
+	def test_start_process_rejects_empty_command(self, state, temp_state_dir: Path):
+		with pytest.raises(ValueError, match="Command cannot be empty"):
+			start_process(state, "   ", name="empty_command")
+
+	@pytest.mark.skipif(os.name == "nt", reason="POSIX-only user switching")
+	def test_start_process_rejects_unknown_user(self, state, temp_state_dir: Path):
+		with pytest.raises(ValueError, match="not found"):
+			start_process(state, "sleep 5", name="missing_user", user="__sentinel_missing_user__")
+
+	@pytest.mark.skipif(not hasattr(os, "geteuid"), reason="POSIX-only user switching")
+	def test_start_process_with_user(self, state, temp_state_dir: Path):
+		info = start_process(state, "sleep 5", name="user_test", user=str(os.geteuid()))
+		assert info.user is not None
+		assert psutil.pid_exists(info.pid)
+		proc = psutil.Process(info.pid)
+		proc.terminate()
+		proc.wait()
+
 	def test_start_process_startup_timeout_exits_immediately(self, state, temp_state_dir: Path):
 		with pytest.raises(ValueError, match="exited during startup"):
 			start_process(state, "false", name="failfast", startup_timeout_seconds=2.0)
@@ -276,6 +294,15 @@ class TestRestartProcess:
 		read_ionice = getattr(restarted_proc, "ionice", None)
 		if read_ionice is not None and hasattr(psutil, "IOPRIO_CLASS_IDLE"):
 			assert read_ionice().ioclass == psutil.IOPRIO_CLASS_IDLE
+		proc = psutil.Process(restarted.pid)
+		proc.terminate()
+		proc.wait()
+
+	@pytest.mark.skipif(not hasattr(os, "geteuid"), reason="POSIX-only user switching")
+	def test_restart_preserves_user(self, state, temp_state_dir: Path):
+		original = start_process(state, "sleep 60", name="user_restart", user=str(os.geteuid()))
+		restarted = restart_process(state, original.id)
+		assert restarted.user == original.user
 		proc = psutil.Process(restarted.pid)
 		proc.terminate()
 		proc.wait()

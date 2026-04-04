@@ -170,3 +170,13 @@ class TestGroupCommands:
 		result = runner.invoke(app, ["group", "delete", "testgroup", "--with-processes"])
 		assert result.exit_code == 0
 		assert "Deleted" in result.stdout
+
+	def test_group_delete_with_stop_alias(self, state: State):
+		"""Test deleting group with --stop alias"""
+		state.create_group("testgroup")
+		info1 = start_process(state, "sleep 10", name="proc1")
+		state.add_process_to_group("testgroup", info1.id)
+
+		result = runner.invoke(app, ["group", "delete", "testgroup", "--stop"])
+		assert result.exit_code == 0
+		assert "Deleted" in result.stdout

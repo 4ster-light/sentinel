@@ -22,6 +22,17 @@ class TestPortCommands:
 		# Port may not be available, so we just check the function runs
 		assert "Allocated" in result.stdout or "Failed" in result.stdout
 
+	def test_port_allocate_specific_with_flag(self):
+		"""Test allocating a specific port with --port"""
+		result = runner.invoke(app, ["port", "allocate", "--port", "19998"])
+		assert "Allocated" in result.stdout or "Failed" in result.stdout
+
+	def test_port_allocate_rejects_duplicate_port_inputs(self):
+		"""Test that positional port and --port cannot be used together"""
+		result = runner.invoke(app, ["port", "allocate", "19997", "--port", "19996"])
+		assert result.exit_code != 0
+		assert "either positional port or --port" in result.stdout
+
 	def test_port_allocate_with_name(self):
 		"""Test allocating a port with name"""
 		result = runner.invoke(app, ["port", "allocate", "--name", "myport"])

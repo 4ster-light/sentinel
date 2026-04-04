@@ -27,9 +27,9 @@ features for developers and DevOps.
   - [x] Process Timeouts: Set timeouts for process startup
   - [x] Process Priority: Set nice/ionice values
 
-- [ ] **v0.1.5**
-  - [ ] Process User: Run processes as specific users
-  - [ ] General Bug Fixes and Documentation: Address issues and improve docs
+- [x] ~~**v0.1.5**~~ _**COMPLETED**_
+  - [x] Process User: Run processes as specific users
+  - [x] General Bug Fixes and Documentation: Address issues and improve docs
 
 ---
 
