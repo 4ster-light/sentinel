@@ -5,8 +5,8 @@ import time
 
 from typer.testing import CliRunner
 
-from sentinel.cli import app
-from sentinel.cli.daemon import DAEMON_PID_FILE, _get_daemon_pid, is_daemon_running
+from sentinel_cli import app
+import sentinel_cli.daemon as daemon
 
 runner = CliRunner()
 
@@ -14,45 +14,45 @@ runner = CliRunner()
 class TestDaemonCommands:
 	def test_daemon_status_not_running(self) -> None:
 		"""Test daemon status when not running"""
-		DAEMON_PID_FILE.unlink(missing_ok=True)
+		daemon.DAEMON_PID_FILE.unlink(missing_ok=True)
 		result = runner.invoke(app, ["daemon", "status"])
 		assert result.exit_code == 0
 		assert "not running" in result.stdout
 
 	def test_daemon_stop_not_running(self) -> None:
 		"""Test daemon stop when not running"""
-		DAEMON_PID_FILE.unlink(missing_ok=True)
+		daemon.DAEMON_PID_FILE.unlink(missing_ok=True)
 		result = runner.invoke(app, ["daemon", "stop"])
 		assert result.exit_code == 0
 		assert "not running" in result.stdout
 
 	def test_get_daemon_pid_no_file(self) -> None:
 		"""Test _get_daemon_pid when pid file doesn't exist"""
-		DAEMON_PID_FILE.unlink(missing_ok=True)
-		assert _get_daemon_pid() is None
+		daemon.DAEMON_PID_FILE.unlink(missing_ok=True)
+		assert daemon._get_daemon_pid() is None
 
 	def test_get_daemon_pid_invalid_content(self) -> None:
 		"""Test _get_daemon_pid when pid file has invalid content"""
-		DAEMON_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
-		DAEMON_PID_FILE.write_text("not_a_number")
-		assert _get_daemon_pid() is None
-		assert not DAEMON_PID_FILE.exists()
+		daemon.DAEMON_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+		daemon.DAEMON_PID_FILE.write_text("not_a_number")
+		assert daemon._get_daemon_pid() is None
+		assert not daemon.DAEMON_PID_FILE.exists()
 
 	def test_get_daemon_pid_dead_process(self) -> None:
 		"""Test _get_daemon_pid when pid file refers to dead process"""
-		DAEMON_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
-		DAEMON_PID_FILE.write_text("999999")
-		assert _get_daemon_pid() is None
-		assert not DAEMON_PID_FILE.exists()
+		daemon.DAEMON_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+		daemon.DAEMON_PID_FILE.write_text("999999")
+		assert daemon._get_daemon_pid() is None
+		assert not daemon.DAEMON_PID_FILE.exists()
 
 	def test_is_daemon_running_not_running(self) -> None:
 		"""Test is_daemon_running when daemon is not running"""
-		DAEMON_PID_FILE.unlink(missing_ok=True)
-		assert is_daemon_running() is False
+		daemon.DAEMON_PID_FILE.unlink(missing_ok=True)
+		assert daemon.is_daemon_running() is False
 
 	def test_daemon_start_and_stop(self) -> None:
 		"""Test daemon start and stop lifecycle"""
-		DAEMON_PID_FILE.unlink(missing_ok=True)
+		daemon.DAEMON_PID_FILE.unlink(missing_ok=True)
 
 		result = runner.invoke(app, ["daemon", "start"])
 		assert result.exit_code == 0
@@ -60,8 +60,8 @@ class TestDaemonCommands:
 
 		time.sleep(1.0)
 
-		if DAEMON_PID_FILE.exists():
-			pid = int(DAEMON_PID_FILE.read_text().strip())
+		if daemon.DAEMON_PID_FILE.exists():
+			pid = int(daemon.DAEMON_PID_FILE.read_text().strip())
 			assert pid > 0
 
 			result = runner.invoke(app, ["daemon", "status"])

@@ -6,7 +6,7 @@ from unittest.mock import patch
 import psutil
 import pytest
 
-from sentinel.process import (
+from sentinel_core.process import (
 	check_restart_needed,
 	cleanup_dead_processes,
 	get_process_status,
@@ -14,7 +14,7 @@ from sentinel.process import (
 	start_process,
 	stop_process,
 )
-from sentinel.state import HealthCheckConfig, ProcessInfo
+from sentinel_core.state import HealthCheckConfig, ProcessInfo
 
 
 class TestStartProcess:
@@ -415,7 +415,7 @@ class TestCheckRestartNeeded:
 		state.add_process(dead_info)
 
 		# Mock start_process to return a new process with a different PID
-		with patch("sentinel.process.start_process") as mock_start:
+		with patch("sentinel_core.process.start_process") as mock_start:
 			new_info = ProcessInfo(
 				id=2,
 				pid=88888,
@@ -430,7 +430,7 @@ class TestCheckRestartNeeded:
 			mock_start.return_value = new_info
 
 			# Mock psutil to say the dead process doesn't exist
-			with patch("sentinel.process.psutil.pid_exists") as mock_pid_exists:
+			with patch("sentinel_core.process.psutil.pid_exists") as mock_pid_exists:
 				mock_pid_exists.return_value = False
 
 				restarted = check_restart_needed(state)

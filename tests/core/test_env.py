@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.env import (
+from sentinel_core.env import (
 	build_process_environment,
 	find_global_env_files,
 	load_env_file,

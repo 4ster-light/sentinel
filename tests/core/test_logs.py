@@ -1,4 +1,4 @@
-from sentinel.logs import clear_logs, rotate_log_file, rotate_process_logs, tail_file
+from sentinel_core.logs import clear_logs, rotate_log_file, rotate_process_logs, tail_file
 
 from pathlib import Path
 
@@ -95,7 +95,7 @@ class TestClearLogs:
 
 class TestShowLogs:
 	def test_show_logs_both_streams(self, temp_logs_dir: Path, capsys):
-		from sentinel.logs import show_logs
+		from sentinel_core.logs import show_logs
 
 		stdout_log = temp_logs_dir / "test.stdout.log"
 		stderr_log = temp_logs_dir / "test.stderr.log"
@@ -116,7 +116,7 @@ class TestShowLogs:
 		assert "stderr line 2" in output
 
 	def test_show_logs_stdout_only(self, temp_logs_dir: Path, capsys):
-		from sentinel.logs import show_logs
+		from sentinel_core.logs import show_logs
 
 		stdout_log = temp_logs_dir / "test.stdout.log"
 		stderr_log = temp_logs_dir / "test.stderr.log"
@@ -133,7 +133,7 @@ class TestShowLogs:
 		assert "stderr line 1" not in output
 
 	def test_show_logs_stderr_only(self, temp_logs_dir, capsys):
-		from sentinel.logs import show_logs
+		from sentinel_core.logs import show_logs
 
 		stdout_log = temp_logs_dir / "test.stdout.log"
 		stderr_log = temp_logs_dir / "test.stderr.log"
@@ -150,7 +150,7 @@ class TestShowLogs:
 		assert "stderr line 1" in output
 
 	def test_show_logs_nonexistent(self, temp_logs_dir, capsys):
-		from sentinel.logs import show_logs
+		from sentinel_core.logs import show_logs
 
 		stdout_log = temp_logs_dir / "nonexistent.stdout.log"
 		stderr_log = temp_logs_dir / "nonexistent.stderr.log"

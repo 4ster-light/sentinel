@@ -8,8 +8,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from ..logs import clear_logs, show_logs
-from ..process import (
+from sentinel_core.logs import clear_logs, show_logs
+from sentinel_core.process import (
 	batch_restart_processes,
 	batch_start_processes,
 	batch_stop_processes,
@@ -18,8 +18,8 @@ from ..process import (
 	start_process,
 	stop_process,
 )
-from ..restart_monitor import check_and_restart_processes
-from ..state import HealthCheckConfig, ProcessInfo, State
+from sentinel_core.restart_monitor import check_and_restart_processes
+from sentinel_core.state import HealthCheckConfig, ProcessInfo, State
 from .daemon import is_daemon_running
 
 console = Console()

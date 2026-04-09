@@ -1,13 +1,13 @@
 """Tests for process batch operations and environment merging"""
 
-from sentinel.process import (
+from sentinel_core.process import (
 	batch_restart_processes,
 	batch_start_processes,
 	batch_stop_processes,
 	merge_process_env,
 	start_process,
 )
-from sentinel.state import State
+from sentinel_core.state import State
 
 
 class TestMergeProcessEnv:

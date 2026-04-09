@@ -2,7 +2,7 @@
 
 from typer.testing import CliRunner
 
-from sentinel.cli import app
+from sentinel_cli import app
 
 runner = CliRunner()
 

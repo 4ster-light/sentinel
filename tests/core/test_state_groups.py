@@ -1,7 +1,7 @@
 """Tests for process group management"""
 
-from sentinel.process import start_process
-from sentinel.state import GroupInfo, State
+from sentinel_core.process import start_process
+from sentinel_core.state import GroupInfo, State
 
 
 class TestGroupInfo:

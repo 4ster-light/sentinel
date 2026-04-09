@@ -2,9 +2,9 @@
 
 from typer.testing import CliRunner
 
-from sentinel.cli import app
-from sentinel.process import start_process
-from sentinel.state import State
+from sentinel_cli import app
+from sentinel_core.process import start_process
+from sentinel_core.state import State
 
 runner = CliRunner()
 

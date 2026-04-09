@@ -4,12 +4,15 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import typer
 from rich.console import Console
 
-from ..state import STATE_DIR
+from sentinel_core.restart_monitor import RestartMonitor
+from sentinel_core.state import ProcessInfo
+from sentinel_core.state import STATE_DIR
 
 console = Console()
 daemon_app = typer.Typer(name="daemon", help="Manage the restart monitor daemon", no_args_is_help=True)
@@ -33,11 +36,6 @@ def _get_daemon_pid() -> int | None:
 
 def _daemon_main_loop() -> None:
 	"""Main loop for the daemon process (runs in background)."""
-	import signal
-	import time
-
-	from ..restart_monitor import RestartMonitor
-	from ..state import ProcessInfo
 
 	should_exit = False
 
@@ -75,7 +73,7 @@ def start() -> None:
 	STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 	proc = subprocess.Popen(
-		[sys.executable, "-m", "sentinel.cli.daemon", "_run"],
+		[sys.executable, "-m", "sentinel_cli.daemon", "_run"],
 		start_new_session=True,
 		stdin=subprocess.DEVNULL,
 		stdout=subprocess.DEVNULL,

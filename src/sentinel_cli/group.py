@@ -6,8 +6,10 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from ..process import batch_restart_processes, batch_start_processes, batch_stop_processes
-from ..state import State
+from sentinel_core.process import batch_restart_processes
+from sentinel_core.process import batch_start_processes
+from sentinel_core.process import batch_stop_processes
+from sentinel_core.state import State
 
 console = Console()
 group_app = typer.Typer(

@@ -5,10 +5,10 @@ import os
 import pytest
 from typer.testing import CliRunner
 
-from sentinel.cli import app
-from sentinel.cli.main import _parse_ionice_option
-from sentinel.process import start_process
-from sentinel.state import State
+from sentinel_cli import app
+from sentinel_cli.main import _parse_ionice_option
+from sentinel_core.process import start_process
+from sentinel_core.state import State
 
 runner = CliRunner()
 

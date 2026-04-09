@@ -7,7 +7,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from ..state import State
+from sentinel_core.state import State
 
 console = Console()
 port_app = typer.Typer(

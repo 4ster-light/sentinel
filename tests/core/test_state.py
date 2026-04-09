@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from sentinel.state import HealthCheckConfig, PortInfo, ProcessInfo, State, get_log_paths
+from sentinel_core.state import HealthCheckConfig, PortInfo, ProcessInfo, State, get_log_paths
 
 
 class TestProcessInfo:

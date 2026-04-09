@@ -6,9 +6,9 @@ from unittest.mock import Mock
 
 import psutil
 
-from sentinel.process import start_process, stop_process
-from sentinel.restart_monitor import RestartMonitor
-from sentinel.state import HealthCheckConfig, State
+from sentinel_core.process import start_process, stop_process
+from sentinel_core.restart_monitor import RestartMonitor
+from sentinel_core.state import HealthCheckConfig, State
 
 
 class TestRestartMonitor:

@@ -2,8 +2,8 @@ import socket
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from sentinel.health import run_health_check, should_run_health_check
-from sentinel.state import HealthCheckConfig, ProcessInfo
+from sentinel_core.health import run_health_check, should_run_health_check
+from sentinel_core.state import HealthCheckConfig, ProcessInfo
 
 
 class _HealthyHandler(BaseHTTPRequestHandler):

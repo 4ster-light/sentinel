@@ -4,7 +4,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from sentinel.state import State
+from sentinel_core.state import State
 
 
 @pytest.fixture
@@ -18,9 +18,11 @@ def temp_state_dir(monkeypatch: pytest.MonkeyPatch):
 		logs_dir.mkdir(parents=True, exist_ok=True)
 
 		# Patch the state module constants
-		monkeypatch.setattr("sentinel.state.STATE_DIR", state_dir)
-		monkeypatch.setattr("sentinel.state.STATE_FILE", state_dir / "state.json")
-		monkeypatch.setattr("sentinel.state.LOGS_DIR", logs_dir)
+		monkeypatch.setattr("sentinel_core.state.STATE_DIR", state_dir)
+		monkeypatch.setattr("sentinel_core.state.STATE_FILE", state_dir / "state.json")
+		monkeypatch.setattr("sentinel_core.state.LOGS_DIR", logs_dir)
+		monkeypatch.setattr("sentinel_cli.daemon.STATE_DIR", state_dir)
+		monkeypatch.setattr("sentinel_cli.daemon.DAEMON_PID_FILE", state_dir / "daemon.pid")
 
 		yield temp_path
 
