@@ -5,16 +5,31 @@ development workflow and tools we use.
 
 ## Development Setup
 
-We use [uv](https://astral.sh/uv) for fast and reliable Python dependency
-management. Install it first:
+**Nix** is the recommended way to develop _Sentinel_ because it provides a more
+reproducible environment.
 
-Then set up the development environment:
+Set up the development environment with:
 
 ```bash
-uv sync
+nix develop
 ```
 
-This installs all project dependencies, including development tools.
+From there, use the helper commands in `justfile` (to see all available commands
+run `just help`):
+
+```bash
+just test
+just lint
+just fmt
+just check
+```
+
+If you prefer not to use Nix, `uv` is still a valid development setup (but isn't
+a reproducible way to document bugs since the system isn't encapsulated):
+
+```bash
+just sync
+```
 
 ## Tools & Workflow
 
@@ -23,7 +38,7 @@ This installs all project dependencies, including development tools.
 Run the test suite:
 
 ```bash
-uv run pytest
+just test
 ```
 
 Tests are configured in `pyproject.toml` with a minimum coverage threshold of
@@ -34,7 +49,7 @@ Tests are configured in `pyproject.toml` with a minimum coverage threshold of
 After running tests, view the coverage report in your browser:
 
 ```bash
-python -m http.server 8000 --directory htmlcov
+just serve
 ```
 
 Then open <http://localhost:8000> in your browser to view the HTML coverage
@@ -47,25 +62,19 @@ We use three main tools for code quality. Run them together or individually:
 **Format all code:**
 
 ```bash
-uv run ruff format
+just fmt
 ```
 
-**Lint and fix issues:**
+**Lint and type-check:**
 
 ```bash
-uv run ruff check --fix
-```
-
-**Type-check the codebase:**
-
-```bash
-uv run ty check
+just lint
 ```
 
 **Run all checks together:**
 
 ```bash
-uv run ruff format && uv run ruff check --fix && uv run ty check
+just fmt lint
 ```
 
 ## Before Submitting
@@ -73,11 +82,7 @@ uv run ruff format && uv run ruff check --fix && uv run ty check
 Make sure your changes pass all checks and tests:
 
 ```bash
-# Run tests
-uv run pytest
-
-# Format, lint, and type check
-uv run ruff format && uv run ruff check --fix && uv run ty check
+just fmt lint test
 ```
 
 > [!IMPORTANT]

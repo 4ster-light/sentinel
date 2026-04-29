@@ -17,3 +17,6 @@ nosetests.xml
 coverage.xml
 *.coverage
 htmlcov/
+
+# Nix
+result

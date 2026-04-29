@@ -16,16 +16,48 @@ A lightweight process supervisor CLI for managing background processes.
 
 ## Installation
 
-Using [uv](https://docs.astral.sh/uv) (recommended):
+### Nix (recommended)
+
+To run an interactive shell with Sentinel available without installing:
 
 ```bash
-uv tool install git+https://github.com/4ster-light/sentinel
+nix shell github:4ster-light/sentinel -c bash
 ```
 
-Using pip:
+Or if you want to test a command directly:
 
 ```bash
-pip install git+https://github.com/4ster-light/sentinel
+nix run github:4ster-light/sentinel -- <ARGS>
+```
+
+To install it into your Nix profile:
+
+```bash
+nix profile install github:4ster-light/sentinel
+```
+
+If you want a specific release, pin the tag explicitly:
+
+```bash
+nix <COMMAND> github:4ster-light/sentinel/<VERSION> # Only 0.2.0 onwards
+```
+
+If you are on NixOS and want to use Sentinel system-wide, add it to your system
+or home configuration as a flake input and install the package output from this
+repository.
+
+### Python [(Uv)](https://docs.astral.sh/uv)
+
+If you prefer not to use Nix, you can still install Sentinel with `uv`:
+
+```bash
+uv tool install git+https://github.com/4ster-light/sentinel@<VERSION>
+```
+
+Alternatively using pip:
+
+```bash
+pip install git+https://github.com/4ster-light/sentinel@<VERSION>
 ```
 
 ## Commands Overview
