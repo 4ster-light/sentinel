@@ -33,7 +33,7 @@ nix run github:4ster-light/sentinel -- <ARGS>
 To install it into your Nix profile:
 
 ```bash
-nix profile install github:4ster-light/sentinel
+nix profile add github:4ster-light/sentinel
 ```
 
 If you want a specific release, pin the tag explicitly:
@@ -42,22 +42,20 @@ If you want a specific release, pin the tag explicitly:
 nix <COMMAND> github:4ster-light/sentinel/<VERSION> # Only 0.2.0 onwards
 ```
 
-If you are on NixOS and want to use Sentinel system-wide, add it to your system
-or home configuration as a flake input and install the package output from this
-repository.
+If you are on NixOS add the flake to your system configuration.
 
 ### Python [(Uv)](https://docs.astral.sh/uv)
 
 If you prefer not to use Nix, you can still install Sentinel with `uv`:
 
 ```bash
-uv tool install git+https://github.com/4ster-light/sentinel@<VERSION>
+uv tool install git+https://github.com/4ster-light/sentinel@<VERSION> # if not specified it fetches latest
 ```
 
 Alternatively using pip:
 
 ```bash
-pip install git+https://github.com/4ster-light/sentinel@<VERSION>
+pip install git+https://github.com/4ster-light/sentinel@<VERSION> # if not specified it fetches latest
 ```
 
 ## Commands Overview
