@@ -6,15 +6,21 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = import nixpkgs { inherit system; };
         lib = pkgs.lib;
         python = pkgs.python314;
         py = python.pkgs;
 
-        sentinel = py.buildPythonApplication rec {
+        sentinel = py.buildPythonApplication {
           pname = "sentinel";
           version = "0.1.5";
           format = "pyproject";
@@ -45,7 +51,8 @@
           };
         };
 
-      in {
+      in
+      {
         packages = {
           default = sentinel;
           sentinel = sentinel;
@@ -58,11 +65,14 @@
         checks = {
           package = sentinel;
 
-          smoke = pkgs.runCommand "sentinel-smoke-test" {
-            buildInputs = [ sentinel ];
-          } ''
-            sentinel --help > "$out"
-          '';
+          smoke =
+            pkgs.runCommand "sentinel-smoke-test"
+              {
+                buildInputs = [ sentinel ];
+              }
+              ''
+                sentinel --help > "$out"
+              '';
         };
 
         devShells.default = pkgs.mkShell {
@@ -91,5 +101,6 @@
             echo ""
           '';
         };
-      });
+      }
+    );
 }
