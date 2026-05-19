@@ -1,7 +1,7 @@
 [project]
 name = "sentinel"
 version = "0.1.5"
-description = "A simple process supervisor CLI"
+description = "A lightweight process orchestrator CLI"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.14"

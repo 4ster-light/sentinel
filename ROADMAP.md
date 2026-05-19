@@ -1,6 +1,6 @@
 # Sentinel Roadmap
 
-**Goal:** A lightweight, language-agnostic process supervisor with advanced
+**Goal:** A lightweight, language-agnostic process orchestrator with advanced
 features for developers and DevOps.
 
 ---

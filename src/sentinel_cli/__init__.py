@@ -9,7 +9,7 @@ from .port import port_app
 
 app = typer.Typer(
 	name="sentinel",
-	help="A simple process supervisor CLI",
+	help="A lightweight process orchestrator CLI",
 	no_args_is_help=True,
 )
 

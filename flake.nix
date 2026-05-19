@@ -1,5 +1,5 @@
 {
-  description = "sentinel – process supervisor cli";
+  description = "Sentinel - lightweight process orchestrator cli";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -44,7 +44,7 @@
           doCheck = false;
 
           meta = with lib; {
-            description = "A simple process supervisor CLI";
+            description = "A lightweight process orchestrator CLI";
             homepage = "https://github.com/4ster-light/sentinel";
             license = licenses.mit;
             mainProgram = "sentinel";

@@ -1,6 +1,16 @@
+<div align="center">
+
 # Sentinel
 
-A lightweight process supervisor CLI for managing background processes.
+[![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-EA4AAA?logo=githubsponsors)](https://github.com/sponsors/4ster-light)
+
+**A lightweight process orchestrator CLI**
+
+</div>
+
+<br />
 
 ## Features
 
