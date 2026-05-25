@@ -136,6 +136,10 @@ def register_main_commands(app: typer.Typer) -> None:
 				help="Wait up to this many seconds; fail if the process exits before then",
 			),
 		] = None,
+		instances: Annotated[
+			int,
+			typer.Option("--instances", "-c", help="Number of instances to start"),
+		] = 1,
 		nice: Annotated[
 			int | None,
 			typer.Option("--nice", help="Nice value (-20 to 19) for the process"),
@@ -155,6 +159,10 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		if startup_timeout is not None and startup_timeout <= 0:
 			console.print("[red]✗[/] --startup-timeout must be greater than 0")
+			raise typer.Exit(1)
+
+		if instances < 1:
+			console.print("[red]✗[/] --instances must be at least 1")
 			raise typer.Exit(1)
 
 		if nice is not None and not -20 <= nice <= 19:
@@ -200,38 +208,45 @@ def register_main_commands(app: typer.Typer) -> None:
 				failure_threshold=health_failures,
 			)
 
+		base_name = name or command[0].split("/")[-1]
+		started_infos: list[ProcessInfo] = []
+		cluster_mode = instances > 1
+
 		try:
-			priority_notes: list[str] = []
-			info = start_process(
-				state,
-				cmd,
-				name=name,
-				restart=restart,
-				user=user,
-				env_file=env_file,
-				cwd=cwd,
-				health_check=health_check,
-				startup_timeout_seconds=startup_timeout,
-				nice=nice,
-				ionice_ioclass=ionice_ioclass,
-				ionice_value=ionice_value,
-				priority_warnings=priority_notes,
-			)
-			for note in priority_notes:
-				console.print(f"[yellow]⚠[/] {note}")
-			if priority_notes:
-				console.print()
-			if group:
-				if not state.add_process_to_group(group, info.id):
-					console.print(
-						f"[yellow]⚠[/] Group '{group}' does not exist. Process started but not added to group."
-					)
+			for index in range(1, instances + 1):
+				instance_name = f"{base_name}-{index}" if cluster_mode else name
+				priority_notes: list[str] = []
+				info = start_process(
+					state,
+					cmd,
+					name=instance_name,
+					restart=restart,
+					user=user,
+					env_file=env_file,
+					cwd=cwd,
+					health_check=health_check,
+					startup_timeout_seconds=startup_timeout,
+					nice=nice,
+					ionice_ioclass=ionice_ioclass,
+					ionice_value=ionice_value,
+					priority_warnings=priority_notes,
+				)
+				started_infos.append(info)
+				for note in priority_notes:
+					console.print(f"[yellow]⚠[/] {note}")
+				if priority_notes:
+					console.print()
+				if group:
+					if not state.add_process_to_group(group, info.id):
+						console.print(
+							f"[yellow]⚠[/] Group '{group}' does not exist. Process started but not added to group."
+						)
+					else:
+						console.print(
+							f"[green]✓[/] Started [bold]{info.name}[/] (id: {info.id}, pid: {info.pid}) in group [bold]{group}[/]"
+						)
 				else:
-					console.print(
-						f"[green]✓[/] Started [bold]{info.name}[/] (id: {info.id}, pid: {info.pid}) in group [bold]{group}[/]"
-					)
-			else:
-				console.print(f"[green]✓[/] Started [bold]{info.name}[/] (id: {info.id}, pid: {info.pid})")
+					console.print(f"[green]✓[/] Started [bold]{info.name}[/] (id: {info.id}, pid: {info.pid})")
 
 			if restart and not is_daemon_running():
 				console.print(
@@ -246,6 +261,9 @@ def register_main_commands(app: typer.Typer) -> None:
 					"Checks will only happen when you run other sentinel commands."
 				)
 				console.print("[dim]  Run 'sentinel daemon start' for continuous monitoring.[/]")
+
+			if cluster_mode:
+				console.print(f"[green]✓[/] Started {len(started_infos)} instance(s) of [bold]{base_name}[/]")
 		except ValueError as e:
 			console.print(f"[red]✗[/] {e}")
 			raise typer.Exit(1)
