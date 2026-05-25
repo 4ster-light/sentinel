@@ -40,6 +40,23 @@ class TestMainCommands:
 		assert result.exit_code == 0
 		assert "Started" in result.stdout
 
+	def test_run_command_with_instances(self, state: State):
+		result = runner.invoke(
+			app,
+			["run", "echo", "test", "--name", "cluster", "--instances", "2"],
+		)
+		assert result.exit_code == 0
+		assert "cluster-1" in result.stdout
+		assert "cluster-2" in result.stdout
+		reloaded_state = State()
+		assert reloaded_state.find_process_by_name("cluster-1") is not None
+		assert reloaded_state.find_process_by_name("cluster-2") is not None
+
+	def test_run_command_rejects_invalid_instances(self, state: State):
+		result = runner.invoke(app, ["run", "echo", "test", "--instances", "0"])
+		assert result.exit_code != 0
+		assert "--instances" in result.stdout
+
 	@pytest.mark.skipif(not hasattr(os, "geteuid"), reason="POSIX-only user switching")
 	def test_run_command_with_user(self, state: State):
 		result = runner.invoke(app, ["run", "sleep", "5", "--name", "user_cli_test", "--user", str(os.geteuid())])

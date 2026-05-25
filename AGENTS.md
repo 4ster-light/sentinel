@@ -9,8 +9,8 @@
 ## Common Commands
 
 ```bash
-nix develop
 nix run . -- --help
+just shell
 just test
 just lint
 just fmt
@@ -26,13 +26,16 @@ just build
 
 ## Verification
 
-- Pytest is configured in `pyproject.toml` with `--cov-fail-under=80` and HTML coverage output.
+- Pytest is configured in `pyproject.toml` with `--cov-fail-under=80` and HTML
+  coverage output.
 - Use focused pytest targets when possible: file, class, method, or `-k`.
-- Keep the usual order `fmt -> lint -> test` unless a task needs a different sequence.
+- Keep the usual order `fmt -> lint -> test` unless a task needs a different
+  sequence.
 
 ## Project Shape
 
-- Main code lives in `src/sentinel_core`, `src/sentinel_cli`, and `src/sentinel`.
+- Main code lives in `src/sentinel_core`, `src/sentinel_cli`, and
+  `src/sentinel`.
 - The CLI entry point is `sentinel_cli:app`.
 - Tests mirror source layout under `tests/`.
 

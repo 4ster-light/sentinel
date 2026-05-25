@@ -85,9 +85,10 @@ pip install git+https://github.com/4ster-light/sentinel@<VERSION> # if not speci
 | `sentinel daemon`     | Manage the restart monitor daemon |
 | `sentinel group`      | Manage process groups             |
 | `sentinel port`       | Manage port allocations           |
+| `sentinel startup`    | Generate startup scripts          |
 
 Run `sentinel run --help` to see process runtime options including `--user`,
-`--startup-timeout`, `--nice`, and `--ionice`.
+`--startup-timeout`, `--instances`, `--nice`, and `--ionice`.
 
 ## Process Management
 
@@ -101,6 +102,9 @@ sentinel run "python server.py"
 
 # Give the process a name for easier reference
 sentinel run "python server.py" --name myserver
+
+# Start multiple instances with derived names
+sentinel run "python server.py" --name web --instances 3
 
 # Enable auto-restart on crash or exit
 sentinel run "npm start" --name frontend --restart
@@ -128,6 +132,31 @@ Started myserver (id: 1, pid: 12345)
 Warning: Restart flag set but daemon is not running. Restarts will only happen
 when you run other sentinel commands.
   Run 'sentinel daemon start' for continuous monitoring.
+```
+
+### Startup Script Generation
+
+Generate a minimal systemd unit for a Sentinel-managed command:
+
+```bash
+sentinel startup systemd --name web --cwd /srv/web --restart python app.py
+```
+
+Output:
+
+```ini
+[Unit]
+Description=Sentinel process: web
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/web
+ExecStart=/usr/bin/env python app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 ### Listing Processes
