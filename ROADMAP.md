@@ -38,9 +38,9 @@ features for developers and DevOps.
 **Focus:** Add features for production use and integration with other tools.
 **Target:** Q2 2026
 
-- [ ] **v0.2.1**
-  - [ ] Basic Cluster Mode: Run multiple instances of the same process
-  - [ ] Basic Startup Scripts: Generate systemd scripts
+- [x] ~~**v0.2.1**~~ _**COMPLETED**_
+  - [x] Basic Cluster Mode: Run multiple instances of the same process
+  - [x] Basic Startup Scripts: Generate systemd scripts
 
 - [ ] **v0.2.2**
   - [ ] Basic Remote Management: Manage processes via SSH

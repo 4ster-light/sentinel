@@ -20,3 +20,6 @@ htmlcov/
 
 # Nix
 result
+
+# Agents
+.hermes
