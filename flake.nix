@@ -20,6 +20,8 @@
         python = pkgs.python314;
         py = python.pkgs;
 
+        appDescription = "A lightweight process orchestrator CLI";
+
         sentinel = py.buildPythonApplication {
           pname = "sentinel";
           version = "0.2.1+fix";
@@ -36,18 +38,37 @@
             py.typer
           ];
 
+          nativeCheckInputs = [
+            py.pytestCheckHook
+            py.pytest-cov
+          ];
+
           pythonImportsCheck = [
             "sentinel_core"
             "sentinel_cli"
           ];
 
-          doCheck = false;
+          doCheck = true;
+
+          preCheck = ''
+            export HOME=$(mktemp -d)
+            export TMPDIR=$(mktemp -d)
+          '';
 
           meta = with lib; {
-            description = "A lightweight process orchestrator CLI";
+            description = appDescription;
             homepage = "https://github.com/4ster-light/sentinel";
             license = licenses.mit;
             mainProgram = "sentinel";
+          };
+        };
+
+        containerImage = pkgs.dockerTools.buildLayeredImage {
+          name = "sentinel";
+          tag = "latest";
+          contents = [ sentinel ];
+          config = {
+            Entrypoint = [ "${sentinel}/bin/sentinel" ];
           };
         };
 
@@ -56,10 +77,13 @@
         packages = {
           default = sentinel;
           sentinel = sentinel;
+          container = containerImage;
         };
 
-        apps.default = flake-utils.lib.mkApp {
-          drv = sentinel;
+        apps.default = {
+          type = "app";
+          program = "${sentinel}/bin/sentinel";
+          meta.description = appDescription;
         };
 
         checks = {
@@ -71,7 +95,9 @@
                 buildInputs = [ sentinel ];
               }
               ''
-                sentinel --help > "$out"
+                mkdir -p "$out"
+                sentinel --help > "$out/help.txt"
+                sentinel run --help > "$out/run-help.txt"
               '';
         };
 
@@ -83,6 +109,8 @@
             pkgs.ty
             pkgs.just
             pkgs.git
+            py.pytest
+            py.pytest-cov
           ];
 
           UV_PROJECT_ENVIRONMENT = ".venv";

@@ -3,7 +3,7 @@ help:
     @echo "    shell      Enter the Nix dev shell (recommended)"
     @echo "    sync       Sync uv dependencies (non-Nix setup)"
     @echo "    build      Build the Nix package"
-    @echo "    check     Run flake checks"
+    @echo "    check      Run flake checks"
     @echo "    test       Run pytest"
     @echo "    lint       Run ruff check + ty check"
     @echo "    fmt        Format code with ruff"

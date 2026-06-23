@@ -1,0 +1,1 @@
+- Rewrite `.zed/tasks.json` to use `just` to keep one source of truth for commands.
