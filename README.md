@@ -26,46 +26,32 @@
 
 ## Installation
 
-### Nix (recommended)
+For more installation options, see the [installation guide in the docs](https://sentinel.4ster.deno.net/en/guide/installation).
 
-To run an interactive shell with Sentinel available without installing:
-
-```bash
-nix shell github:4ster-light/sentinel -c bash
-```
-
-Or if you want to test a command directly:
-
-```bash
-nix run github:4ster-light/sentinel -- <ARGS>
-```
-
-To install it into your Nix profile:
+### Nix
 
 ```bash
 nix profile add github:4ster-light/sentinel
-```
-
-If you want a specific release, pin the tag explicitly:
-
-```bash
-nix <COMMAND> github:4ster-light/sentinel/<VERSION> # Only 0.2.0 onwards
 ```
 
 If you are on NixOS add the flake to your system configuration.
 
 ### Python [(Uv)](https://docs.astral.sh/uv)
 
-If you prefer not to use Nix, you can still install Sentinel with `uv`:
-
 ```bash
-uv tool install git+https://github.com/4ster-light/sentinel@<VERSION> # if not specified it fetches latest
+uv tool install git+https://github.com/4ster-light/sentinel
 ```
 
 Alternatively using pip:
 
 ```bash
-pip install git+https://github.com/4ster-light/sentinel@<VERSION> # if not specified it fetches latest
+pip install git+https://github.com/4ster-light/sentinel
+```
+
+### Podman/Docker
+
+```bash
+docker pull ghcr.io/4ster-light/sentinel
 ```
 
 ## Commands Overview

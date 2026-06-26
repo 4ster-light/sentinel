@@ -5,8 +5,8 @@ development workflow and tools we use.
 
 ## Development Setup
 
-**Nix** is the recommended way to develop _Sentinel_ because it provides a more
-reproducible environment.
+**Nix** is the recommended way to develop _Sentinel_ because it provides a
+reproducible environment and is the main build tool of the project.
 
 Set up the development environment with:
 
@@ -15,21 +15,24 @@ nix develop
 ```
 
 From there, use the helper commands in `justfile` (to see all available commands
-run `just help`):
+run `just help`), some examples are:
 
 ```bash
-just test
-just lint
-just fmt
-just check
+just test  # pytest
+just lint  # ruff lint
+just fmt   # ruff format
+just check # nix flake check
 ```
 
-If you prefer not to use Nix, `uv` is still a valid development setup (but isn't
-a reproducible way to document bugs since the system isn't encapsulated):
-
-```bash
-just sync
-```
+> [!NOTE]
+> If you prefer not to use Nix, standalone `uv` is still a valid development
+> setup (but isn't a reproducible way to validate submits since the system isn't
+> encapsulated, therefore it will be treated as pending of validation), run the
+> following to set up a virtual environment and install dependencies:
+>
+> ```bash
+> uv sync
+> ```
 
 ## Tools & Workflow
 
@@ -57,6 +60,13 @@ report.
 
 ### Code Quality Checks
 
+This project follows a _TDD (Test-Driven Development)_ workflow. Tests are the
+source of truth for code correctness and expected behaviour. Therefore for a
+build to be considered valid, all tests must pass, and these must have a minimum
+coverage threshold of 80% (this is hardcoded in the pytest flags found in
+`pyproject.toml` so tests will fail otherwise, so will do builds since they
+execute a check phase as well).
+
 We use three main tools for code quality. Run them together or individually:
 
 **Format all code:**
@@ -71,10 +81,16 @@ just fmt
 just lint
 ```
 
+**Check tests and build:**
+
+```bash
+just check
+```
+
 **Run all checks together:**
 
 ```bash
-just fmt lint
+just fmt lint check
 ```
 
 ## Before Submitting
@@ -82,8 +98,12 @@ just fmt lint
 Make sure your changes pass all checks and tests:
 
 ```bash
-just fmt lint test
+just fmt lint check
 ```
+
+Any new features or bug fixes should be accompanied by tests. If you are adding
+a new feature, please include tests that cover the new functionality. All
+mentioned checks should pass before submitting.
 
 > [!IMPORTANT]
 > This project follows
@@ -92,11 +112,16 @@ just fmt lint test
 ## Project Structure
 
 ```text
-src/sentinel/       # Main package code
+src/                # Source code of the different packages
+  sentinel_core/    # Core library
+  sentinel_cli/     # CLI interface
 tests/              # Test files
 pyproject.toml      # Project configuration
+nix.flake           # Nix flake configuration
 ```
 
 ## Questions?
 
-Feel free to open an issue if you have any questions or need clarification!
+Feel free to open an issue if you have any questions or need clarification! Even
+if you are not sure if your contribution is appropriate, we welcome respectfull
+discussions and feedback.

@@ -2,27 +2,21 @@
 
 ## Workflow
 
-- Prefer `nix develop` for repo work.
-- For one-off commands, prefer `nix run . -- <ARGS>`.
-- `uv` is still supported, but only use it when Nix is not available.
+Nix flake is the main form of development and testing. Everything is
+reproducible and isolated this way, always prefer to work within the flake
+environment. Use `just` to run commands in this shell preferrably and only use
+custom ones when necessary.
 
-## Common Commands
+## Available Commands
+
+Refer to `justfile` for all available commands. Source of truth is `justfile`,
+`nix.flake` and `pyproject.toml`.
+
+In order to see all available commands, run:
 
 ```bash
-nix run . -- --help
-just shell
-just test
-just lint
-just fmt
-just check
-just build
+just help
 ```
-
-- `just test` runs pytest.
-- `just lint` runs `ruff check --fix` and `ty check`.
-- `just fmt` runs `ruff format`.
-- `just check` runs `nix flake check`.
-- `just serve` serves `htmlcov/` after tests generate coverage HTML.
 
 ## Verification
 
@@ -32,10 +26,13 @@ just build
 - Keep the usual order `fmt -> lint -> test` unless a task needs a different
   sequence.
 
+> [!IMPORTANT]
+> Any kind of submit that doesn't pass these checks in any way will be rejected.
+> Always run `just fmt lint check` before submitting a PR.
+
 ## Project Shape
 
-- Main code lives in `src/sentinel_core`, `src/sentinel_cli`, and
-  `src/sentinel`.
+- Main code lives in `src/sentinel_core` and `src/sentinel_cli`.
 - The CLI entry point is `sentinel_cli:app`.
 - Tests mirror source layout under `tests/`.
 
@@ -43,6 +40,7 @@ just build
 
 - Python 3.14+ only: use `str | None`, `list[str]`, and full type hints.
 - Ruff formatting is authoritative: tabs, double quotes, 120-character lines.
-- Avoid unnecessary docstrings and trailing comments.
-- Use relative imports inside the package.
+  Don't ever make formatting changes, just use ruff to fix them.
+- Avoid unnecessary docstrings and trailing comments, prefer self documenting
+  code and meaningfull concise explanation where needed.
 - Catch specific exceptions; do not use bare `except`.
