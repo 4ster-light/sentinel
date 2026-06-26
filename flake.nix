@@ -1,5 +1,5 @@
 {
-  description = "Sentinel - lightweight process orchestrator cli";
+  description = "Sentinel - Lightweight process orchestrator cli";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -57,7 +57,7 @@
 
           meta = with lib; {
             description = appDescription;
-            homepage = "https://github.com/4ster-light/sentinel";
+            homepage = "https://sentinel.4ster.deno.net";
             license = licenses.mit;
             mainProgram = "sentinel";
           };
@@ -125,7 +125,6 @@
             echo "Sentinel Nix dev shell — $(python --version)"
             echo ""
             echo "See all commands:  just help"
-            echo "Setup:             just sync"
             echo ""
           '';
         };

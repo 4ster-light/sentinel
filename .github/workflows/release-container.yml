@@ -1,0 +1,58 @@
+name: Release Container
+
+on:
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }} # → ghcr.io/4ster-light/sentinel
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Set up Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Build container image
+        run: |
+          nix build .#container --out-link ./container-image
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version tag
+        id: meta
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"   # strip leading 'v' if present
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Load and push image
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+
+          docker load < ./container-image
+
+          # Retag from the 'latest' tag Nix baked in
+          docker tag sentinel:latest "${IMAGE}:${VERSION}"
+          docker tag sentinel:latest "${IMAGE}:latest"
+
+          docker push "${IMAGE}:${VERSION}"
+          docker push "${IMAGE}:latest"
