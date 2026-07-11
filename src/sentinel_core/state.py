@@ -164,6 +164,14 @@ class PortInfo:
 		)
 
 
+@dataclass
+class ProcessStatus:
+	running: bool
+	status: str
+	cpu_percent: float
+	memory_mb: float
+
+
 class State:
 	def __init__(self) -> None:
 		STATE_DIR.mkdir(parents=True, exist_ok=True)

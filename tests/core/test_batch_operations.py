@@ -1,54 +1,48 @@
 """Tests for process batch operations and environment merging"""
 
+from sentinel_core.env import merge_environments
 from sentinel_core.process import (
 	batch_restart_processes,
 	batch_start_processes,
 	batch_stop_processes,
-	merge_process_env,
 	start_process,
 )
 from sentinel_core.state import State
 
 
-class TestMergeProcessEnv:
+class TestMergeEnvironments:
 	"""Tests for environment variable merging"""
 
 	def test_merge_none_none(self):
-		"""Merging None with None should return empty dict"""
-		result = merge_process_env(None, None)
+		result = merge_environments(None, None)
 		assert result == {}
 
 	def test_merge_group_env_none_process_env(self):
-		"""Merging group env with None process env should return group env"""
 		group_env = {"GROUP_VAR": "group_value"}
-		result = merge_process_env(group_env, None)
+		result = merge_environments(group_env, None)
 		assert result == {"GROUP_VAR": "group_value"}
 
 	def test_merge_none_process_env(self):
-		"""Merging None group env with process env should return process env"""
 		process_env = {"PROCESS_VAR": "process_value"}
-		result = merge_process_env(None, process_env)
+		result = merge_environments(None, process_env)
 		assert result == {"PROCESS_VAR": "process_value"}
 
 	def test_merge_both_no_overlap(self):
-		"""Merging non-overlapping env vars should combine them"""
 		group_env = {"GROUP_VAR": "group_value"}
 		process_env = {"PROCESS_VAR": "process_value"}
-		result = merge_process_env(group_env, process_env)
+		result = merge_environments(group_env, process_env)
 		assert result == {"GROUP_VAR": "group_value", "PROCESS_VAR": "process_value"}
 
 	def test_merge_overlap_process_takes_precedence(self):
-		"""When both have same key, process env should take precedence"""
 		group_env = {"SHARED_VAR": "group_value"}
 		process_env = {"SHARED_VAR": "process_value"}
-		result = merge_process_env(group_env, process_env)
+		result = merge_environments(group_env, process_env)
 		assert result == {"SHARED_VAR": "process_value"}
 
 	def test_merge_complex_overlap(self):
-		"""Complex case with multiple vars and overlaps"""
 		group_env = {"A": "group_a", "B": "group_b", "C": "group_c"}
 		process_env = {"B": "process_b", "C": "process_c", "D": "process_d"}
-		result = merge_process_env(group_env, process_env)
+		result = merge_environments(group_env, process_env)
 		assert result == {"A": "group_a", "B": "process_b", "C": "process_c", "D": "process_d"}
 
 

@@ -334,7 +334,7 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		for info in processes:
 			status = get_process_status(info)
-			status_str = "[green]running[/]" if status["running"] else "[red]stopped[/]"
+			status_str = "[green]running[/]" if status.running else "[red]stopped[/]"
 			restart_str = "[green]✓[/]" if info.restart else "[dim]-[/]"
 			user_str = info.user if info.user else "[dim]-[/]"
 			group_str = info.group if info.group else "[dim]-[/]"
@@ -344,8 +344,8 @@ def register_main_commands(app: typer.Typer) -> None:
 				info.name,
 				str(info.pid),
 				status_str,
-				f"{status['cpu_percent']:.1f}%",
-				_format_memory(status["memory_mb"]),
+				f"{status.cpu_percent:.1f}%",
+				_format_memory(status.memory_mb),
 				_format_uptime(info.started_at),
 				restart_str,
 				user_str,
@@ -381,9 +381,9 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		console.print(f"\n[bold]{info.name}[/] (id: {info.id})")
 		console.print(f"  PID:       {info.pid}")
-		console.print(f"  Status:    {'[green]running[/]' if proc_status['running'] else '[red]stopped[/]'}")
-		console.print(f"  CPU:       {proc_status['cpu_percent']:.1f}%")
-		console.print(f"  Memory:    {_format_memory(proc_status['memory_mb'])}")
+		console.print(f"  Status:    {'[green]running[/]' if proc_status.running else '[red]stopped[/]'}")
+		console.print(f"  CPU:       {proc_status.cpu_percent:.1f}%")
+		console.print(f"  Memory:    {_format_memory(proc_status.memory_mb)}")
 		console.print(f"  Uptime:    {_format_uptime(info.started_at)}")
 		console.print(f"  Restart:   {'yes' if info.restart else 'no'}")
 		console.print(f"  User:      {info.user if info.user else 'default'}")

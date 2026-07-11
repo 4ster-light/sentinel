@@ -1,16 +1,19 @@
 """Process management functions"""
 
+import logging
 import os
 import subprocess
 import time
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol, cast
 
 import psutil
 
-from .env import build_process_environment
+from .env import build_process_environment, merge_environments
 from .logs import rotate_process_logs
-from .state import HealthCheckConfig, ProcessInfo, State, get_log_paths
+from .state import HealthCheckConfig, ProcessInfo, ProcessStatus, State, get_log_paths
+
+logger = logging.getLogger(__name__)
 
 
 class _SpawnedChild(Protocol):
@@ -104,15 +107,16 @@ def _apply_process_priority(
 	if ionice_ioclass is None:
 		return warnings
 
+	resolved_value: int | None = None
 	if ionice_ioclass == "idle":
 		pass
 	elif ionice_ioclass == "best_effort":
-		value = ionice_value if ionice_value is not None else 4
-		if not 0 <= value <= 7:
+		resolved_value = ionice_value if ionice_value is not None else 4
+		if not 0 <= resolved_value <= 7:
 			raise ValueError("ionice best-effort priority must be between 0 and 7")
 	elif ionice_ioclass == "realtime":
-		value = ionice_value if ionice_value is not None else 0
-		if not 0 <= value <= 7:
+		resolved_value = ionice_value if ionice_value is not None else 0
+		if not 0 <= resolved_value <= 7:
 			raise ValueError("ionice realtime priority must be between 0 and 7")
 	else:
 		raise ValueError(f"unknown ionice class: {ionice_ioclass}")
@@ -130,11 +134,9 @@ def _apply_process_priority(
 		if ionice_ioclass == "idle":
 			ionice_fn(psutil.IOPRIO_CLASS_IDLE)
 		elif ionice_ioclass == "best_effort":
-			value = ionice_value if ionice_value is not None else 4
-			ionice_fn(psutil.IOPRIO_CLASS_BE, value)
+			ionice_fn(psutil.IOPRIO_CLASS_BE, resolved_value)
 		else:
-			value = ionice_value if ionice_value is not None else 0
-			ionice_fn(psutil.IOPRIO_CLASS_RT, value)
+			ionice_fn(psutil.IOPRIO_CLASS_RT, resolved_value)
 	except (psutil.Error, PermissionError, OSError, ValueError) as e:
 		warnings.append(f"Could not apply ionice ({ionice_ioclass}): {e}. Using default I/O scheduling.")
 
@@ -209,52 +211,21 @@ def start_process(
 	try:
 		with open(stdout_path, "a") as stdout_file, open(stderr_path, "a") as stderr_file:
 			try:
+				popen_kwargs: dict[str, Any] = {}
 				if resolved_uid is not None and resolved_gid is not None:
 					has_extra_groups = extra_groups is not None and len(extra_groups) > 0
 					need_spawn_credentials = has_extra_groups or (
 						resolved_uid != os.geteuid() or resolved_gid != os.getegid()
 					)
 					if need_spawn_credentials:
+						popen_kwargs["user"] = resolved_uid
+						popen_kwargs["group"] = resolved_gid
 						if extra_groups is not None:
-							proc = subprocess.Popen(
-								command,
-								shell=True,
-								cwd=process_cwd,
-								env=process_env,
-								stdout=stdout_file,
-								stderr=stderr_file,
-								stdin=subprocess.DEVNULL,
-								start_new_session=True,
-								user=resolved_uid,
-								group=resolved_gid,
-								extra_groups=extra_groups,
-							)
-						else:
-							proc = subprocess.Popen(
-								command,
-								shell=True,
-								cwd=process_cwd,
-								env=process_env,
-								stdout=stdout_file,
-								stderr=stderr_file,
-								stdin=subprocess.DEVNULL,
-								start_new_session=True,
-								user=resolved_uid,
-								group=resolved_gid,
-							)
-					else:
-						proc = subprocess.Popen(
-							command,
-							shell=True,
-							cwd=process_cwd,
-							env=process_env,
-							stdout=stdout_file,
-							stderr=stderr_file,
-							stdin=subprocess.DEVNULL,
-							start_new_session=True,
-						)
-				else:
-					proc = subprocess.Popen(
+							popen_kwargs["extra_groups"] = extra_groups
+
+				proc = cast(
+					subprocess.Popen[bytes],
+					subprocess.Popen(
 						command,
 						shell=True,
 						cwd=process_cwd,
@@ -263,7 +234,9 @@ def start_process(
 						stderr=stderr_file,
 						stdin=subprocess.DEVNULL,
 						start_new_session=True,
-					)
+						**popen_kwargs,
+					),
+				)
 			except (OSError, subprocess.SubprocessError) as e:
 				raise ValueError(f"Failed to start process '{name}': {e}") from e
 
@@ -342,37 +315,16 @@ def stop_process(state: State, id_or_name: int | str, force: bool = False) -> Pr
 	return info
 
 
-def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
-	# Find process
-	if isinstance(id_or_name, int):
-		info = state.get_process(id_or_name)
-	else:
-		info = state.find_process_by_name(id_or_name)
-
-	if not info:
-		raise ValueError(f"Process not found: {id_or_name}")
-
-	# Store info before stopping
-	cmd = info.cmd
-	name = info.name
-	restart = info.restart
-	user = info.user
-	env = info.env
-	cwd = info.cwd
-
-	# Stop the process
-	stop_process(state, info.id)
-
-	# Start new process with same settings
+def _restart_from_info(state: State, info: ProcessInfo) -> ProcessInfo:
 	return start_process(
 		state,
-		cmd,
-		name=name,
-		restart=restart,
-		user=user,
-		env=env,
+		info.cmd,
+		name=info.name,
+		restart=info.restart,
+		user=info.user,
+		env=info.env,
 		env_file=info.env_file,
-		cwd=cwd,
+		cwd=info.cwd,
 		health_check=info.health_check,
 		startup_timeout_seconds=info.startup_timeout_seconds,
 		nice=info.nice,
@@ -381,25 +333,39 @@ def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
 	)
 
 
-def get_process_status(info: ProcessInfo) -> dict:
+def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
+	if isinstance(id_or_name, int):
+		info = state.get_process(id_or_name)
+	else:
+		info = state.find_process_by_name(id_or_name)
+
+	if not info:
+		raise ValueError(f"Process not found: {id_or_name}")
+
+	old_id = info.id
+	stop_process(state, old_id)
+	return _restart_from_info(state, info)
+
+
+def get_process_status(info: ProcessInfo) -> ProcessStatus:
 	try:
 		proc = psutil.Process(info.pid)
 		status = proc.status()
 		cpu = proc.cpu_percent()
 		mem = proc.memory_info().rss
-		return {
-			"running": True,
-			"status": status,
-			"cpu_percent": cpu,
-			"memory_mb": mem / (1024 * 1024),
-		}
+		return ProcessStatus(
+			running=True,
+			status=status,
+			cpu_percent=cpu,
+			memory_mb=mem / (1024 * 1024),
+		)
 	except psutil.NoSuchProcess:
-		return {
-			"running": False,
-			"status": "exited",
-			"cpu_percent": 0,
-			"memory_mb": 0,
-		}
+		return ProcessStatus(
+			running=False,
+			status="exited",
+			cpu_percent=0,
+			memory_mb=0,
+		)
 
 
 def cleanup_dead_processes(state: State) -> list[ProcessInfo]:
@@ -412,41 +378,16 @@ def cleanup_dead_processes(state: State) -> list[ProcessInfo]:
 
 
 def check_restart_needed(state: State) -> list[ProcessInfo]:
-	# Check for processes that need restart and restart them
 	restarted = []
 	for info in list(state.processes.values()):
 		if info.restart and not psutil.pid_exists(info.pid):
 			try:
-				new_info = start_process(
-					state,
-					info.cmd,
-					name=info.name,
-					restart=True,
-					user=info.user,
-					env=info.env,
-					env_file=info.env_file,
-					cwd=info.cwd,
-					health_check=info.health_check,
-					startup_timeout_seconds=info.startup_timeout_seconds,
-					nice=info.nice,
-					ionice_ioclass=info.ionice_ioclass,
-					ionice_value=info.ionice_value,
-				)
+				new_info = _restart_from_info(state, info)
 				state.remove_process(info.id)
 				restarted.append(new_info)
 			except Exception:
-				pass
+				logger.exception(f"Failed to restart process {info.name}")
 	return restarted
-
-
-def merge_process_env(group_env: dict[str, str] | None, process_env: dict[str, str] | None) -> dict[str, str]:
-	"""Merge group-level and process-level environment variables. Process-level takes precedence."""
-	merged: dict[str, str] = {}
-	if group_env:
-		merged.update(group_env)
-	if process_env:
-		merged.update(process_env)
-	return merged
 
 
 def batch_start_processes(
@@ -458,17 +399,14 @@ def batch_start_processes(
 
 	for info in processes:
 		try:
-			# Get group env if process is in a group
 			group_env: dict[str, str] | None = None
 			if info.group:
 				group = state.get_group(info.group)
 				if group:
 					group_env = group.env
 
-			# Merge environment variables (process-level takes precedence)
-			merged_env = merge_process_env(group_env, info.env)
+			merged_env = merge_environments(group_env, info.env)
 
-			# Start the process
 			new_info = start_process(
 				state,
 				info.cmd,

@@ -11,7 +11,7 @@ import psutil
 
 from .health import run_health_check, should_run_health_check
 from .logs import rotate_process_logs
-from .process import start_process
+from .process import _restart_from_info
 from .state import ProcessInfo, State
 
 logger = logging.getLogger(__name__)
@@ -108,21 +108,7 @@ class RestartMonitor:
 					try:
 						old_id = info.id
 						state.remove_process(old_id)
-						new_info = start_process(
-							state,
-							info.cmd,
-							name=info.name,
-							restart=True,
-							user=info.user,
-							env=info.env,
-							env_file=info.env_file,
-							cwd=info.cwd,
-							health_check=info.health_check,
-							startup_timeout_seconds=info.startup_timeout_seconds,
-							nice=info.nice,
-							ionice_ioclass=info.ionice_ioclass,
-							ionice_value=info.ionice_value,
-						)
+						new_info = _restart_from_info(state, info)
 						if self._restart_callback:
 							self._restart_callback(new_info)
 						logger.debug(f"Restarted process {info.name} (old_pid={info.pid}, new_pid={new_info.pid})")
@@ -220,21 +206,7 @@ def check_and_restart_processes(
 		try:
 			old_id = info.id
 			state.remove_process(old_id)
-			new_info = start_process(
-				state,
-				info.cmd,
-				name=info.name,
-				restart=True,
-				user=info.user,
-				env=info.env,
-				env_file=info.env_file,
-				cwd=info.cwd,
-				health_check=info.health_check,
-				startup_timeout_seconds=info.startup_timeout_seconds,
-				nice=info.nice,
-				ionice_ioclass=info.ionice_ioclass,
-				ionice_value=info.ionice_value,
-			)
+			new_info = _restart_from_info(state, info)
 			restarted.append(new_info)
 			if on_restart:
 				on_restart(info, new_info)

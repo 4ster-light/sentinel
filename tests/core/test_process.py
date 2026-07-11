@@ -318,9 +318,9 @@ class TestGetProcessStatus:
 
 		status = get_process_status(info)
 
-		assert status["running"] is True
-		assert status["cpu_percent"] >= 0
-		assert status["memory_mb"] > 0
+		assert status.running is True
+		assert status.cpu_percent >= 0
+		assert status.memory_mb > 0
 
 		# Cleanup
 		proc = psutil.Process(info.pid)
@@ -342,10 +342,10 @@ class TestGetProcessStatus:
 
 		status = get_process_status(info)
 
-		assert status["running"] is False
-		assert status["status"] == "exited"
-		assert status["cpu_percent"] == 0
-		assert status["memory_mb"] == 0
+		assert status.running is False
+		assert status.status == "exited"
+		assert status.cpu_percent == 0
+		assert status.memory_mb == 0
 
 
 class TestCleanupDeadProcesses:
