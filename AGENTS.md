@@ -15,20 +15,14 @@ Refer to `justfile` for all available commands. Source of truth is `justfile`,
 In order to see all available commands, run:
 
 ```bash
-just help
+just -l
 ```
 
-## Verification
-
-- Pytest is configured in `pyproject.toml` with `--cov-fail-under=80` and HTML
-  coverage output.
-- Use focused pytest targets when possible: file, class, method, or `-k`.
-- Keep the usual order `fmt -> lint -> test` unless a task needs a different
-  sequence.
-
 > [!IMPORTANT]
-> Any kind of submit that doesn't pass these checks in any way will be rejected.
-> Always run `just fmt lint check` before submitting a PR.
+> Any kind of submit that doesn't pass these checks in any way will be rejected:
+>
+> - Always run `just c` before submitting a PR.
+> - Use focused pytest targets when possible: file, class, method, or `-k`.
 
 ## Project Shape
 

@@ -26,7 +26,8 @@
 
 ## Installation
 
-For more installation options, see the [installation guide in the docs](https://sentinel.4ster.deno.net/en/guide/installation).
+For more installation options, see the
+[installation guide in the docs](https://sentinel.4ster.deno.net/en/guide/installation).
 
 ### Nix
 

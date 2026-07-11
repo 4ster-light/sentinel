@@ -15,14 +15,7 @@ nix develop
 ```
 
 From there, use the helper commands in `justfile` (to see all available commands
-run `just help`), some examples are:
-
-```bash
-just test  # pytest
-just lint  # ruff lint
-just fmt   # ruff format
-just check # nix flake check
-```
+run `just -l`).
 
 > [!NOTE]
 > If you prefer not to use Nix, standalone `uv` is still a valid development
@@ -41,7 +34,7 @@ just check # nix flake check
 Run the test suite:
 
 ```bash
-just test
+just t
 ```
 
 Tests are configured in `pyproject.toml` with a minimum coverage threshold of
@@ -52,7 +45,7 @@ Tests are configured in `pyproject.toml` with a minimum coverage threshold of
 After running tests, view the coverage report in your browser:
 
 ```bash
-just serve
+just s
 ```
 
 Then open <http://localhost:8000> in your browser to view the HTML coverage
@@ -81,16 +74,10 @@ just fmt
 just lint
 ```
 
-**Check tests and build:**
-
-```bash
-just check
-```
-
 **Run all checks together:**
 
 ```bash
-just fmt lint check
+just c
 ```
 
 ## Before Submitting
@@ -98,7 +85,7 @@ just fmt lint check
 Make sure your changes pass all checks and tests:
 
 ```bash
-just fmt lint check
+just c
 ```
 
 Any new features or bug fixes should be accompanied by tests. If you are adding
