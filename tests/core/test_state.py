@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from sentinel_core.state import HealthCheckConfig, PortInfo, ProcessInfo, State, get_log_paths
+from sentinel_core.state import HealthCheckConfig, PortInfo, ProcessInfo, RemoteInfo, State, get_log_paths
 
 
 class TestProcessInfo:
@@ -142,6 +142,32 @@ class TestProcessInfo:
 		assert info.nice is None
 		assert info.ionice_ioclass is None
 		assert info.ionice_value is None
+
+
+class TestRemoteInfo:
+	def test_to_dict(self):
+		info = RemoteInfo(host="server.example.com", user="admin", port=2222, created_at="2024-01-01T00:00:00")
+		data = info.to_dict()
+		assert data == {
+			"host": "server.example.com",
+			"user": "admin",
+			"port": 2222,
+			"created_at": "2024-01-01T00:00:00",
+		}
+
+	def test_from_dict(self):
+		data = {"host": "server.example.com", "user": "admin", "port": 2222, "created_at": "2024-01-01T00:00:00"}
+		info = RemoteInfo.from_dict(data)
+		assert info.host == "server.example.com"
+		assert info.user == "admin"
+		assert info.port == 2222
+		assert info.created_at == "2024-01-01T00:00:00"
+
+	def test_from_dict_defaults(self):
+		info = RemoteInfo.from_dict({"host": "server.example.com"})
+		assert info.user is None
+		assert info.port is None
+		assert info.created_at == ""
 
 
 class TestPortInfo:
@@ -410,6 +436,35 @@ class TestState:
 		assert new_state.processes[1].env == {"VAR": "value"}
 		assert 8080 in new_state.ports
 		assert new_state.ports[8080].name == "webapp"
+
+	def test_save_and_load_remotes(self, state: State, temp_state_dir: Path):
+		state.add_remote(RemoteInfo(host="alpha", user="root", port=22))
+		state.add_remote(RemoteInfo(host="beta"))
+
+		reloaded = State()
+		assert len(reloaded.list_remotes()) == 2
+		alpha = reloaded.get_remote("alpha")
+		assert alpha is not None
+		assert alpha.user == "root"
+		assert alpha.port == 22
+		assert reloaded.get_remote("beta") is not None
+
+	def test_add_remote_duplicate(self, state: State):
+		state.add_remote(RemoteInfo(host="dup"))
+		assert state.add_remote(RemoteInfo(host="dup")) is None
+
+	def test_remove_remote(self, state: State):
+		state.add_remote(RemoteInfo(host="gone"))
+		assert state.remove_remote("gone") is True
+		assert state.get_remote("gone") is None
+		assert state.remove_remote("gone") is False
+
+	def test_list_remotes(self, state: State):
+		state.add_remote(RemoteInfo(host="one"))
+		state.add_remote(RemoteInfo(host="two"))
+		remotes = state.list_remotes()
+		assert len(remotes) == 2
+		assert {r.host for r in remotes} == {"one", "two"}
 
 
 class TestHelperFunctions:

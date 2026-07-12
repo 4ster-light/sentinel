@@ -172,6 +172,31 @@ class ProcessStatus:
 	memory_mb: float
 
 
+@dataclass
+class RemoteInfo:
+	host: str
+	user: str | None = None
+	port: int | None = None
+	created_at: str = ""
+
+	def to_dict(self) -> dict[str, Any]:
+		return {
+			"host": self.host,
+			"user": self.user,
+			"port": self.port,
+			"created_at": self.created_at,
+		}
+
+	@classmethod
+	def from_dict(cls, data: dict[str, Any]) -> RemoteInfo:
+		return cls(
+			host=data["host"],
+			user=data.get("user"),
+			port=data.get("port"),
+			created_at=data.get("created_at", ""),
+		)
+
+
 class State:
 	def __init__(self) -> None:
 		STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -179,6 +204,7 @@ class State:
 		self.processes: dict[int, ProcessInfo] = {}
 		self.ports: dict[int, PortInfo] = {}
 		self.groups: dict[str, GroupInfo] = {}
+		self.remotes: dict[str, RemoteInfo] = {}
 		self.next_id: int = 1
 		self._load()
 
@@ -190,6 +216,7 @@ class State:
 				self.processes = {int(k): ProcessInfo.from_dict(v) for k, v in data.get("processes", {}).items()}
 				self.ports = {int(k): PortInfo.from_dict(v) for k, v in data.get("ports", {}).items()}
 				self.groups = {k: GroupInfo.from_dict(v) for k, v in data.get("groups", {}).items()}
+				self.remotes = {k: RemoteInfo.from_dict(v) for k, v in data.get("remotes", {}).items()}
 			except json.JSONDecodeError, KeyError:
 				pass
 
@@ -199,6 +226,7 @@ class State:
 			"processes": {k: v.to_dict() for k, v in self.processes.items()},
 			"ports": {k: v.to_dict() for k, v in self.ports.items()},
 			"groups": {k: v.to_dict() for k, v in self.groups.items()},
+			"remotes": {k: v.to_dict() for k, v in self.remotes.items()},
 		}
 		STATE_FILE.write_text(json.dumps(data, indent=2))
 
@@ -316,6 +344,28 @@ class State:
 
 	def get_processes_in_group(self, group_name: str) -> list[ProcessInfo]:
 		return [info for info in self.processes.values() if info.group == group_name]
+
+	def add_remote(self, info: RemoteInfo) -> RemoteInfo | None:
+		if info.host in self.remotes:
+			return None
+		if not info.created_at:
+			info.created_at = datetime.now().isoformat()
+		self.remotes[info.host] = info
+		self.save()
+		return info
+
+	def remove_remote(self, host: str) -> bool:
+		if host not in self.remotes:
+			return False
+		del self.remotes[host]
+		self.save()
+		return True
+
+	def get_remote(self, host: str) -> RemoteInfo | None:
+		return self.remotes.get(host)
+
+	def list_remotes(self) -> list[RemoteInfo]:
+		return list(self.remotes.values())
 
 
 def _is_port_available(port: int) -> bool:

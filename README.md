@@ -22,6 +22,8 @@
 - Optional HTTP/TCP process health checks
 - Run processes as specific system users
 - Port allocation and management
+- Metrics export in JSON and table formats
+- Remote process management via SSH
 - Persistent state across sessions
 
 ## Installation
@@ -49,12 +51,6 @@ Alternatively using pip:
 pip install git+https://github.com/4ster-light/sentinel
 ```
 
-### Podman/Docker
-
-```bash
-docker pull ghcr.io/4ster-light/sentinel
-```
-
 ## Commands Overview
 
 | Command               | Description                       |
@@ -73,6 +69,8 @@ docker pull ghcr.io/4ster-light/sentinel
 | `sentinel group`      | Manage process groups             |
 | `sentinel port`       | Manage port allocations           |
 | `sentinel startup`    | Generate startup scripts          |
+| `sentinel metrics`    | Export process metrics            |
+| `sentinel remote`     | Manage remote hosts via SSH       |
 
 Run `sentinel run --help` to see process runtime options including `--user`,
 `--startup-timeout`, `--instances`, `--nice`, and `--ionice`.
@@ -422,11 +420,124 @@ Output:
 sentinel port free 8000
 ```
 
+## Metrics Export
+
+Export process metrics in different formats for monitoring and automation.
+
+### Exporting Metrics
+
+```bash
+# Show metrics as a table (default)
+sentinel metrics export
+
+# Export as JSON
+sentinel metrics export --format json
+
+# Write metrics to a file
+sentinel metrics export --output metrics.json
+
+# Export JSON to a file
+sentinel metrics export --format json --output metrics.json
+```
+
+Output (table format):
+
+```txt
++----+----------+-------+---------+------+-------+--------+
+| ID | NAME     |   PID | STATUS  |  CPU |   MEM | UPTIME |
++----+----------+-------+---------+------+-------+--------+
+|  1 | myserver | 12345 | running | 2.1% | 45 MB |   5m 3s|
+|  2 | frontend | 12346 | running | 0.5% | 120MB |   2m 1s|
++----+----------+-------+---------+------+-------+--------+
+```
+
+Output (JSON format):
+
+```json
+[
+  {
+    "id": 1,
+    "name": "myserver",
+    "pid": 12345,
+    "status": "running",
+    "running": true,
+    "cpu_percent": 2.1,
+    "memory_mb": 45.2,
+    "uptime_seconds": 303.0
+  }
+]
+```
+
+### Quick Snapshot
+
+Print a one-shot metrics table to stdout:
+
+```bash
+sentinel metrics snapshot
+```
+
+This is equivalent to `sentinel metrics export` without options.
+
+## Remote Management
+
+Manage processes on remote hosts via SSH. Remote hosts must have Sentinel
+installed and accessible via SSH.
+
+### Registering Remote Hosts
+
+```bash
+# Add a remote host
+sentinel remote add server1.example.com
+
+# Add with SSH user
+sentinel remote add server1.example.com --user deploy
+
+# Add with custom SSH port
+sentinel remote add server1.example.com --user deploy --port 2222
+```
+
+### Listing Remote Hosts
+
+```bash
+# List all registered remote hosts
+sentinel remote list
+```
+
+Output:
+
+```txt
++---------------------+--------+------+------------------+
+| HOST                | USER   | PORT | CREATED          |
++---------------------+--------+------+------------------+
+| server1.example.com | deploy | 2222 | 2024-01-15 10:30 |
+| server2.example.com | -      | -    | 2024-01-15 10:35 |
++---------------------+--------+------+------------------+
+```
+
+### Running Commands on Remote Hosts
+
+```bash
+# List processes on a remote host
+sentinel remote list server1.example.com
+
+# Start a process on a remote host
+sentinel remote run server1.example.com "python server.py"
+
+# Stop a process on a remote host (use the ID shown by `remote list`)
+sentinel remote stop server1.example.com 1
+```
+
+### Removing Remote Hosts
+
+```bash
+sentinel remote remove server1.example.com
+```
+
 ## Configuration
 
 Sentinel stores its state in `~/.sentinel/`:
 
-- `state.json` - Process registry and port allocations
+- `state.json` - Process registry, port allocations, and remote hosts
 - `logs/` - Process stdout and stderr logs
 - `daemon.pid` - PID file for the restart daemon
 
@@ -487,6 +598,8 @@ sentinel run --help
 sentinel daemon --help
 sentinel group --help
 sentinel port --help
+sentinel metrics --help
+sentinel remote --help
 ```
 
 ## License

@@ -24,7 +24,7 @@
 
         sentinel = py.buildPythonApplication {
           pname = "sentinel";
-          version = "0.2.1+fix";
+          version = "0.2.2";
           format = "pyproject";
           src = ./.;
 

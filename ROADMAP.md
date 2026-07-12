@@ -45,9 +45,9 @@ features for developers and DevOps.
   > [!Note] The published GitHub release was recreated as **v0.2.1+fix** after
   > an immutable-release tag collision.
 
-- [ ] **v0.2.2**
-  - [ ] Basic Remote Management: Manage processes via SSH
-  - [ ] Basic Metrics Export: Export metrics to a file or HTTP endpoint
+- [x] ~~**v0.2.2**~~ _**COMPLETED**_
+  - [x] Basic Remote Management: Manage processes via SSH
+  - [x] Basic Metrics Export: Export metrics to a file or stdout
 
 - [ ] **v0.2.3**
   - [ ] Process Dependencies: Start processes in a specific order

@@ -159,6 +159,33 @@ class TestShowLogs:
 		show_logs(str(stdout_log), str(stderr_log), lines=50, follow=False, stream="both")
 
 
+class TestFollowLogs:
+	def test_follow_logs_reads_new_content(self, temp_logs_dir: Path, capsys, monkeypatch):
+		from sentinel_core.logs import _follow_logs
+
+		stdout_log = temp_logs_dir / "follow.stdout.log"
+		stderr_log = temp_logs_dir / "follow.stderr.log"
+		stdout_log.write_text("first line\n")
+
+		call_count = 0
+
+		def append_during_follow(*_args, **_kwargs):
+			nonlocal call_count
+			call_count += 1
+			if call_count == 1:
+				stdout_log.write_text("first line\nnew line\n")
+			else:
+				raise KeyboardInterrupt
+
+		monkeypatch.setattr("sentinel_core.logs.time.sleep", append_during_follow)
+
+		_follow_logs(stdout_log, stderr_log, stream="both")
+
+		captured = capsys.readouterr()
+		assert "new line" in captured.out
+		assert "Stopped following logs" in captured.out
+
+
 class TestLogRotation:
 	def test_rotate_log_file_when_above_max_size(self, temp_logs_dir: Path) -> None:
 		log_file = temp_logs_dir / "rotate.log"

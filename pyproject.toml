@@ -1,6 +1,6 @@
 [project]
 name = "sentinel"
-version = "0.2.1+fix"
+version = "0.2.2"
 description = "A lightweight process orchestrator CLI"
 readme = "README.md"
 license = { file = "LICENSE" }
