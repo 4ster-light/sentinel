@@ -4,8 +4,8 @@
 
 Nix flake is the main form of development and testing. Everything is
 reproducible and isolated this way, always prefer to work within the flake
-environment. Use `just` to run commands in this shell preferrably and only use
-custom ones when necessary.
+environment. Use `nix` and `just` to run commands in this shell preferrably and
+only use custom ones when necessary.
 
 ## Available Commands
 
@@ -15,14 +15,19 @@ Refer to `justfile` for all available commands. Source of truth is `justfile`,
 In order to see all available commands, run:
 
 ```bash
-just -l
+nix develop -c just -l
 ```
+
+If nix isn't available, you can also run `just -l`, but if just isn't available
+either read the justfile directly and try to work with what's available in the
+system as long as it doesn't become a roadblocker.
 
 > [!IMPORTANT]
 > Any kind of submit that doesn't pass these checks in any way will be rejected:
 >
-> - Always run `just c` before submitting a PR.
-> - Use focused pytest targets when possible: file, class, method, or `-k`.
+> - Always run `nix develop -c just c` before submitting a PR.
+> - Use focused pytest targets when possible with
+>   `nix develop -c just test <TEST_STRING>`: file, class, method, or `-k`.
 
 ## Project Shape
 

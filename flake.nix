@@ -20,11 +20,11 @@
         python = pkgs.python314;
         py = python.pkgs;
 
-        appDescription = "A lightweight process orchestrator CLI";
+        pyproject = builtins.readFile ./pyproject.toml |> fromTOML;
 
         sentinel = py.buildPythonApplication {
-          pname = "sentinel";
-          version = "0.2.2";
+          pname = pyproject.project.name;
+          version = pyproject.project.version;
           format = "pyproject";
           src = ./.;
 
@@ -56,41 +56,30 @@
           '';
 
           meta = with lib; {
-            description = appDescription;
-            homepage = "https://sentinel.4ster.deno.net";
+            description = pyproject.project.description;
+            homepage = pyproject.project.urls.Homepage;
             license = licenses.mit;
-            mainProgram = "sentinel";
+            mainProgram = pyproject.project.name;
           };
         };
-
-        containerImage = pkgs.dockerTools.buildLayeredImage {
-          name = "sentinel";
-          tag = "latest";
-          contents = [ sentinel ];
-          config = {
-            Entrypoint = [ "${sentinel}/bin/sentinel" ];
-          };
-        };
-
       in
       {
         packages = {
           default = sentinel;
           sentinel = sentinel;
-          container = containerImage;
         };
 
         apps.default = {
           type = "app";
-          program = "${sentinel}/bin/sentinel";
-          meta.description = appDescription;
+          program = "${sentinel}/bin/${pyproject.project.name}";
+          meta.description = pyproject.project.description;
         };
 
         checks = {
           package = sentinel;
 
           smoke =
-            pkgs.runCommand "sentinel-smoke-test"
+            pkgs.runCommand "${pyproject.project.name}-smoke-test"
               {
                 buildInputs = [ sentinel ];
               }
@@ -122,9 +111,9 @@
             fi
 
             echo ""
-            echo "Sentinel Nix dev shell — $(python --version)"
+            echo "${pyproject.project.name} nix dev shell — $(python --version)"
             echo ""
-            echo "See all commands:  just help"
+            echo "See all available commands:  just -l"
             echo ""
           '';
         };

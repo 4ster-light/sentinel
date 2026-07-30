@@ -6,7 +6,7 @@ readme = "README.md"
 license = { file = "LICENSE" }
 keywords = ["process", "orchestrator", "CLI", "monitoring", "system administration", "development"]
 requires-python = ">=3.14"
-authors = [{ name = "4ster", email = "me@4ster.dev" }]
+authors = [{ name = "4ster-light", email = "me@4ster.dev" }]
 dependencies = ["psutil>=7.1.3", "rich>=14.2.0", "typer>=0.20.1"]
 classifiers = [
 	"Development Status :: 4 - Beta",
