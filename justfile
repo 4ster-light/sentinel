@@ -12,7 +12,7 @@ build:
     nix build
 
 # Run all checks
-check: test-all lint fmt
+check: test-all lint fmt-check
     nix flake check
 
 # Run pytest
@@ -31,6 +31,10 @@ lint:
 # Format code with ruff
 fmt:
     uv run ruff format
+
+# Verify formatting without modifying files
+fmt-check:
+    uv run ruff format --check
 
 # Serve the coverage report
 serve:

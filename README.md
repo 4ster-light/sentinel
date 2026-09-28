@@ -209,6 +209,10 @@ sentinel stop 1
 sentinel stop myserver --force
 ```
 
+Stopping signals the process's whole process group, so children of compound
+commands (`npm run build && node server.js`, background jobs) die with the
+leader.
+
 ### Restarting Processes
 
 Restart a process (stops and starts it again):
@@ -314,7 +318,8 @@ sentinel daemon stop
 ```
 
 When the daemon is running, it checks every 5 seconds for crashed processes and
-restarts them automatically in the background.
+restarts them automatically in the background. The daemon writes its activity
+to `~/.sentinel/daemon.log` (rotated automatically).
 
 ## Process Groups
 
@@ -535,11 +540,20 @@ sentinel remote remove server1.example.com
 
 ## Configuration
 
-Sentinel stores its state in `~/.sentinel/`:
+Sentinel stores its state in `~/.sentinel/` by default (override the directory
+with the `SENTINEL_STATE_DIR` environment variable):
 
-- `state.json` - Process registry, port allocations, and remote hosts
+- `state.json` - Process registry, port allocations, and remote hosts.
+  Written atomically and guarded against corruption.
+- `state.json.lock` - Advisory lock coordinating concurrent Sentinel
+  writers (the daemon and CLI commands).
 - `logs/` - Process stdout and stderr logs
 - `daemon.pid` - PID file for the restart daemon
+- `daemon.log` - Rotating log of daemon activity (restarts, errors)
+
+If `state.json` is ever unreadable, Sentinel backs it up to
+`state.json.corrupt-<timestamp>`, prints a warning, and starts from an empty
+state instead of silently discarding your data.
 
 ## Environment Variables
 

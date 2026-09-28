@@ -10,7 +10,7 @@ only use custom ones when necessary.
 ## Available Commands
 
 Refer to `justfile` for all available commands. Source of truth is `justfile`,
-`nix.flake` and `pyproject.toml`.
+`flake.nix` and `pyproject.toml`.
 
 In order to see all available commands, run:
 

@@ -25,9 +25,9 @@ def render_systemd_service(
 ) -> str:
 	"""Render a minimal systemd service unit."""
 	if not name.strip():
-		raise ValueError("service name cannot be empty")
+		raise ValueError("Service name cannot be empty")
 	if not command:
-		raise ValueError("command cannot be empty")
+		raise ValueError("Command cannot be empty")
 
 	lines: list[str] = [
 		"[Unit]",

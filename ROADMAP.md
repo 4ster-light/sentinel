@@ -49,11 +49,20 @@ features for developers and DevOps.
   - [x] Basic Remote Management: Manage processes via SSH
   - [x] Basic Metrics Export: Export metrics to a file or stdout
 
-- [ ] **v0.2.3**
+- [x] ~~**v0.2.3**~~ _**COMPLETED**_
+  - [x] State Hardening: Atomic state writes, advisory locking, and
+        corruption backup/warnings instead of silent resets
+  - [x] Architecture Refactor: State split into store + registries behind a
+        stable facade; unified restart engine; daemon observability
+        (`daemon.log`) and PID-reuse guards; process-group stop
+  - [x] Developer Experience: Nix-based CI, ARCHITECTURE.md, coverage floor
+        raised to 85%
+
+- [ ] **v0.2.4**
   - [ ] Process Dependencies: Start processes in a specific order
   - [ ] Improved Cluster Mode: Dynamic scaling (e.g., `--scale 2-4`)
 
-- [ ] **v0.2.4**
+- [ ] **v0.2.5**
   - [ ] Advanced Startup Scripts: Support for `init.d` and Windows services
   - [ ] Advanced Metrics Export: Prometheus integration
 

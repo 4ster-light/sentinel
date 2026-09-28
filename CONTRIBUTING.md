@@ -88,6 +88,9 @@ Make sure your changes pass all checks and tests:
 just c
 ```
 
+Checks also run automatically via GitHub Actions on every push and pull
+request, using the same Nix environment described above.
+
 Any new features or bug fixes should be accompanied by tests. If you are adding
 a new feature, please include tests that cover the new functionality. All
 mentioned checks should pass before submitting.
@@ -100,15 +103,21 @@ mentioned checks should pass before submitting.
 
 ```text
 src/                # Source code of the different packages
-  sentinel_core/    # Core library
+  sentinel_core/    # Core library (domain logic)
   sentinel_cli/     # CLI interface
-tests/              # Test files
+tests/              # Test files mirroring src structure
+justfile            # Development task runner
+flake.nix           # Nix flake configuration
 pyproject.toml      # Project configuration
-nix.flake           # Nix flake configuration
+ARCHITECTURE.md     # Codebase map for contributors
+ROADMAP.md          # Release plan and feature goals
 ```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together before
+diving into the code.
 
 ## Questions?
 
 Feel free to open an issue if you have any questions or need clarification! Even
-if you are not sure if your contribution is appropriate, we welcome respectfull
+if you are not sure if your contribution is appropriate, we welcome respectful
 discussions and feedback.
