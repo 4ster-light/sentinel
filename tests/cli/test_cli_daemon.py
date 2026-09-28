@@ -1,6 +1,7 @@
 """Tests for daemon CLI commands"""
 
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -10,6 +11,28 @@ from sentinel_cli import app
 import sentinel_cli.daemon as daemon
 
 runner = CliRunner()
+
+
+class TestDaemonMain:
+	def test_main_dispatches_monitor_arg(self, temp_state_dir: Path, monkeypatch) -> None:
+		"""Module entry point runs the background loop when given the monitor arg"""
+		called: list[bool] = []
+		monkeypatch.setattr(daemon, "_daemon_main_loop", lambda: called.append(True))
+		monkeypatch.setattr(sys, "argv", ["sentinel_cli.daemon", "monitor"])
+
+		daemon.main()
+
+		assert called == [True]
+
+	def test_main_runs_cli_app_without_monitor_arg(self, temp_state_dir: Path, monkeypatch) -> None:
+		"""Module entry point falls back to the CLI app for other invocations"""
+		called: list[bool] = []
+		monkeypatch.setattr(daemon, "daemon_app", lambda: called.append(True))
+		monkeypatch.setattr(sys, "argv", ["sentinel_cli.daemon"])
+
+		daemon.main()
+
+		assert called == [True]
 
 
 class TestDaemonCommands:

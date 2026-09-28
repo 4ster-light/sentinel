@@ -101,6 +101,29 @@ class TestGroupCommands:
 		result = runner.invoke(app, ["group", "remove", "9999"])
 		assert result.exit_code != 0
 
+	def test_group_remove_process_not_in_group(self, state: State):
+		"""Test removing a process that is not in any group"""
+		info = start_process(state, "echo test", name="ungrouped")
+
+		result = runner.invoke(app, ["group", "remove", str(info.id)])
+
+		assert result.exit_code == 0
+		assert "not in any group" in result.stdout
+
+	def test_group_create_invalid_env_var(self, state: State):
+		"""Test creating a group with a malformed KEY=VALUE env var fails"""
+		result = runner.invoke(app, ["group", "create", "badenv", "--env", "NOEQUALS"])
+
+		assert result.exit_code != 0
+		assert "Invalid environment variable" in result.stdout
+
+	def test_group_create_missing_env_file(self, state: State):
+		"""Test creating a group with a missing env file fails"""
+		result = runner.invoke(app, ["group", "create", "badfile", "--env-file", "/nonexistent/.env"])
+
+		assert result.exit_code != 0
+		assert "not found" in result.stdout
+
 	def test_group_start(self, state: State):
 		"""Test starting group processes"""
 		state.create_group("testgroup")

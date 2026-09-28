@@ -38,7 +38,7 @@ just t
 ```
 
 Tests are configured in `pyproject.toml` with a minimum coverage threshold of
-80%. An HTML coverage report is automatically generated after each test run.
+85%. An HTML coverage report is automatically generated after each test run.
 
 #### View coverage report
 
@@ -56,7 +56,7 @@ report.
 This project follows a _TDD (Test-Driven Development)_ workflow. Tests are the
 source of truth for code correctness and expected behaviour. Therefore for a
 build to be considered valid, all tests must pass, and these must have a minimum
-coverage threshold of 80% (this is hardcoded in the pytest flags found in
+coverage threshold of 85% (this is hardcoded in the pytest flags found in
 `pyproject.toml` so tests will fail otherwise, so will do builds since they
 execute a check phase as well).
 

@@ -1,6 +1,6 @@
 [project]
 name = "sentinel"
-version = "0.2.2"
+version = "0.2.3"
 description = "A lightweight process orchestrator CLI"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -45,7 +45,7 @@ addopts = [
 	"--strict-markers",          # Ensure all markers are registered
 	"--strict-config",           # Ensure all config options are valid
 	"-ra",                       # Show extra test summary info for skipped, failed, etc.
-	"--cov-fail-under=80",       # Minimum coverage percentage
+	"--cov-fail-under=85",       # Minimum coverage percentage
 	"--cov=sentinel_core",       # Measure coverage for shared domain logic
 	"--cov=sentinel_cli",        # Measure coverage for CLI logic
 	"--cov-report=term-missing", # Show missing lines in terminal report
