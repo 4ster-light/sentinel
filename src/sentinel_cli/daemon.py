@@ -28,6 +28,23 @@ DAEMON_PID_FILE: Path = STATE_DIR / "daemon.pid"
 DAEMON_RUN_ARG = "monitor"
 
 
+def _daemon_subprocess_env() -> dict[str, str]:
+	"""Environment for the spawned daemon, carrying module search visibility.
+
+	Distributions such as Nix wrap the console script and add their store
+	site directories to sys.path at startup, so a bare
+	`python -m sentinel_cli.daemon` child cannot import the package or its
+	dependencies. Propagating the current interpreter's importable path
+	entries keeps the daemon importable.
+	"""
+	env = {**os.environ, "SENTINEL_STATE_DIR": str(STATE_DIR)}
+	extra_paths = [p for p in sys.path if p and Path(p).is_dir() and p not in (os.getcwd(), "")]
+	if extra_paths:
+		existing = env.get("PYTHONPATH", "")
+		env["PYTHONPATH"] = os.pathsep.join([*extra_paths, existing]) if existing else os.pathsep.join(extra_paths)
+	return env
+
+
 def _get_daemon_pid() -> int | None:
 	"""Read the daemon PID from the pid file, or None if not running."""
 	if not DAEMON_PID_FILE.exists():
@@ -117,7 +134,7 @@ def start() -> None:
 		stdin=subprocess.DEVNULL,
 		stdout=subprocess.DEVNULL,
 		stderr=subprocess.DEVNULL,
-		env={**os.environ, "SENTINEL_STATE_DIR": str(STATE_DIR)},
+		env=_daemon_subprocess_env(),
 	)
 
 	DAEMON_PID_FILE.write_text(str(proc.pid))
