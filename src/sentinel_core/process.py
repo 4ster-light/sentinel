@@ -320,11 +320,7 @@ def _signal_process_group(pid: int, sig: int) -> None:
 
 
 def stop_process(state: State, id_or_name: int | str, force: bool = False) -> ProcessInfo:
-	# Find process
-	if isinstance(id_or_name, int):
-		info = state.get_process(id_or_name)
-	else:
-		info = state.find_process_by_name(id_or_name)
+	info = state.find_process(id_or_name)
 
 	if not info:
 		raise ValueError(f"Process not found: {id_or_name}")
@@ -368,10 +364,7 @@ def restart_from_info(state: State, info: ProcessInfo) -> ProcessInfo:
 
 
 def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
-	if isinstance(id_or_name, int):
-		info = state.get_process(id_or_name)
-	else:
-		info = state.find_process_by_name(id_or_name)
+	info = state.find_process(id_or_name)
 
 	if not info:
 		raise ValueError(f"Process not found: {id_or_name}")

@@ -92,6 +92,15 @@ class State:
 	def find_process_by_name(self, name: str) -> ProcessInfo | None:
 		return self._processes.find_by_name(name)
 
+	def find_process(self, id_or_name: int | str) -> ProcessInfo | None:
+		"""Find a process by numeric ID (int or numeric string) or by exact name."""
+		if isinstance(id_or_name, int):
+			return self.get_process(id_or_name)
+		target = str(id_or_name).strip()
+		if target.isdigit():
+			return self.get_process(int(target))
+		return self.find_process_by_name(target)
+
 	def list_processes(self) -> list[ProcessInfo]:
 		return self._processes.all()
 

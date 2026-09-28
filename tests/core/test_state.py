@@ -481,3 +481,43 @@ class TestHelperFunctions:
 		# Should sanitize special characters
 		assert stdout.name == "my_app_with_special_chars_.stdout.log"
 		assert stderr.name == "my_app_with_special_chars_.stderr.log"
+
+
+class TestFindProcess:
+	def _add_process(self, state: State, id_: int, name: str) -> None:
+		state.add_process(
+			ProcessInfo(
+				id=id_,
+				pid=1000 + id_,
+				name=name,
+				cmd="sleep 10",
+				cwd="/tmp",
+				restart=False,
+				started_at="2024-01-01T00:00:00",
+				stdout_log="/tmp/out.log",
+				stderr_log="/tmp/err.log",
+			)
+		)
+
+	def test_find_process_by_int_id(self, state: State):
+		self._add_process(state, 1, "alpha")
+		found = state.find_process(1)
+		assert found is not None
+		assert found.name == "alpha"
+
+	def test_find_process_by_numeric_string_prefers_id(self, state: State):
+		self._add_process(state, 1, "alpha")
+		found = state.find_process("1")
+		assert found is not None
+		assert found.name == "alpha"
+
+	def test_find_process_by_name(self, state: State):
+		self._add_process(state, 1, "alpha")
+		found = state.find_process("alpha")
+		assert found is not None
+		assert found.id == 1
+
+	def test_find_process_missing_returns_none(self, state: State):
+		self._add_process(state, 1, "alpha")
+		assert state.find_process(99) is None
+		assert state.find_process("nope") is None

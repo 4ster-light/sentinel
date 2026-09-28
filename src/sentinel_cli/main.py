@@ -1,13 +1,14 @@
 """Main process commands"""
 
-from datetime import datetime
 from typing import Annotated
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
+from sentinel_core.format import format_memory_mb, format_uptime_seconds, uptime_from_started_at
 from sentinel_core.logs import clear_logs, show_logs
+from sentinel_core.options import StartOptions
 from sentinel_core.process import (
 	batch_restart_processes,
 	batch_start_processes,
@@ -19,7 +20,7 @@ from sentinel_core.process import (
 	stop_process,
 )
 from sentinel_core.restart_monitor import check_and_restart_processes
-from sentinel_core.state import HealthCheckConfig, ProcessInfo, State
+from sentinel_core.state import ProcessInfo, State
 from .common import load_state
 from .daemon import is_daemon_running
 
@@ -41,61 +42,6 @@ def _perform_lazy_restart_check(state: State) -> None:
 
 	if restarted or cleaned_up:
 		console.print()
-
-
-def _format_uptime(started_at: str) -> str:
-	start = datetime.fromisoformat(started_at)
-	delta = datetime.now() - start
-	secs = int(delta.total_seconds())
-
-	if secs < 60:
-		return f"{secs}s"
-	elif secs < 3600:
-		return f"{secs // 60}m {secs % 60}s"
-	elif secs < 86400:
-		return f"{secs // 3600}h {(secs % 3600) // 60}m"
-	else:
-		return f"{secs // 86400}d {(secs % 86400) // 3600}h"
-
-
-def _format_memory(mb: float) -> str:
-	if mb < 1:
-		return f"{mb * 1024:.0f}KB"
-	elif mb < 1024:
-		return f"{mb:.1f}MB"
-	else:
-		return f"{mb / 1024:.2f}GB"
-
-
-def _parse_ionice_option(raw: str | None) -> tuple[str | None, int | None]:
-	if raw is None or not raw.strip():
-		return None, None
-	s = raw.strip().lower()
-	if s == "idle":
-		return "idle", None
-	if s == "best-effort" or s.startswith("best-effort:"):
-		rest = s.removeprefix("best-effort").lstrip(":").strip()
-		if not rest:
-			return "best_effort", None
-		try:
-			value = int(rest)
-		except ValueError as e:
-			raise ValueError(f"invalid ionice priority in {raw!r}") from e
-		if not 0 <= value <= 7:
-			raise ValueError("ionice best-effort priority must be between 0 and 7")
-		return "best_effort", value
-	if s == "realtime" or s.startswith("realtime:"):
-		rest = s.removeprefix("realtime").lstrip(":").strip()
-		if not rest:
-			return "realtime", None
-		try:
-			value = int(rest)
-		except ValueError as e:
-			raise ValueError(f"invalid ionice priority in {raw!r}") from e
-		if not 0 <= value <= 7:
-			raise ValueError("ionice realtime priority must be between 0 and 7")
-		return "realtime", value
-	raise ValueError("invalid --ionice value (use idle, best-effort[:0-7], or realtime[:0-7])")
 
 
 def register_main_commands(app: typer.Typer) -> None:
@@ -156,78 +102,53 @@ def register_main_commands(app: typer.Typer) -> None:
 		"""Start a background process"""
 		state = load_state()
 		cmd = " ".join(command)
-		health_check: HealthCheckConfig | None = None
 
-		if startup_timeout is not None and startup_timeout <= 0:
-			console.print("[red]✗[/] --startup-timeout must be greater than 0")
-			raise typer.Exit(1)
-
-		if instances < 1:
-			console.print("[red]✗[/] --instances must be at least 1")
-			raise typer.Exit(1)
-
-		if nice is not None and not -20 <= nice <= 19:
-			console.print("[red]✗[/] --nice must be between -20 and 19")
-			raise typer.Exit(1)
+		options = StartOptions(
+			cmd=cmd,
+			name=name,
+			restart=restart,
+			user=user,
+			group=group,
+			env_file=env_file,
+			cwd=cwd,
+			health_http=health_http,
+			health_tcp=health_tcp,
+			health_interval=health_interval,
+			health_timeout=health_timeout,
+			health_failures=health_failures,
+			startup_timeout_seconds=startup_timeout,
+			instances=instances,
+			nice=nice,
+			ionice=ionice,
+		)
 
 		try:
-			ionice_ioclass, ionice_value = _parse_ionice_option(ionice)
+			options.validate()
 		except ValueError as e:
 			console.print(f"[red]✗[/] {e}")
 			raise typer.Exit(1)
 
-		if health_http and health_tcp:
-			console.print("[red]✗[/] Use only one of --health-http or --health-tcp")
-			raise typer.Exit(1)
-
-		if health_interval <= 0:
-			console.print("[red]✗[/] --health-interval must be greater than 0")
-			raise typer.Exit(1)
-
-		if health_timeout <= 0:
-			console.print("[red]✗[/] --health-timeout must be greater than 0")
-			raise typer.Exit(1)
-
-		if health_failures < 1:
-			console.print("[red]✗[/] --health-failures must be at least 1")
-			raise typer.Exit(1)
-
-		if health_http:
-			health_check = HealthCheckConfig(
-				kind="http",
-				target=health_http,
-				interval_seconds=health_interval,
-				timeout_seconds=health_timeout,
-				failure_threshold=health_failures,
-			)
-		elif health_tcp:
-			health_check = HealthCheckConfig(
-				kind="tcp",
-				target=health_tcp,
-				interval_seconds=health_interval,
-				timeout_seconds=health_timeout,
-				failure_threshold=health_failures,
-			)
-
+		health_check = options.health_check
+		ionice_ioclass, ionice_value = options.ionice_spec()
 		base_name = name or command[0].split("/")[-1]
 		started_infos: list[ProcessInfo] = []
-		cluster_mode = instances > 1
+		cluster_mode = options.instances > 1
 
 		try:
-			for index in range(1, instances + 1):
+			for index in range(1, options.instances + 1):
 				instance_name = f"{base_name}-{index}" if cluster_mode else name
 				priority_notes: list[str] = []
 				info = start_process(
 					state,
 					cmd,
 					name=instance_name,
-					restart=restart,
-					user=user,
-					env_file=env_file,
-					cwd=cwd,
+					restart=options.restart,
+					user=options.user,
+					env_file=options.env_file,
+					cwd=options.cwd,
 					health_check=health_check,
-					startup_timeout_seconds=startup_timeout,
-					nice=nice,
+					startup_timeout_seconds=options.startup_timeout_seconds,
+					nice=options.nice,
 					ionice_ioclass=ionice_ioclass,
 					ionice_value=ionice_value,
 					priority_warnings=priority_notes,
@@ -277,14 +198,8 @@ def register_main_commands(app: typer.Typer) -> None:
 		"""Stop a running process"""
 		state = load_state()
 
-		# Try to parse as int (ID), otherwise treat as name
 		try:
-			target = int(id_or_name)
-		except ValueError:
-			target = id_or_name
-
-		try:
-			info = stop_process(state, target, force=force)
+			info = stop_process(state, id_or_name, force=force)
 			console.print(f"[green]✓[/] Stopped [bold]{info.name}[/] (id: {info.id})")
 		except ValueError as e:
 			console.print(f"[red]✗[/] {e}")
@@ -298,12 +213,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		state = load_state()
 
 		try:
-			target: int | str = int(id_or_name)
-		except ValueError:
-			target = id_or_name
-
-		try:
-			info = restart_process(state, target)
+			info = restart_process(state, id_or_name)
 			console.print(f"[green]✓[/] Restarted [bold]{info.name}[/] (id: {info.id}, pid: {info.pid})")
 		except ValueError as e:
 			console.print(f"[red]✗[/] {e}")
@@ -346,8 +256,8 @@ def register_main_commands(app: typer.Typer) -> None:
 				str(info.pid),
 				status_str,
 				f"{status.cpu_percent:.1f}%",
-				_format_memory(status.memory_mb),
-				_format_uptime(info.started_at),
+				format_memory_mb(status.memory_mb),
+				format_uptime_seconds(uptime_from_started_at(info.started_at)),
 				restart_str,
 				user_str,
 				group_str,
@@ -364,15 +274,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		state = load_state()
 		_perform_lazy_restart_check(state)
 
-		try:
-			target = int(id_or_name)
-		except ValueError:
-			target = id_or_name
-
-		if isinstance(target, int):
-			info = state.get_process(target)
-		else:
-			info = state.find_process_by_name(target)
+		info = state.find_process(id_or_name)
 
 		if not info:
 			console.print(f"[red]✗[/] Process not found: {id_or_name}")
@@ -384,8 +286,8 @@ def register_main_commands(app: typer.Typer) -> None:
 		console.print(f"  PID:       {info.pid}")
 		console.print(f"  Status:    {'[green]running[/]' if proc_status.running else '[red]stopped[/]'}")
 		console.print(f"  CPU:       {proc_status.cpu_percent:.1f}%")
-		console.print(f"  Memory:    {_format_memory(proc_status.memory_mb)}")
-		console.print(f"  Uptime:    {_format_uptime(info.started_at)}")
+		console.print(f"  Memory:    {format_memory_mb(proc_status.memory_mb)}")
+		console.print(f"  Uptime:    {format_uptime_seconds(uptime_from_started_at(info.started_at))}")
 		console.print(f"  Restart:   {'yes' if info.restart else 'no'}")
 		console.print(f"  User:      {info.user if info.user else 'default'}")
 		console.print(f"  Group:     {info.group if info.group else 'none'}")
@@ -408,15 +310,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		"""View process logs"""
 		state = load_state()
 
-		try:
-			target: int | str = int(id_or_name)
-		except ValueError:
-			target = id_or_name
-
-		if isinstance(target, int):
-			info = state.get_process(target)
-		else:
-			info = state.find_process_by_name(target)
+		info = state.find_process(id_or_name)
 
 		if not info:
 			console.print(f"[red]✗[/] Process not found: {id_or_name}")

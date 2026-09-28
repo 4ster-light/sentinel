@@ -6,7 +6,7 @@ import pytest
 from typer.testing import CliRunner
 
 from sentinel_cli import app
-from sentinel_cli.main import _parse_ionice_option
+from sentinel_core.options import parse_ionice_spec
 from sentinel_core.process import start_process
 from sentinel_core.state import State
 
@@ -171,12 +171,12 @@ class TestMainCommands:
 		assert result.exit_code != 0
 
 	def test_parse_ionice_option(self) -> None:
-		assert _parse_ionice_option(None) == (None, None)
-		assert _parse_ionice_option("idle") == ("idle", None)
-		assert _parse_ionice_option("best-effort") == ("best_effort", None)
-		assert _parse_ionice_option("best-effort:6") == ("best_effort", 6)
+		assert parse_ionice_spec(None) == (None, None)
+		assert parse_ionice_spec("idle") == ("idle", None)
+		assert parse_ionice_spec("best-effort") == ("best_effort", None)
+		assert parse_ionice_spec("best-effort:6") == ("best_effort", 6)
 		with pytest.raises(ValueError):
-			_parse_ionice_option("best-effort:99")
+			parse_ionice_spec("best-effort:99")
 
 	def test_list_command_empty(self):
 		"""Test list command with no processes"""

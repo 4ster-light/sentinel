@@ -2,13 +2,13 @@
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from rich.console import Console
 from rich.table import Table
 
+from .format import format_memory_mb, format_uptime_seconds, uptime_from_started_at
 from .process import get_process_status
 from .state import State
 
@@ -39,14 +39,6 @@ class ProcessMetrics:
 		}
 
 
-def _calculate_uptime_seconds(started_at: str) -> float:
-	try:
-		start = datetime.fromisoformat(started_at)
-		return (datetime.now() - start).total_seconds()
-	except ValueError:
-		return 0.0
-
-
 def collect_metrics(state: State) -> list[ProcessMetrics]:
 	metrics: list[ProcessMetrics] = []
 	for info in state.list_processes():
@@ -60,7 +52,7 @@ def collect_metrics(state: State) -> list[ProcessMetrics]:
 				running=status.running,
 				cpu_percent=status.cpu_percent,
 				memory_mb=status.memory_mb,
-				uptime_seconds=_calculate_uptime_seconds(info.started_at),
+				uptime_seconds=uptime_from_started_at(info.started_at),
 			)
 		)
 	return metrics
@@ -69,25 +61,6 @@ def collect_metrics(state: State) -> list[ProcessMetrics]:
 def export_to_json(metrics: list[ProcessMetrics], path: Path | str) -> None:
 	output = Path(path)
 	output.write_text(json.dumps([m.to_dict() for m in metrics], indent=2))
-
-
-def _format_uptime(seconds: float) -> str:
-	secs = int(seconds)
-	if secs < 60:
-		return f"{secs}s"
-	if secs < 3600:
-		return f"{secs // 60}m {secs % 60}s"
-	if secs < 86400:
-		return f"{secs // 3600}h {(secs % 3600) // 60}m"
-	return f"{secs // 86400}d {(secs % 86400) // 3600}h"
-
-
-def _format_memory(mb: float) -> str:
-	if mb < 1:
-		return f"{mb * 1024:.0f}KB"
-	if mb < 1024:
-		return f"{mb:.1f}MB"
-	return f"{mb / 1024:.2f}GB"
 
 
 def export_to_stdout(metrics: list[ProcessMetrics], output_console: Console | None = None) -> None:
@@ -113,8 +86,8 @@ def export_to_stdout(metrics: list[ProcessMetrics], output_console: Console | No
 			str(metric.pid),
 			status_str,
 			f"{metric.cpu_percent:.1f}%",
-			_format_memory(metric.memory_mb),
-			_format_uptime(metric.uptime_seconds),
+			format_memory_mb(metric.memory_mb),
+			format_uptime_seconds(metric.uptime_seconds),
 		)
 
 	output_console.print(table)
