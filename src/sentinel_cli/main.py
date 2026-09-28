@@ -20,6 +20,7 @@ from sentinel_core.process import (
 )
 from sentinel_core.restart_monitor import check_and_restart_processes
 from sentinel_core.state import HealthCheckConfig, ProcessInfo, State
+from .common import load_state
 from .daemon import is_daemon_running
 
 console = Console()
@@ -153,7 +154,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		] = None,
 	) -> None:
 		"""Start a background process"""
-		state = State()
+		state = load_state()
 		cmd = " ".join(command)
 		health_check: HealthCheckConfig | None = None
 
@@ -274,7 +275,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		force: Annotated[bool, typer.Option("--force", "-f", help="Force kill with SIGKILL")] = False,
 	) -> None:
 		"""Stop a running process"""
-		state = State()
+		state = load_state()
 
 		# Try to parse as int (ID), otherwise treat as name
 		try:
@@ -294,7 +295,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		id_or_name: Annotated[str, typer.Argument(help="Process ID or name")],
 	) -> None:
 		"""Restart a process"""
-		state = State()
+		state = load_state()
 
 		try:
 			target: int | str = int(id_or_name)
@@ -311,7 +312,7 @@ def register_main_commands(app: typer.Typer) -> None:
 	@app.command(name="list")
 	def list_cmd() -> None:
 		"""List all managed processes"""
-		state = State()
+		state = load_state()
 		_perform_lazy_restart_check(state)
 		processes = state.list_processes()
 
@@ -360,7 +361,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		id_or_name: Annotated[str, typer.Argument(help="Process ID or name")],
 	) -> None:
 		"""Show detailed status of a process"""
-		state = State()
+		state = load_state()
 		_perform_lazy_restart_check(state)
 
 		try:
@@ -405,7 +406,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		clear: Annotated[bool, typer.Option("--clear", "-c", help="Clear logs")] = False,
 	) -> None:
 		"""View process logs"""
-		state = State()
+		state = load_state()
 
 		try:
 			target: int | str = int(id_or_name)
@@ -431,7 +432,7 @@ def register_main_commands(app: typer.Typer) -> None:
 	@app.command()
 	def clean() -> None:
 		"""Remove dead processes from state"""
-		state = State()
+		state = load_state()
 		removed = []
 
 		for info in list(state.processes.values()):
@@ -450,7 +451,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		force: Annotated[bool, typer.Option("--force", "-f", help="Force kill all")] = False,
 	) -> None:
 		"""Stop all managed processes"""
-		state = State()
+		state = load_state()
 		processes = state.list_processes()
 		successful, failed = batch_stop_processes(state, processes, force=force)
 
@@ -470,7 +471,7 @@ def register_main_commands(app: typer.Typer) -> None:
 	@app.command()
 	def startall() -> None:
 		"""Start all managed processes"""
-		state = State()
+		state = load_state()
 		processes = state.list_processes()
 
 		if not processes:
@@ -495,7 +496,7 @@ def register_main_commands(app: typer.Typer) -> None:
 	@app.command()
 	def restartall() -> None:
 		"""Restart all managed processes"""
-		state = State()
+		state = load_state()
 		processes = state.list_processes()
 
 		if not processes:

@@ -9,7 +9,7 @@ from rich.table import Table
 from sentinel_core.process import batch_restart_processes
 from sentinel_core.process import batch_start_processes
 from sentinel_core.process import batch_stop_processes
-from sentinel_core.state import State
+from .common import load_state
 
 console = Console()
 group_app = typer.Typer(
@@ -26,7 +26,7 @@ def group_create(
 	env_file: Annotated[str | None, typer.Option("--env-file", "-f", help="Path to .env file")] = None,
 ) -> None:
 	"""Create a new process group"""
-	state = State()
+	state = load_state()
 
 	# Parse env vars
 	env_dict: dict[str, str] = {}
@@ -60,7 +60,7 @@ def group_add(
 	process_id: Annotated[int, typer.Argument(help="Process ID")],
 ) -> None:
 	"""Add a process to a group"""
-	state = State()
+	state = load_state()
 
 	if not state.add_process_to_group(group_name, process_id):
 		group = state.get_group(group_name)
@@ -85,7 +85,7 @@ def group_remove(
 	process_id: Annotated[int, typer.Argument(help="Process ID")],
 ) -> None:
 	"""Remove a process from its group"""
-	state = State()
+	state = load_state()
 
 	process = state.get_process(process_id)
 	if not process:
@@ -107,7 +107,7 @@ def group_list(
 	name: Annotated[str | None, typer.Argument(help="Group name (optional)")] = None,
 ) -> None:
 	"""List process groups and their processes"""
-	state = State()
+	state = load_state()
 
 	if name:
 		# List specific group
@@ -165,7 +165,7 @@ def group_start(
 	group_name: Annotated[str, typer.Argument(help="Group name")],
 ) -> None:
 	"""Start all processes in a group"""
-	state = State()
+	state = load_state()
 
 	group = state.get_group(group_name)
 	if not group:
@@ -200,7 +200,7 @@ def group_stop(
 	force: Annotated[bool, typer.Option("--force", "-f", help="Force kill all")] = False,
 ) -> None:
 	"""Stop all processes in a group"""
-	state = State()
+	state = load_state()
 
 	group = state.get_group(group_name)
 	if not group:
@@ -234,7 +234,7 @@ def group_restart(
 	group_name: Annotated[str, typer.Argument(help="Group name")],
 ) -> None:
 	"""Restart all processes in a group"""
-	state = State()
+	state = load_state()
 
 	group = state.get_group(group_name)
 	if not group:
@@ -276,7 +276,7 @@ def group_delete(
 	] = False,
 ) -> None:
 	"""Delete a process group"""
-	state = State()
+	state = load_state()
 
 	group = state.get_group(group_name)
 	if not group:

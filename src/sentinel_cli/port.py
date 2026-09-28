@@ -7,7 +7,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from sentinel_core.state import State
+from .common import load_state
 
 console = Console()
 port_app = typer.Typer(
@@ -27,7 +27,7 @@ def port_allocate(
 	name: Annotated[str, typer.Option("--name", "-n", help="Name for the allocation")] = "default",
 ) -> None:
 	"""Allocate a port"""
-	state = State()
+	state = load_state()
 	if port is not None and port_option is not None:
 		console.print("[red]✗[/] Provide either positional port or --port, not both")
 		raise typer.Exit(1)
@@ -47,7 +47,7 @@ def port_free(
 	port: Annotated[int, typer.Argument(help="Port to free")],
 ) -> None:
 	"""Free an allocated port"""
-	state = State()
+	state = load_state()
 
 	if state.free_port(port):
 		console.print(f"[green]✓[/] Freed port [bold]{port}[/]")
@@ -61,7 +61,7 @@ def port_list(
 	name: Annotated[str | None, typer.Option("--name", "-n", help="Filter by name")] = None,
 ) -> None:
 	"""List allocated ports"""
-	state = State()
+	state = load_state()
 	ports = state.list_ports(name)
 
 	if not ports:

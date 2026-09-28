@@ -7,7 +7,7 @@ import typer
 from rich.console import Console
 
 from sentinel_core.metrics import collect_metrics, export_to_json, export_to_stdout
-from sentinel_core.state import State
+from .common import load_state
 
 console = Console()
 metrics_app = typer.Typer(name="metrics", help="Export process metrics", no_args_is_help=True)
@@ -29,7 +29,7 @@ def export(
 		console.print("[red]✗[/] --format must be 'json' or 'table'")
 		raise typer.Exit(1)
 
-	state = State()
+	state = load_state()
 	metrics = collect_metrics(state)
 
 	if output:
@@ -51,6 +51,6 @@ def export(
 @metrics_app.command()
 def snapshot() -> None:
 	"""Print a one-shot metrics snapshot to stdout"""
-	state = State()
+	state = load_state()
 	metrics = collect_metrics(state)
 	export_to_stdout(metrics)
