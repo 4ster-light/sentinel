@@ -1,6 +1,7 @@
 """Process management functions"""
 
 import os
+import signal
 import subprocess
 import time
 from datetime import datetime
@@ -284,6 +285,40 @@ def start_process(
 	return info
 
 
+def _signal_pid(pid: int, sig: int) -> None:
+	try:
+		os.kill(pid, sig)
+	except OSError:
+		pass
+
+
+def _signal_process_group(pid: int, sig: int) -> None:
+	"""Signal the process group led by pid so shell children die with it.
+
+	Falls back to signaling the leader alone when group signaling is unavailable,
+	and never signals the group the caller itself runs in.
+	"""
+	getpgid = getattr(os, "getpgid", None)
+	killpg = getattr(os, "killpg", None)
+	if getpgid is None or killpg is None:
+		_signal_pid(pid, sig)
+		return
+
+	try:
+		pgid = getpgid(pid)
+	except OSError:
+		return
+
+	if pgid == getpgid(0):
+		_signal_pid(pid, sig)
+		return
+
+	try:
+		killpg(pgid, sig)
+	except OSError:
+		_signal_pid(pid, sig)
+
+
 def stop_process(state: State, id_or_name: int | str, force: bool = False) -> ProcessInfo:
 	# Find process
 	if isinstance(id_or_name, int):
@@ -294,19 +329,21 @@ def stop_process(state: State, id_or_name: int | str, force: bool = False) -> Pr
 	if not info:
 		raise ValueError(f"Process not found: {id_or_name}")
 
-	# Try to stop the process
+	# Stop the process (and its whole process group, since processes are
+	# started with start_new_session=True)
 	try:
 		proc = psutil.Process(info.pid)
+	except psutil.NoSuchProcess:
+		pass
+	else:
 		if force:
-			proc.kill()
+			_signal_process_group(info.pid, signal.SIGKILL)
 		else:
-			proc.terminate()
+			_signal_process_group(info.pid, signal.SIGTERM)
 			try:
 				proc.wait(timeout=10)
 			except psutil.TimeoutExpired:
-				proc.kill()
-	except psutil.NoSuchProcess:
-		pass
+				_signal_process_group(info.pid, signal.SIGKILL)
 
 	state.remove_process(info.id)
 	return info

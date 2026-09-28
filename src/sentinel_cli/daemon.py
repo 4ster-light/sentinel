@@ -1,15 +1,19 @@
 """Daemon commands for continuous process monitoring"""
 
+import logging
 import os
 import signal
 import subprocess
 import sys
 import time
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+import psutil
 import typer
 from rich.console import Console
 
+from sentinel_core.logs import DEFAULT_LOG_ROTATION_BACKUPS, DEFAULT_LOG_ROTATION_MAX_BYTES
 from sentinel_core.restart_monitor import RestartMonitor
 from sentinel_core.state import ProcessInfo
 from sentinel_core.state import STATE_DIR
@@ -17,7 +21,11 @@ from sentinel_core.state import STATE_DIR
 console = Console()
 daemon_app = typer.Typer(name="daemon", help="Manage the restart monitor daemon", no_args_is_help=True)
 
+logger = logging.getLogger(__name__)
+
 DAEMON_PID_FILE: Path = STATE_DIR / "daemon.pid"
+
+DAEMON_RUN_ARG = "monitor"
 
 
 def _get_daemon_pid() -> int | None:
@@ -28,14 +36,43 @@ def _get_daemon_pid() -> int | None:
 	try:
 		pid = int(DAEMON_PID_FILE.read_text().strip())
 		os.kill(pid, 0)
-		return pid
 	except ValueError, OSError:
 		DAEMON_PID_FILE.unlink(missing_ok=True)
 		return None
 
+	if not _is_daemon_process(pid):
+		DAEMON_PID_FILE.unlink(missing_ok=True)
+		return None
+
+	return pid
+
+
+def _is_daemon_process(pid: int) -> bool:
+	"""Guard against PID reuse: verify the pid actually runs the sentinel daemon."""
+	try:
+		cmdline = psutil.Process(pid).cmdline()
+	except psutil.Error:
+		return False
+	return any("sentinel_cli.daemon" in part for part in cmdline)
+
+
+def _configure_daemon_logging() -> None:
+	STATE_DIR.mkdir(parents=True, exist_ok=True)
+	handler = RotatingFileHandler(
+		STATE_DIR / "daemon.log",
+		maxBytes=DEFAULT_LOG_ROTATION_MAX_BYTES,
+		backupCount=DEFAULT_LOG_ROTATION_BACKUPS,
+	)
+	logging.basicConfig(
+		level=logging.INFO,
+		format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+		handlers=[handler],
+	)
+
 
 def _daemon_main_loop() -> None:
 	"""Main loop for the daemon process (runs in background)."""
+	_configure_daemon_logging()
 
 	should_exit = False
 
@@ -49,10 +86,11 @@ def _daemon_main_loop() -> None:
 	monitor = RestartMonitor(check_interval=5.0)
 
 	def on_restart(old_info: ProcessInfo, new_info: ProcessInfo) -> None:
-		pass
+		logger.info(f"Restarted {new_info.name} (old_pid: {old_info.pid}, new_pid: {new_info.pid})")
 
 	monitor.set_restart_callback(on_restart)
 	monitor.start()
+	logger.info(f"Daemon started (pid: {os.getpid()})")
 
 	try:
 		while not should_exit:
@@ -60,6 +98,7 @@ def _daemon_main_loop() -> None:
 	finally:
 		monitor.stop()
 		DAEMON_PID_FILE.unlink(missing_ok=True)
+		logger.info("Daemon stopped")
 
 
 @daemon_app.command()
@@ -73,11 +112,12 @@ def start() -> None:
 	STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 	proc = subprocess.Popen(
-		[sys.executable, "-m", "sentinel_cli.daemon", "_run"],
+		[sys.executable, "-m", "sentinel_cli.daemon", DAEMON_RUN_ARG],
 		start_new_session=True,
 		stdin=subprocess.DEVNULL,
 		stdout=subprocess.DEVNULL,
 		stderr=subprocess.DEVNULL,
+		env={**os.environ, "SENTINEL_STATE_DIR": str(STATE_DIR)},
 	)
 
 	DAEMON_PID_FILE.write_text(str(proc.pid))
@@ -116,8 +156,13 @@ def is_daemon_running() -> bool:
 	return _get_daemon_pid() is not None
 
 
-if __name__ == "__main__" or (len(sys.argv) > 1 and sys.argv[1] == "_run"):
-	if len(sys.argv) > 1 and sys.argv[1] == "_run":
+def main() -> None:
+	"""Module entry point: run the background monitor loop or the CLI app."""
+	if sys.argv[1:2] == [DAEMON_RUN_ARG]:
 		_daemon_main_loop()
 	else:
 		daemon_app()
+
+
+if __name__ == "__main__":
+	main()

@@ -1,5 +1,6 @@
 """Process and port state management"""
 
+import os
 from pathlib import Path
 
 from .models import (
@@ -13,7 +14,7 @@ from .models import (
 from .registries import GroupRegistry, PortRegistry, ProcessRegistry, RemoteRegistry
 from .state_store import StateStore
 
-STATE_DIR: Path = Path.home() / ".sentinel"
+STATE_DIR: Path = Path(os.environ.get("SENTINEL_STATE_DIR", str(Path.home() / ".sentinel")))
 STATE_FILE: Path = STATE_DIR / "state.json"
 LOGS_DIR: Path = STATE_DIR / "logs"
 

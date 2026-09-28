@@ -201,6 +201,30 @@ class TestStopProcess:
 		time.sleep(0.5)
 		assert not psutil.pid_exists(info.pid)
 
+	def test_stop_process_kills_process_group(self, state, temp_state_dir: Path):
+		# A background child shares the process group but survives leader-only signals
+		info = start_process(state, "sleep 60 & sleep 60", name="groupkill")
+		proc = psutil.Process(info.pid)
+
+		children: list[psutil.Process] = []
+		for _ in range(20):
+			children = proc.children(recursive=True)
+			if children:
+				break
+			time.sleep(0.1)
+		assert children, "expected at least one shell child"
+
+		stopped = stop_process(state, info.id)
+
+		assert stopped.id == info.id
+		time.sleep(0.5)
+
+		for child in children:
+			try:
+				assert not child.is_running() or child.status() == psutil.STATUS_ZOMBIE
+			except psutil.NoSuchProcess:
+				pass
+
 	def test_stop_process_force(self, state, temp_state_dir: Path):
 		# Start a process that ignores SIGTERM
 		info = start_process(state, "sleep 60", name="stubborn")
@@ -394,4 +418,3 @@ class TestCleanupDeadProcesses:
 		proc = psutil.Process(info.pid)
 		proc.terminate()
 		proc.wait()
-
