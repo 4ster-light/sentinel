@@ -48,7 +48,7 @@ def _daemon_main_loop() -> None:
 
 	monitor = RestartMonitor(check_interval=5.0)
 
-	def on_restart(info: ProcessInfo) -> None:
+	def on_restart(old_info: ProcessInfo, new_info: ProcessInfo) -> None:
 		pass
 
 	monitor.set_restart_callback(on_restart)

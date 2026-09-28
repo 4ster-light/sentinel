@@ -3,7 +3,6 @@
 from datetime import datetime
 from typing import Annotated
 
-import psutil
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -13,6 +12,7 @@ from sentinel_core.process import (
 	batch_restart_processes,
 	batch_start_processes,
 	batch_stop_processes,
+	cleanup_dead_processes,
 	get_process_status,
 	restart_process,
 	start_process,
@@ -433,12 +433,7 @@ def register_main_commands(app: typer.Typer) -> None:
 	def clean() -> None:
 		"""Remove dead processes from state"""
 		state = load_state()
-		removed = []
-
-		for info in list(state.processes.values()):
-			if not psutil.pid_exists(info.pid):
-				state.remove_process(info.id)
-				removed.append(info)
+		removed = cleanup_dead_processes(state)
 
 		if removed:
 			for info in removed:

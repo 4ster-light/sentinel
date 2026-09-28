@@ -1,13 +1,11 @@
 import os
 import time
 from pathlib import Path
-from unittest.mock import patch
 
 import psutil
 import pytest
 
 from sentinel_core.process import (
-	check_restart_needed,
 	cleanup_dead_processes,
 	get_process_status,
 	restart_process,
@@ -397,71 +395,3 @@ class TestCleanupDeadProcesses:
 		proc.terminate()
 		proc.wait()
 
-
-class TestCheckRestartNeeded:
-	def test_check_restart_needed(self, state, temp_state_dir: Path):
-		# Add a dead process with restart enabled
-		dead_info = ProcessInfo(
-			id=1,
-			pid=99999,
-			name="auto_restart",
-			cmd="echo done",
-			cwd="/tmp",
-			restart=True,
-			started_at="2024-01-01T00:00:00",
-			stdout_log="/tmp/auto_restart.stdout.log",
-			stderr_log="/tmp/auto_restart.stderr.log",
-		)
-		state.add_process(dead_info)
-
-		# Mock start_process to return a new process with a different PID
-		with patch("sentinel_core.process.start_process") as mock_start:
-			new_info = ProcessInfo(
-				id=2,
-				pid=88888,
-				name="auto_restart",
-				cmd="echo done",
-				cwd="/tmp",
-				restart=True,
-				started_at="2024-01-01T00:00:01",
-				stdout_log="/tmp/auto_restart.stdout.log",
-				stderr_log="/tmp/auto_restart.stderr.log",
-			)
-			mock_start.return_value = new_info
-
-			# Mock psutil to say the dead process doesn't exist
-			with patch("sentinel_core.process.psutil.pid_exists") as mock_pid_exists:
-				mock_pid_exists.return_value = False
-
-				restarted = check_restart_needed(state)
-
-		assert len(restarted) == 1
-		assert restarted[0].name == "auto_restart"
-		assert restarted[0].restart is True
-		assert 1 not in state.processes  # Old process removed
-
-	def test_check_restart_not_needed(self, state, temp_state_dir: Path):
-		info = start_process(state, "sleep 60", name="no_restart", restart=True)
-
-		restarted = check_restart_needed(state)
-
-		assert len(restarted) == 0
-		assert info.id in state.processes
-		assert psutil.pid_exists(info.pid)
-
-		# Cleanup
-		proc = psutil.Process(info.pid)
-		proc.terminate()
-		proc.wait()
-
-	def test_check_restart_disabled(self, state, temp_state_dir: Path):
-		info = start_process(state, "echo 'done'", name="no_restart", restart=False)
-
-		# Wait for process to finish
-		time.sleep(0.5)
-
-		restarted = check_restart_needed(state)
-
-		assert len(restarted) == 0
-		# Process should still be in state (not automatically cleaned up)
-		assert info.id in state.processes

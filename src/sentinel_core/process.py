@@ -1,6 +1,5 @@
 """Process management functions"""
 
-import logging
 import os
 import subprocess
 import time
@@ -12,8 +11,6 @@ import psutil
 from .env import build_process_environment, merge_environments
 from .logs import rotate_process_logs
 from .state import HealthCheckConfig, ProcessInfo, ProcessStatus, State, get_log_paths
-
-logger = logging.getLogger(__name__)
 
 
 class _SpawnedChild(Protocol):
@@ -315,7 +312,7 @@ def stop_process(state: State, id_or_name: int | str, force: bool = False) -> Pr
 	return info
 
 
-def _restart_from_info(state: State, info: ProcessInfo) -> ProcessInfo:
+def restart_from_info(state: State, info: ProcessInfo) -> ProcessInfo:
 	return start_process(
 		state,
 		info.cmd,
@@ -344,7 +341,7 @@ def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
 
 	old_id = info.id
 	stop_process(state, old_id)
-	return _restart_from_info(state, info)
+	return restart_from_info(state, info)
 
 
 def get_process_status(info: ProcessInfo) -> ProcessStatus:
@@ -375,19 +372,6 @@ def cleanup_dead_processes(state: State) -> list[ProcessInfo]:
 			state.remove_process(info.id)
 			dead.append(info)
 	return dead
-
-
-def check_restart_needed(state: State) -> list[ProcessInfo]:
-	restarted = []
-	for info in list(state.processes.values()):
-		if info.restart and not psutil.pid_exists(info.pid):
-			try:
-				new_info = _restart_from_info(state, info)
-				state.remove_process(info.id)
-				restarted.append(new_info)
-			except Exception:
-				logger.exception(f"Failed to restart process {info.name}")
-	return restarted
 
 
 def batch_start_processes(
