@@ -20,7 +20,7 @@
         python = pkgs.python314;
         py = python.pkgs;
 
-        pyproject = builtins.readFile ./pyproject.toml |> fromTOML;
+        pyproject = builtins.fromTOML (builtins.readFile ./pyproject.toml);
 
         sentinel = py.buildPythonApplication {
           pname = pyproject.project.name;
