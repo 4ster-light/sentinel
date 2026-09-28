@@ -1,394 +1,157 @@
 """Process and port state management"""
 
-import json
-import random
-import socket
-from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
-from typing import Any
+
+from .models import (
+	GroupInfo,
+	HealthCheckConfig,
+	PortInfo,
+	ProcessInfo,
+	ProcessStatus,
+	RemoteInfo,
+)
+from .registries import GroupRegistry, PortRegistry, ProcessRegistry, RemoteRegistry
+from .state_store import StateStore
 
 STATE_DIR: Path = Path.home() / ".sentinel"
 STATE_FILE: Path = STATE_DIR / "state.json"
 LOGS_DIR: Path = STATE_DIR / "logs"
 
-MIN_PORT = 1024
-MAX_PORT = 65535
-
-
-@dataclass
-class HealthCheckConfig:
-	kind: str
-	target: str
-	interval_seconds: float = 30.0
-	timeout_seconds: float = 3.0
-	failure_threshold: int = 3
-
-	def to_dict(self) -> dict[str, Any]:
-		return {
-			"kind": self.kind,
-			"target": self.target,
-			"interval_seconds": self.interval_seconds,
-			"timeout_seconds": self.timeout_seconds,
-			"failure_threshold": self.failure_threshold,
-		}
-
-	@classmethod
-	def from_dict(cls, data: dict[str, Any]) -> HealthCheckConfig:
-		return cls(
-			kind=data["kind"],
-			target=data["target"],
-			interval_seconds=data.get("interval_seconds", 30.0),
-			timeout_seconds=data.get("timeout_seconds", 3.0),
-			failure_threshold=data.get("failure_threshold", 3),
-		)
-
-
-@dataclass
-class ProcessInfo:
-	id: int
-	pid: int
-	name: str
-	cmd: str
-	cwd: str
-	restart: bool
-	started_at: str
-	stdout_log: str
-	stderr_log: str
-	user: str | None = None
-	env: dict[str, str] = field(default_factory=dict)
-	group: str | None = None
-	env_file: str | None = None
-	health_check: HealthCheckConfig | None = None
-	health_failures: int = 0
-	health_last_checked_at: str | None = None
-	startup_timeout_seconds: float | None = None
-	nice: int | None = None
-	ionice_ioclass: str | None = None
-	ionice_value: int | None = None
-
-	def to_dict(self) -> dict[str, Any]:
-		return {
-			"id": self.id,
-			"pid": self.pid,
-			"name": self.name,
-			"cmd": self.cmd,
-			"cwd": self.cwd,
-			"restart": self.restart,
-			"user": self.user,
-			"started_at": self.started_at,
-			"stdout_log": self.stdout_log,
-			"stderr_log": self.stderr_log,
-			"env": self.env,
-			"group": self.group,
-			"env_file": self.env_file,
-			"health_check": self.health_check.to_dict() if self.health_check else None,
-			"health_failures": self.health_failures,
-			"health_last_checked_at": self.health_last_checked_at,
-			"startup_timeout_seconds": self.startup_timeout_seconds,
-			"nice": self.nice,
-			"ionice_ioclass": self.ionice_ioclass,
-			"ionice_value": self.ionice_value,
-		}
-
-	@classmethod
-	def from_dict(cls, data: dict[str, Any]) -> ProcessInfo:
-		return cls(
-			id=data["id"],
-			pid=data["pid"],
-			name=data["name"],
-			cmd=data["cmd"],
-			cwd=data["cwd"],
-			restart=data["restart"],
-			user=data.get("user"),
-			started_at=data["started_at"],
-			stdout_log=data["stdout_log"],
-			stderr_log=data["stderr_log"],
-			env=data.get("env", {}),
-			group=data.get("group"),
-			env_file=data.get("env_file"),
-			health_check=HealthCheckConfig.from_dict(data["health_check"]) if data.get("health_check") else None,
-			health_failures=data.get("health_failures", 0),
-			health_last_checked_at=data.get("health_last_checked_at"),
-			startup_timeout_seconds=data.get("startup_timeout_seconds"),
-			nice=data.get("nice"),
-			ionice_ioclass=data.get("ionice_ioclass"),
-			ionice_value=data.get("ionice_value"),
-		)
-
-
-@dataclass
-class GroupInfo:
-	name: str
-	created_at: str
-	env: dict[str, str] = field(default_factory=dict)
-	env_file: str | None = None
-
-	def to_dict(self) -> dict[str, Any]:
-		return {
-			"name": self.name,
-			"created_at": self.created_at,
-			"env": self.env,
-			"env_file": self.env_file,
-		}
-
-	@classmethod
-	def from_dict(cls, data: dict[str, Any]) -> GroupInfo:
-		return cls(
-			name=data["name"],
-			created_at=data["created_at"],
-			env=data.get("env", {}),
-			env_file=data.get("env_file"),
-		)
-
-
-@dataclass
-class PortInfo:
-	port: int
-	name: str
-	allocated_at: str
-
-	def to_dict(self) -> dict[str, Any]:
-		return {
-			"port": self.port,
-			"name": self.name,
-			"allocated_at": self.allocated_at,
-		}
-
-	@classmethod
-	def from_dict(cls, data: dict[str, Any]) -> PortInfo:
-		return cls(
-			port=data["port"],
-			name=data["name"],
-			allocated_at=data["allocated_at"],
-		)
-
-
-@dataclass
-class ProcessStatus:
-	running: bool
-	status: str
-	cpu_percent: float
-	memory_mb: float
-
-
-@dataclass
-class RemoteInfo:
-	host: str
-	user: str | None = None
-	port: int | None = None
-	created_at: str = ""
-
-	def to_dict(self) -> dict[str, Any]:
-		return {
-			"host": self.host,
-			"user": self.user,
-			"port": self.port,
-			"created_at": self.created_at,
-		}
-
-	@classmethod
-	def from_dict(cls, data: dict[str, Any]) -> RemoteInfo:
-		return cls(
-			host=data["host"],
-			user=data.get("user"),
-			port=data.get("port"),
-			created_at=data.get("created_at", ""),
-		)
+__all__ = [
+	"GroupInfo",
+	"HealthCheckConfig",
+	"PortInfo",
+	"ProcessInfo",
+	"ProcessStatus",
+	"RemoteInfo",
+	"State",
+	"STATE_DIR",
+	"STATE_FILE",
+	"LOGS_DIR",
+	"get_log_paths",
+]
 
 
 class State:
-	def __init__(self) -> None:
-		STATE_DIR.mkdir(parents=True, exist_ok=True)
-		LOGS_DIR.mkdir(parents=True, exist_ok=True)
-		self.processes: dict[int, ProcessInfo] = {}
-		self.ports: dict[int, PortInfo] = {}
-		self.groups: dict[str, GroupInfo] = {}
-		self.remotes: dict[str, RemoteInfo] = {}
-		self.next_id: int = 1
-		self._load()
+	"""Facade over the process, port, group, and remote registries."""
 
-	def _load(self) -> None:
-		if STATE_FILE.exists():
-			try:
-				data = json.loads(STATE_FILE.read_text())
-				self.next_id = data.get("next_id", 1)
-				self.processes = {int(k): ProcessInfo.from_dict(v) for k, v in data.get("processes", {}).items()}
-				self.ports = {int(k): PortInfo.from_dict(v) for k, v in data.get("ports", {}).items()}
-				self.groups = {k: GroupInfo.from_dict(v) for k, v in data.get("groups", {}).items()}
-				self.remotes = {k: RemoteInfo.from_dict(v) for k, v in data.get("remotes", {}).items()}
-			except json.JSONDecodeError, KeyError:
-				pass
+	def __init__(self, state_dir: Path | None = None) -> None:
+		self.store = StateStore(state_dir if state_dir is not None else STATE_DIR)
+		self.store.load()
+		self._processes = ProcessRegistry(self.store)
+		self._ports = PortRegistry(self.store)
+		self._groups = GroupRegistry(self.store)
+		self._remotes = RemoteRegistry(self.store)
+
+	@property
+	def processes(self) -> dict[int, ProcessInfo]:
+		return self._processes.processes
+
+	@property
+	def ports(self) -> dict[int, PortInfo]:
+		return self._ports.ports
+
+	@property
+	def groups(self) -> dict[str, GroupInfo]:
+		return self._groups.groups
+
+	@property
+	def remotes(self) -> dict[str, RemoteInfo]:
+		return self._remotes.remotes
+
+	@property
+	def next_id(self) -> int:
+		return int(self.store.data.get("next_id", 1))
+
+	@property
+	def logs_dir(self) -> Path:
+		return self.store.logs_dir
+
+	@property
+	def load_warnings(self) -> list[str]:
+		return list(self.store.warnings)
 
 	def save(self) -> None:
-		data = {
-			"next_id": self.next_id,
-			"processes": {k: v.to_dict() for k, v in self.processes.items()},
-			"ports": {k: v.to_dict() for k, v in self.ports.items()},
-			"groups": {k: v.to_dict() for k, v in self.groups.items()},
-			"remotes": {k: v.to_dict() for k, v in self.remotes.items()},
-		}
-		STATE_FILE.write_text(json.dumps(data, indent=2))
+		self.store.save()
+
+	# Process registry
 
 	def get_next_id(self) -> int:
-		id_ = self.next_id
-		self.next_id += 1
-		self.save()
-		return id_
+		return self._processes.get_next_id()
 
 	def add_process(self, info: ProcessInfo) -> None:
-		self.processes[info.id] = info
-		self.save()
+		self._processes.add_process(info)
 
 	def remove_process(self, id_: int) -> ProcessInfo | None:
-		info = self.processes.pop(id_, None)
-		if info:
-			self.save()
-		return info
+		return self._processes.remove_process(id_)
 
 	def get_process(self, id_: int) -> ProcessInfo | None:
-		return self.processes.get(id_)
+		return self._processes.get(id_)
 
 	def find_process_by_name(self, name: str) -> ProcessInfo | None:
-		for info in self.processes.values():
-			if info.name == name:
-				return info
-		return None
+		return self._processes.find_by_name(name)
 
 	def list_processes(self) -> list[ProcessInfo]:
-		return list(self.processes.values())
+		return self._processes.all()
+
+	# Port registry
 
 	def allocate_port(self, name: str, port: int | None = None) -> int | None:
-		if port is not None:
-			if port in self.ports or not _is_port_available(port):
-				return None
-			allocated = port
-		else:
-			allocated = _find_available_port(set(self.ports.keys()))
-			if allocated is None:
-				return None
-
-		self.ports[allocated] = PortInfo(
-			port=allocated,
-			name=name,
-			allocated_at=datetime.now().isoformat(),
-		)
-		self.save()
-		return allocated
+		return self._ports.allocate(name, port)
 
 	def free_port(self, port: int) -> bool:
-		if port in self.ports:
-			del self.ports[port]
-			self.save()
-			return True
-		return False
+		return self._ports.free(port)
 
 	def get_port(self, port: int) -> PortInfo | None:
-		return self.ports.get(port)
+		return self._ports.get(port)
 
 	def list_ports(self, name: str | None = None) -> list[PortInfo]:
 		"""Optionally filtered by name"""
-		ports = list(self.ports.values())
-		if name:
-			ports = [p for p in ports if p.name == name]
-		return ports
+		return self._ports.all(name)
+
+	# Group registry
 
 	def create_group(
 		self, name: str, env: dict[str, str] | None = None, env_file: str | None = None
 	) -> GroupInfo | None:
-		if name in self.groups:
-			return None
-		group = GroupInfo(
-			name=name,
-			created_at=datetime.now().isoformat(),
-			env=env or {},
-			env_file=env_file,
-		)
-		self.groups[name] = group
-		self.save()
-		return group
+		return self._groups.create(name, env=env, env_file=env_file)
 
 	def remove_group(self, name: str) -> bool:
-		if name not in self.groups:
-			return False
-		del self.groups[name]
-
-		# Unassign all processes from this group
-		for info in self.processes.values():
-			if info.group == name:
-				info.group = None
-		self.save()
-		return True
+		return self._groups.remove(name)
 
 	def get_group(self, name: str) -> GroupInfo | None:
-		return self.groups.get(name)
+		return self._groups.get(name)
 
 	def add_process_to_group(self, group_name: str, process_id: int) -> bool:
-		if group_name not in self.groups:
-			return False
-		if process_id not in self.processes:
-			return False
-		self.processes[process_id].group = group_name
-		self.save()
-		return True
+		return self._groups.add_process(group_name, process_id)
 
 	def remove_process_from_group(self, process_id: int) -> bool:
-		if process_id not in self.processes:
-			return False
-		self.processes[process_id].group = None
-		self.save()
-		return True
+		return self._groups.remove_process(process_id)
 
 	def list_groups(self) -> list[GroupInfo]:
-		return list(self.groups.values())
+		return self._groups.all()
 
 	def get_processes_in_group(self, group_name: str) -> list[ProcessInfo]:
-		return [info for info in self.processes.values() if info.group == group_name]
+		return self._groups.processes_in(group_name)
+
+	# Remote registry
 
 	def add_remote(self, info: RemoteInfo) -> RemoteInfo | None:
-		if info.host in self.remotes:
-			return None
-		if not info.created_at:
-			info.created_at = datetime.now().isoformat()
-		self.remotes[info.host] = info
-		self.save()
-		return info
+		return self._remotes.add(info)
 
 	def remove_remote(self, host: str) -> bool:
-		if host not in self.remotes:
-			return False
-		del self.remotes[host]
-		self.save()
-		return True
+		return self._remotes.remove(host)
 
 	def get_remote(self, host: str) -> RemoteInfo | None:
-		return self.remotes.get(host)
+		return self._remotes.get(host)
 
 	def list_remotes(self) -> list[RemoteInfo]:
-		return list(self.remotes.values())
+		return self._remotes.all()
 
 
-def _is_port_available(port: int) -> bool:
-	if not MIN_PORT <= port <= MAX_PORT:
-		return False
-	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-		try:
-			s.bind(("127.0.0.1", port))
-			return True
-		except OSError:
-			return False
-
-
-def _find_available_port(allocated: set[int]) -> int | None:
-	for _ in range(100):
-		port = random.randint(MIN_PORT, MAX_PORT)
-		if port not in allocated and _is_port_available(port):
-			return port
-	return None
-
-
-def get_log_paths(name: str) -> tuple[Path, Path]:
+def get_log_paths(name: str, logs_dir: Path | None = None) -> tuple[Path, Path]:
+	base = logs_dir if logs_dir is not None else LOGS_DIR
 	safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
-	stdout = LOGS_DIR / f"{safe_name}.stdout.log"
-	stderr = LOGS_DIR / f"{safe_name}.stderr.log"
+	stdout = base / f"{safe_name}.stdout.log"
+	stderr = base / f"{safe_name}.stderr.log"
 	return stdout, stderr

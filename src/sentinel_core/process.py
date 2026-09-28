@@ -186,7 +186,7 @@ def start_process(
 		raise ValueError(f"Process with name '{name}' already exists (id: {existing.id})")
 
 	# Setup log files
-	stdout_path, stderr_path = get_log_paths(name)
+	stdout_path, stderr_path = get_log_paths(name, logs_dir=state.logs_dir)
 	rotate_process_logs(str(stdout_path), str(stderr_path))
 
 	# Build merged environment with proper precedence
