@@ -1,6 +1,8 @@
 """Health check probes and evaluation helpers"""
 
 from datetime import datetime, timedelta
+from http.client import HTTPException
+from urllib.parse import urlsplit
 from socket import create_connection
 from urllib import error, request
 
@@ -18,7 +20,7 @@ def should_run_health_check(process_info: ProcessInfo) -> bool:
 	except ValueError:
 		return True
 	next_check_at = last_checked_at + timedelta(seconds=process_info.health_check.interval_seconds)
-	return datetime.now() >= next_check_at
+	return datetime.now(tz=last_checked_at.tzinfo) >= next_check_at
 
 
 def run_health_check(process_info: ProcessInfo) -> bool:
@@ -34,11 +36,14 @@ def run_health_check(process_info: ProcessInfo) -> bool:
 
 
 def _run_http_health_check(check: HealthCheckConfig) -> bool:
-	request_obj = request.Request(check.target, method="GET")
 	try:
+		url = urlsplit(check.target)
+		if url.scheme not in ("http", "https") or not url.hostname:
+			return False
+		request_obj = request.Request(check.target, method="GET")
 		with request.urlopen(request_obj, timeout=check.timeout_seconds) as response:
-			return 200 <= response.status < 400
-	except error.URLError, TimeoutError, ValueError:
+			return isinstance(response.status, int) and 200 <= response.status < 400
+	except error.URLError, OSError, HTTPException, ValueError:
 		return False
 
 
@@ -60,6 +65,8 @@ def _parse_host_port(target: str) -> tuple[str | None, int | None]:
 		return None, None
 
 	host = parts[0].strip()
+	if host.startswith("[") and host.endswith("]"):
+		host = host[1:-1]
 	if not host:
 		return None, None
 
