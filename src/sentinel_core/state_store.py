@@ -43,8 +43,8 @@ class StateStore:
 		self.warnings: list[str] = []
 
 	def load(self) -> None:
-		self.state_dir.mkdir(parents=True, exist_ok=True)
-		self.logs_dir.mkdir(parents=True, exist_ok=True)
+		self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+		self.logs_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
 		self.warnings = []
 		if not self.state_file.exists():
 			self.data = empty_state_data()
@@ -95,7 +95,7 @@ class StateStore:
 		return backup
 
 	def _atomic_write(self, data: dict[str, Any]) -> None:
-		self.state_dir.mkdir(parents=True, exist_ok=True)
+		self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
 		fd, tmp_name = tempfile.mkstemp(dir=self.state_dir, prefix=f".{STATE_FILENAME}.", suffix=".tmp")
 		try:
 			with os.fdopen(fd, "w") as tmp_file:

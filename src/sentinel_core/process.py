@@ -186,6 +186,8 @@ def start_process(
 	# Setup log files
 	stdout_path, stderr_path = get_log_paths(name, logs_dir=state.logs_dir)
 	rotate_process_logs(str(stdout_path), str(stderr_path))
+	stdout_path.touch(mode=0o600, exist_ok=True)
+	stderr_path.touch(mode=0o600, exist_ok=True)
 
 	# Build merged environment with proper precedence
 	process_env = build_process_environment(

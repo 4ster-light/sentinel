@@ -74,7 +74,7 @@ def _is_daemon_process(pid: int) -> bool:
 
 
 def _configure_daemon_logging() -> None:
-	STATE_DIR.mkdir(parents=True, exist_ok=True)
+	STATE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
 	handler = RotatingFileHandler(
 		STATE_DIR / "daemon.log",
 		maxBytes=DEFAULT_LOG_ROTATION_MAX_BYTES,
@@ -126,7 +126,7 @@ def start() -> None:
 		console.print(f"[yellow]⚠[/] Daemon already running (pid: {existing_pid})")
 		return
 
-	STATE_DIR.mkdir(parents=True, exist_ok=True)
+	STATE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
 
 	proc = subprocess.Popen(
 		[sys.executable, "-m", "sentinel_cli.daemon", DAEMON_RUN_ARG],
