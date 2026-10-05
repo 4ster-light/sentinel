@@ -4,6 +4,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from sentinel_core.format import format_memory_mb, format_uptime_seconds, uptime_from_started_at
@@ -21,6 +22,7 @@ from sentinel_core.process import (
 )
 from sentinel_core.restart_monitor import check_and_restart_processes
 from sentinel_core.state import ProcessInfo, State
+from .common import console as error_console
 from .common import load_state
 from .daemon import is_daemon_running
 
@@ -277,7 +279,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		info = state.find_process(id_or_name)
 
 		if not info:
-			console.print(f"[red]✗[/] Process not found: {id_or_name}")
+			error_console.print(f"[red]✗[/] Process not found: {escape(id_or_name)}")
 			raise typer.Exit(1)
 
 		proc_status = get_process_status(info)
@@ -299,7 +301,7 @@ def register_main_commands(app: typer.Typer) -> None:
 	@app.command()
 	def logs(
 		id_or_name: Annotated[str, typer.Argument(help="Process ID or name")],
-		lines: Annotated[int, typer.Option("--lines", "-n", help="Number of lines to show")] = 50,
+		lines: Annotated[int, typer.Option("--lines", "-n", help="Number of lines to show", min=0)] = 50,
 		follow: Annotated[bool, typer.Option("--follow", "-f", help="Follow log output")] = False,
 		stream: Annotated[
 			str,
@@ -313,15 +315,19 @@ def register_main_commands(app: typer.Typer) -> None:
 		info = state.find_process(id_or_name)
 
 		if not info:
-			console.print(f"[red]✗[/] Process not found: {id_or_name}")
+			error_console.print(f"[red]✗[/] Process not found: {escape(id_or_name)}")
 			raise typer.Exit(1)
 
 		if clear:
 			clear_logs(info.stdout_log, info.stderr_log)
-			console.print(f"[green]✓[/] Cleared logs for [bold]{info.name}[/]")
+			console.print(f"[green]✓[/] Cleared logs for [bold]{escape(info.name)}[/]")
 			return
 
-		show_logs(info.stdout_log, info.stderr_log, lines=lines, follow=follow, stream=stream)
+		try:
+			show_logs(info.stdout_log, info.stderr_log, lines=lines, follow=follow, stream=stream)
+		except ValueError as e:
+			error_console.print(str(e), markup=False)
+			raise typer.Exit(1)
 
 	@app.command()
 	def clean() -> None:

@@ -4,7 +4,7 @@ from rich.console import Console
 
 from sentinel_core.state import State
 
-console = Console()
+console = Console(stderr=True)
 
 
 def load_state() -> State:
