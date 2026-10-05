@@ -378,8 +378,22 @@ def get_process_status(info: ProcessInfo) -> ProcessStatus:
 	try:
 		proc = psutil.Process(info.pid)
 		status = proc.status()
-		cpu = proc.cpu_percent()
-		mem = proc.memory_info().rss
+		processes = [proc, *proc.children(recursive=True)]
+		for member in processes:
+			try:
+				member.cpu_percent()
+			except psutil.NoSuchProcess:
+				pass
+		# psutil needs two samples; sample the shell and its children together.
+		time.sleep(0.1)
+		cpu = 0.0
+		mem = 0
+		for member in processes:
+			try:
+				cpu += member.cpu_percent()
+				mem += member.memory_info().rss
+			except psutil.NoSuchProcess, psutil.AccessDenied:
+				continue
 		return ProcessStatus(
 			running=True,
 			status=status,
@@ -393,6 +407,9 @@ def get_process_status(info: ProcessInfo) -> ProcessStatus:
 			cpu_percent=0,
 			memory_mb=0,
 		)
+
+	except psutil.AccessDenied:
+		return ProcessStatus(running=False, status="unknown", cpu_percent=0, memory_mb=0)
 
 
 def cleanup_dead_processes(state: State) -> list[ProcessInfo]:

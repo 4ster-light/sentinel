@@ -245,7 +245,7 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		for info in processes:
 			status = get_process_status(info)
-			status_str = "[green]running[/]" if status.running else "[red]stopped[/]"
+			status_str = "[green]running[/]" if status.running else f"[red]{status.status}[/]"
 			restart_str = "[green]✓[/]" if info.restart else "[dim]-[/]"
 			user_str = info.user if info.user else "[dim]-[/]"
 			group_str = info.group if info.group else "[dim]-[/]"
@@ -284,7 +284,7 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		console.print(f"\n[bold]{info.name}[/] (id: {info.id})")
 		console.print(f"  PID:       {info.pid}")
-		console.print(f"  Status:    {'[green]running[/]' if proc_status.running else '[red]stopped[/]'}")
+		console.print(f"  Status:    {'[green]running[/]' if proc_status.running else f'[red]{proc_status.status}[/]'}")
 		console.print(f"  CPU:       {proc_status.cpu_percent:.1f}%")
 		console.print(f"  Memory:    {format_memory_mb(proc_status.memory_mb)}")
 		console.print(f"  Uptime:    {format_uptime_seconds(uptime_from_started_at(info.started_at))}")

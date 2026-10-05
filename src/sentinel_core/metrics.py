@@ -52,7 +52,7 @@ def collect_metrics(state: State) -> list[ProcessMetrics]:
 				running=status.running,
 				cpu_percent=status.cpu_percent,
 				memory_mb=status.memory_mb,
-				uptime_seconds=uptime_from_started_at(info.started_at),
+				uptime_seconds=uptime_from_started_at(info.started_at) if status.running else 0,
 			)
 		)
 	return metrics
@@ -79,7 +79,7 @@ def export_to_stdout(metrics: list[ProcessMetrics], output_console: Console | No
 	table.add_column("UPTIME", justify="right")
 
 	for metric in metrics:
-		status_str = "[green]running[/]" if metric.running else "[red]stopped[/]"
+		status_str = "[green]running[/]" if metric.running else f"[red]{metric.status}[/]"
 		table.add_row(
 			str(metric.id),
 			metric.name,

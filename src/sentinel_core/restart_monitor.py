@@ -27,7 +27,7 @@ def _is_process_running(pid: int) -> bool:
 		proc = psutil.Process(pid)
 		status = proc.status()
 		return status != psutil.STATUS_ZOMBIE
-	except psutil.NoSuchProcess, psutil.AccessDenied:
+	except psutil.NoSuchProcess:
 		return False
 
 
@@ -45,7 +45,12 @@ def _scan(state: State) -> _ScanOutcome:
 	for info in list(state.processes.values()):
 		rotate_process_logs(info.stdout_log, info.stderr_log)
 
-		if not psutil.pid_exists(info.pid) or not _is_process_running(info.pid):
+		try:
+			running = psutil.pid_exists(info.pid) and _is_process_running(info.pid)
+		except psutil.AccessDenied:
+			logger.warning("Cannot inspect process %s (pid=%s)", info.name, info.pid)
+			continue
+		if not running:
 			if info.restart:
 				outcome.to_restart.append(info)
 			else:
