@@ -28,7 +28,7 @@ class TestStartupCommands:
 		assert "User=deploy" in unit
 		assert "WorkingDirectory=/srv/app" in unit
 		assert "Restart=always" in unit
-		assert "'value with spaces'" in unit
+		assert '"value with spaces"' in unit
 
 	def test_startup_systemd_command(self) -> None:
 		result = runner.invoke(app, ["startup", "systemd", "--name", "myservice", "python", "app.py"])

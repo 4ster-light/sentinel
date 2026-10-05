@@ -17,7 +17,7 @@ class TestCorruptStateSurfacing:
 		result = runner.invoke(app, ["list"])
 
 		assert result.exit_code == 0
-		assert "corrupt" in result.stdout.lower()
+		assert "corrupt" in result.stderr.lower()
 		assert "No processes running" in result.stdout
 		assert list((temp_state_dir / ".sentinel").glob("state.json.corrupt-*"))
 
@@ -27,5 +27,5 @@ class TestCorruptStateSurfacing:
 
 		result = runner.invoke(app, ["status", "1"])
 
-		assert "corrupt" in result.stdout.lower()
+		assert "corrupt" in result.stderr.lower()
 		assert "Process not found" in result.stdout

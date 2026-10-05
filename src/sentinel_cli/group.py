@@ -4,6 +4,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from sentinel_core.process import batch_restart_processes
@@ -32,7 +33,7 @@ def group_create(
 	env_dict: dict[str, str] = {}
 	for env_var in env:
 		if "=" not in env_var:
-			console.print(f"[red]✗[/] Invalid environment variable: {env_var} (expected KEY=VALUE)")
+			console.print(f"[red]✗[/] Invalid environment variable: {escape(env_var)} (expected KEY=VALUE)")
 			raise typer.Exit(1)
 		key, value = env_var.split("=", 1)
 		env_dict[key] = value
@@ -42,15 +43,15 @@ def group_create(
 		from pathlib import Path
 
 		if not Path(env_file).exists():
-			console.print(f"[red]✗[/] Environment file not found: {env_file}")
+			console.print(f"[red]✗[/] Environment file not found: {escape(env_file)}")
 			raise typer.Exit(1)
 
 	group = state.create_group(name, env=env_dict if env_dict else None, env_file=env_file)
 
 	if group:
-		console.print(f"[green]✓[/] Created group [bold]{name}[/]")
+		console.print(f"[green]✓[/] Created group [bold]{escape(name)}[/]")
 	else:
-		console.print(f"[red]✗[/] Group '{name}' already exists")
+		console.print(f"[red]✗[/] Group '{escape(name)}' already exists")
 		raise typer.Exit(1)
 
 
@@ -67,7 +68,7 @@ def group_add(
 		process = state.get_process(process_id)
 
 		if not group:
-			console.print(f"[red]✗[/] Group '{group_name}' not found")
+			console.print(f"[red]✗[/] Group '{escape(group_name)}' not found")
 		elif not process:
 			console.print(f"[red]✗[/] Process {process_id} not found")
 		else:
@@ -77,7 +78,9 @@ def group_add(
 
 	process = state.get_process(process_id)
 	if process:
-		console.print(f"[green]✓[/] Added process [bold]{process.name}[/] to group [bold]{group_name}[/]")
+		console.print(
+			f"[green]✓[/] Added process [bold]{escape(process.name)}[/] to group [bold]{escape(group_name)}[/]"
+		)
 
 
 @group_app.command("remove")
@@ -93,13 +96,15 @@ def group_remove(
 		raise typer.Exit(1)
 
 	if not process.group:
-		console.print(f"[yellow]⚠[/] Process [bold]{process.name}[/] is not in any group")
+		console.print(f"[yellow]⚠[/] Process [bold]{escape(process.name)}[/] is not in any group")
 		return
 
 	old_group = process.group
 	state.remove_process_from_group(process_id)
 
-	console.print(f"[green]✓[/] Removed process [bold]{process.name}[/] from group [bold]{old_group}[/]")
+	console.print(
+		f"[green]✓[/] Removed process [bold]{escape(process.name)}[/] from group [bold]{escape(old_group)}[/]"
+	)
 
 
 @group_app.command("list")
@@ -113,23 +118,23 @@ def group_list(
 		# List specific group
 		group = state.get_group(name)
 		if not group:
-			console.print(f"[red]✗[/] Group '{name}' not found")
+			console.print(f"[red]✗[/] Group '{escape(name)}' not found")
 			raise typer.Exit(1)
 
 		processes = state.get_processes_in_group(name)
-		console.print(f"\n[bold]Group: {name}[/]")
-		console.print(f"Created: {group.created_at}")
+		console.print(f"\n[bold]Group: {escape(name)}[/]")
+		console.print(f"Created: {escape(group.created_at)}")
 		if group.env_file:
-			console.print(f"Environment file: {group.env_file}")
+			console.print(f"Environment file: {escape(group.env_file)}")
 		if group.env:
 			console.print("Environment variables:")
 			for key, value in group.env.items():
-				console.print(f"  {key}={value}")
+				console.print(f"  {escape(key)}={escape(value)}")
 
 		if processes:
 			console.print(f"\nProcesses ({len(processes)}):")
 			for process in processes:
-				console.print(f"  - {process.name} (id: {process.id}, pid: {process.pid})")
+				console.print(f"  - {escape(process.name)} (id: {process.id}, pid: {process.pid})")
 		else:
 			console.print("Processes: none")
 		console.print()
@@ -151,7 +156,7 @@ def group_list(
 			process_count = len(state.get_processes_in_group(group.name))
 			env_count = len(group.env)
 			table.add_row(
-				group.name,
+				escape(group.name),
 				str(process_count),
 				str(env_count),
 				group.created_at,
@@ -169,22 +174,22 @@ def group_start(
 
 	group = state.get_group(group_name)
 	if not group:
-		console.print(f"[red]✗[/] Group '{group_name}' not found")
+		console.print(f"[red]✗[/] Group '{escape(group_name)}' not found")
 		raise typer.Exit(1)
 
 	processes = state.get_processes_in_group(group_name)
 
 	if not processes:
-		console.print(f"[dim]No processes in group '{group_name}'[/]")
+		console.print(f"[dim]No processes in group '{escape(group_name)}'[/]")
 		return
 
 	successful, failed = batch_start_processes(state, processes)
 
 	for info in successful:
-		console.print(f"[green]✓[/] Started [bold]{info.name}[/] (pid: {info.pid})")
+		console.print(f"[green]✓[/] Started [bold]{escape(info.name)}[/] (pid: {info.pid})")
 
 	for info, error in failed:
-		console.print(f"[red]✗[/] Failed to start {info.name}: {error}")
+		console.print(f"[red]✗[/] Failed to start {escape(info.name)}: {escape(error)}")
 
 	if successful:
 		console.print(f"\n[green]Started {len(successful)} process(es)[/]", end="")
@@ -204,22 +209,22 @@ def group_stop(
 
 	group = state.get_group(group_name)
 	if not group:
-		console.print(f"[red]✗[/] Group '{group_name}' not found")
+		console.print(f"[red]✗[/] Group '{escape(group_name)}' not found")
 		raise typer.Exit(1)
 
 	processes = state.get_processes_in_group(group_name)
 
 	if not processes:
-		console.print(f"[dim]No processes in group '{group_name}'[/]")
+		console.print(f"[dim]No processes in group '{escape(group_name)}'[/]")
 		return
 
 	successful, failed = batch_stop_processes(state, processes, force=force)
 
 	for info in successful:
-		console.print(f"[green]✓[/] Stopped [bold]{info.name}[/]")
+		console.print(f"[green]✓[/] Stopped [bold]{escape(info.name)}[/]")
 
 	for info, error in failed:
-		console.print(f"[red]✗[/] Failed to stop {info.name}: {error}")
+		console.print(f"[red]✗[/] Failed to stop {escape(info.name)}: {escape(error)}")
 
 	if successful:
 		console.print(f"\n[green]Stopped {len(successful)} process(es)[/]", end="")
@@ -238,22 +243,22 @@ def group_restart(
 
 	group = state.get_group(group_name)
 	if not group:
-		console.print(f"[red]✗[/] Group '{group_name}' not found")
+		console.print(f"[red]✗[/] Group '{escape(group_name)}' not found")
 		raise typer.Exit(1)
 
 	processes = state.get_processes_in_group(group_name)
 
 	if not processes:
-		console.print(f"[dim]No processes in group '{group_name}'[/]")
+		console.print(f"[dim]No processes in group '{escape(group_name)}'[/]")
 		return
 
 	successful, failed = batch_restart_processes(state, processes)
 
 	for info in successful:
-		console.print(f"[green]✓[/] Restarted [bold]{info.name}[/] (pid: {info.pid})")
+		console.print(f"[green]✓[/] Restarted [bold]{escape(info.name)}[/] (pid: {info.pid})")
 
 	for info, error in failed:
-		console.print(f"[red]✗[/] Failed to restart {info.name}: {error}")
+		console.print(f"[red]✗[/] Failed to restart {escape(info.name)}: {escape(error)}")
 
 	if successful:
 		console.print(f"\n[green]Restarted {len(successful)} process(es)[/]", end="")
@@ -280,7 +285,7 @@ def group_delete(
 
 	group = state.get_group(group_name)
 	if not group:
-		console.print(f"[red]✗[/] Group '{group_name}' not found")
+		console.print(f"[red]✗[/] Group '{escape(group_name)}' not found")
 		raise typer.Exit(1)
 
 	processes = state.get_processes_in_group(group_name)
@@ -290,15 +295,15 @@ def group_delete(
 		successful, failed = batch_stop_processes(state, processes)
 
 		for info in successful:
-			console.print(f"[green]✓[/] Stopped [bold]{info.name}[/]")
+			console.print(f"[green]✓[/] Stopped [bold]{escape(info.name)}[/]")
 
 		for info, error in failed:
-			console.print(f"[red]✗[/] Failed to stop {info.name}: {error}")
+			console.print(f"[red]✗[/] Failed to stop {escape(info.name)}: {escape(error)}")
 
 	# Delete the group (which also unassigns processes)
 	state.remove_group(group_name)
 
-	console.print(f"[green]✓[/] Deleted group [bold]{group_name}[/]")
+	console.print(f"[green]✓[/] Deleted group [bold]{escape(group_name)}[/]")
 	if processes:
 		if with_processes:
 			console.print(f"[green]✓[/] Stopped {len(processes)} process(es)")

@@ -12,6 +12,7 @@ from pathlib import Path
 import psutil
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 from sentinel_core.logs import DEFAULT_LOG_ROTATION_BACKUPS, DEFAULT_LOG_ROTATION_MAX_BYTES
 from sentinel_core.restart_monitor import RestartMonitor
@@ -153,7 +154,7 @@ def stop() -> None:
 		os.kill(pid, signal.SIGTERM)
 		console.print(f"[green]✓[/] Stopped daemon (pid: {pid})")
 	except OSError as e:
-		console.print(f"[red]✗[/] Failed to stop daemon: {e}")
+		console.print(f"[red]✗[/] Failed to stop daemon: {escape(str(e))}")
 
 	DAEMON_PID_FILE.unlink(missing_ok=True)
 

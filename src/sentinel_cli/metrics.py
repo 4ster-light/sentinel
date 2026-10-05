@@ -5,6 +5,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 from sentinel_core.metrics import collect_metrics, export_to_json, export_to_stdout
 from .common import load_state
@@ -39,11 +40,11 @@ def export(
 			with open(output, "w") as f:
 				file_console = Console(file=f, force_terminal=False, no_color=True, width=console.width)
 				export_to_stdout(metrics, output_console=file_console)
-		console.print(f"[green]✓[/] Exported metrics to [bold]{output}[/]")
+		console.print(f"[green]✓[/] Exported metrics to [bold]{escape(output)}[/]")
 		return
 
 	if fmt == "json":
-		console.print(json.dumps([m.to_dict() for m in metrics], indent=2))
+		typer.echo(json.dumps([m.to_dict() for m in metrics], indent=2))
 	else:
 		export_to_stdout(metrics)
 

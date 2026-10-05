@@ -4,6 +4,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from sentinel_core.remote import RemoteResult, format_remote, run_remote_sentinel
@@ -34,9 +35,9 @@ def remote_add(
 	info = RemoteInfo(host=host, user=user, port=port)
 	added = state.add_remote(info)
 	if added is None:
-		console.print(f"[red]✗[/] Remote host '{host}' is already registered")
+		console.print(f"[red]✗[/] Remote host '{escape(host)}' is already registered")
 		raise typer.Exit(1)
-	console.print(f"[green]✓[/] Added remote [bold]{format_remote(added)}[/]")
+	console.print(f"[green]✓[/] Added remote [bold]{escape(format_remote(added))}[/]")
 
 
 @remote_app.command("remove")
@@ -46,9 +47,9 @@ def remote_remove(
 	"""Unregister a remote host"""
 	state = load_state()
 	if state.remove_remote(host):
-		console.print(f"[green]✓[/] Removed remote [bold]{host}[/]")
+		console.print(f"[green]✓[/] Removed remote [bold]{escape(host)}[/]")
 	else:
-		console.print(f"[red]✗[/] Remote host '{host}' not found")
+		console.print(f"[red]✗[/] Remote host '{escape(host)}' not found")
 		raise typer.Exit(1)
 
 
@@ -61,7 +62,7 @@ def remote_list(
 		state = load_state()
 		remote = state.get_remote(host)
 		if remote is None:
-			console.print(f"[red]✗[/] Remote host '{host}' not found")
+			console.print(f"[red]✗[/] Remote host '{escape(host)}' not found")
 			raise typer.Exit(1)
 		result = run_remote_sentinel(remote, ["list"])
 		_print_remote_result(result)
@@ -81,8 +82,8 @@ def remote_list(
 
 	for remote in remotes:
 		table.add_row(
-			remote.host,
-			remote.user or "[dim]-[/]",
+			escape(remote.host),
+			escape(remote.user) if remote.user else "[dim]-[/]",
 			str(remote.port) if remote.port else "[dim]-[/]",
 			remote.created_at,
 		)
@@ -99,7 +100,7 @@ def remote_run(
 	state = load_state()
 	remote = state.get_remote(host)
 	if remote is None:
-		console.print(f"[red]✗[/] Remote host '{host}' not found")
+		console.print(f"[red]✗[/] Remote host '{escape(host)}' not found")
 		raise typer.Exit(1)
 
 	result = run_remote_sentinel(remote, ["run", *command])
@@ -115,7 +116,7 @@ def remote_stop(
 	state = load_state()
 	remote = state.get_remote(host)
 	if remote is None:
-		console.print(f"[red]✗[/] Remote host '{host}' not found")
+		console.print(f"[red]✗[/] Remote host '{escape(host)}' not found")
 		raise typer.Exit(1)
 
 	result = run_remote_sentinel(remote, ["stop", id_or_name])

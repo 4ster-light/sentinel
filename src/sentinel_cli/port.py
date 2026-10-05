@@ -5,6 +5,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from .common import load_state
@@ -36,7 +37,7 @@ def port_allocate(
 	allocated = state.allocate_port(name, requested_port)
 
 	if allocated:
-		console.print(f"[green]✓[/] Allocated port [bold]{allocated}[/] ({name})")
+		console.print(f"[green]✓[/] Allocated port [bold]{allocated}[/] ({escape(name)})")
 	else:
 		console.print("[red]✗[/] Failed to allocate port")
 		raise typer.Exit(1)
@@ -77,7 +78,7 @@ def port_list(
 		allocated = datetime.fromisoformat(info.allocated_at)
 		table.add_row(
 			str(info.port),
-			info.name,
+			escape(info.name),
 			allocated.strftime("%Y-%m-%d %H:%M"),
 		)
 
