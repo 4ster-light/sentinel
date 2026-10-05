@@ -199,6 +199,7 @@ class RemoteInfo:
 	user: str | None = None
 	port: int | None = None
 	created_at: str = ""
+	batch_mode: bool = True
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
@@ -206,6 +207,7 @@ class RemoteInfo:
 			"user": self.user,
 			"port": self.port,
 			"created_at": self.created_at,
+			"batch_mode": self.batch_mode,
 		}
 
 	@classmethod
@@ -215,4 +217,5 @@ class RemoteInfo:
 			user=data.get("user"),
 			port=data.get("port"),
 			created_at=data.get("created_at", ""),
+			batch_mode=data.get("batch_mode", True),
 		)

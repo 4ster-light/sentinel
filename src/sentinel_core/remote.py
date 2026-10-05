@@ -1,5 +1,6 @@
 """Remote host management and SSH transport"""
 
+import shlex
 import subprocess
 from dataclasses import dataclass
 
@@ -16,13 +17,13 @@ class RemoteResult:
 
 
 def _build_ssh_command(remote: RemoteInfo) -> list[str]:
-	cmd = ["ssh"]
+	cmd = ["ssh", "-o", f"BatchMode={'yes' if remote.batch_mode else 'no'}"]
 	if remote.port is not None:
 		cmd.extend(["-p", str(remote.port)])
 	target = remote.host
 	if remote.user is not None:
 		target = f"{remote.user}@{remote.host}"
-	cmd.append(target)
+	cmd.extend(["--", target])
 	return cmd
 
 
@@ -32,7 +33,7 @@ def run_remote_command(
 	timeout: int = DEFAULT_REMOTE_TIMEOUT,
 ) -> RemoteResult:
 	ssh_cmd = _build_ssh_command(remote)
-	ssh_cmd.extend(command)
+	ssh_cmd.append(shlex.join(command))
 
 	try:
 		result = subprocess.run(

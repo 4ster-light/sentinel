@@ -5,6 +5,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 from sentinel_core.metrics import (
 	collect_metrics,
@@ -15,6 +16,7 @@ from sentinel_core.metrics import (
 )
 from sentinel_core.metrics_server import create_metrics_server
 
+from .common import console as error_console
 from .common import load_state
 
 console = Console()
@@ -36,7 +38,7 @@ def export(
 ) -> None:
 	"""Export process metrics to a file or stdout"""
 	if fmt not in METRICS_FORMATS:
-		console.print("[red]✗[/] --format must be 'json', 'table' or 'prometheus'")
+		error_console.print("[red]✗[/] --format must be 'json', 'table' or 'prometheus'")
 		raise typer.Exit(1)
 
 	metrics = collect_metrics(load_state())
@@ -50,11 +52,11 @@ def export(
 			with open(output, "w", encoding="utf-8") as f:
 				file_console = Console(file=f, force_terminal=False, no_color=True, width=console.width)
 				export_to_stdout(metrics, output_console=file_console)
-		console.print(f"[green]✓[/] Exported metrics to [bold]{output}[/]")
+		console.print(f"[green]✓[/] Exported metrics to [bold]{escape(output)}[/]")
 		return
 
 	if fmt == "json":
-		console.print(json.dumps([m.to_dict() for m in metrics], indent=2))
+		typer.echo(json.dumps([m.to_dict() for m in metrics], indent=2))
 	elif fmt == "prometheus":
 		typer.echo(render_prometheus(metrics), nl=False)
 	else:
