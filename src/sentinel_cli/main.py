@@ -1,9 +1,11 @@
 """Main process commands"""
 
+import shlex
 from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from sentinel_core.format import format_memory_mb, format_uptime_seconds, uptime_from_started_at
@@ -21,6 +23,7 @@ from sentinel_core.process import (
 )
 from sentinel_core.restart_monitor import check_and_restart_processes
 from sentinel_core.state import ProcessInfo, State
+from .common import console as error_console
 from .common import load_state
 from .daemon import is_daemon_running
 
@@ -50,6 +53,10 @@ def register_main_commands(app: typer.Typer) -> None:
 	@app.command()
 	def run(
 		command: Annotated[list[str], typer.Argument(help="Command to run")],
+		shell: Annotated[
+			bool,
+			typer.Option("--shell", help="Interpret one command string with shell syntax"),
+		] = False,
 		name: Annotated[str | None, typer.Option("--name", "-n", help="Process name")] = None,
 		restart: Annotated[bool, typer.Option("--restart", "-r", help="Auto-restart on exit")] = False,
 		user: Annotated[
@@ -101,7 +108,18 @@ def register_main_commands(app: typer.Typer) -> None:
 	) -> None:
 		"""Start a background process"""
 		state = load_state()
-		cmd = " ".join(command)
+		if shell and len(command) != 1:
+			error_console.print("[red]✗[/] --shell requires one command string")
+			raise typer.Exit(1)
+		if not command[0].strip():
+			error_console.print("[red]✗[/] Command cannot be empty")
+			raise typer.Exit(1)
+		cmd = command[0] if shell else shlex.join(command)
+		try:
+			command_name = shlex.split(command[0])[0] if shell else command[0]
+		except ValueError, IndexError:
+			error_console.print("[red]✗[/] Command must contain a valid executable name")
+			raise typer.Exit(1)
 
 		options = StartOptions(
 			cmd=cmd,
@@ -125,18 +143,18 @@ def register_main_commands(app: typer.Typer) -> None:
 		try:
 			options.validate()
 		except ValueError as e:
-			console.print(f"[red]✗[/] {e}")
+			error_console.print(f"[red]✗[/] {escape(str(e))}")
 			raise typer.Exit(1)
 
 		health_check = options.health_check
 		ionice_ioclass, ionice_value = options.ionice_spec()
-		base_name = name or command[0].split("/")[-1]
+		base_name = name or command_name.split("/")[-1]
 		started_infos: list[ProcessInfo] = []
 		cluster_mode = options.instances > 1
 
 		try:
 			for index in range(1, options.instances + 1):
-				instance_name = f"{base_name}-{index}" if cluster_mode else name
+				instance_name = f"{base_name}-{index}" if cluster_mode else base_name
 				priority_notes: list[str] = []
 				info = start_process(
 					state,
@@ -187,7 +205,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			if cluster_mode:
 				console.print(f"[green]✓[/] Started {len(started_infos)} instance(s) of [bold]{base_name}[/]")
 		except ValueError as e:
-			console.print(f"[red]✗[/] {e}")
+			error_console.print(f"[red]✗[/] {escape(str(e))}")
 			raise typer.Exit(1)
 
 	@app.command()
@@ -202,7 +220,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			info = stop_process(state, id_or_name, force=force)
 			console.print(f"[green]✓[/] Stopped [bold]{info.name}[/] (id: {info.id})")
 		except ValueError as e:
-			console.print(f"[red]✗[/] {e}")
+			error_console.print(f"[red]✗[/] {escape(str(e))}")
 			raise typer.Exit(1)
 
 	@app.command()
@@ -216,7 +234,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			info = restart_process(state, id_or_name)
 			console.print(f"[green]✓[/] Restarted [bold]{info.name}[/] (id: {info.id}, pid: {info.pid})")
 		except ValueError as e:
-			console.print(f"[red]✗[/] {e}")
+			error_console.print(f"[red]✗[/] {escape(str(e))}")
 			raise typer.Exit(1)
 
 	@app.command(name="list")
@@ -277,7 +295,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		info = state.find_process(id_or_name)
 
 		if not info:
-			console.print(f"[red]✗[/] Process not found: {id_or_name}")
+			error_console.print(f"[red]✗[/] Process not found: {escape(id_or_name)}")
 			raise typer.Exit(1)
 
 		proc_status = get_process_status(info)
@@ -313,7 +331,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		info = state.find_process(id_or_name)
 
 		if not info:
-			console.print(f"[red]✗[/] Process not found: {id_or_name}")
+			error_console.print(f"[red]✗[/] Process not found: {escape(id_or_name)}")
 			raise typer.Exit(1)
 
 		if clear:
@@ -348,7 +366,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			console.print(f"[green]✓[/] Stopped [bold]{info.name}[/]")
 
 		for info, error in failed:
-			console.print(f"[red]✗[/] Failed to stop {info.name}: {error}")
+			error_console.print(f"[red]✗[/] Failed to stop {escape(info.name)}: {escape(error)}")
 
 		if successful:
 			console.print(f"\n[green]Stopped {len(successful)} process(es)[/]", end="")
@@ -373,7 +391,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			console.print(f"[green]✓[/] Started [bold]{info.name}[/] (pid: {info.pid})")
 
 		for info, error in failed:
-			console.print(f"[red]✗[/] Failed to start {info.name}: {error}")
+			error_console.print(f"[red]✗[/] Failed to start {escape(info.name)}: {escape(error)}")
 
 		if successful:
 			console.print(f"\n[green]Started {len(successful)} process(es)[/]", end="")
@@ -398,7 +416,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			console.print(f"[green]✓[/] Restarted [bold]{info.name}[/] (pid: {info.pid})")
 
 		for info, error in failed:
-			console.print(f"[red]✗[/] Failed to restart {info.name}: {error}")
+			error_console.print(f"[red]✗[/] Failed to restart {escape(info.name)}: {escape(error)}")
 
 		if successful:
 			console.print(f"\n[green]Restarted {len(successful)} process(es)[/]", end="")
