@@ -479,8 +479,8 @@ class TestHelperFunctions:
 		stdout, stderr = get_log_paths("my app/with:special*chars?")
 
 		# Should sanitize special characters
-		assert stdout.name == "my_app_with_special_chars_.stdout.log"
-		assert stderr.name == "my_app_with_special_chars_.stderr.log"
+		assert stdout.name == "my%20app%2Fwith%3Aspecial%2Achars%3F.stdout.log"
+		assert stderr.name == "my%20app%2Fwith%3Aspecial%2Achars%3F.stderr.log"
 
 
 class TestFindProcess:

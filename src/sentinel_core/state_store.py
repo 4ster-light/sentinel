@@ -4,6 +4,8 @@ import json
 import logging
 import os
 import tempfile
+import threading
+from copy import deepcopy
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -41,19 +43,28 @@ class StateStore:
 		self.logs_dir = state_dir / LOGS_DIRNAME
 		self.data: dict[str, Any] = empty_state_data()
 		self.warnings: list[str] = []
+		self._saved_data = deepcopy(self.data)
+		self._mutex = threading.RLock()
+		self._lock_depth = 0
 
 	def load(self) -> None:
-		self.state_dir.mkdir(parents=True, exist_ok=True)
-		self.logs_dir.mkdir(parents=True, exist_ok=True)
+		self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+		self.logs_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
 		self.warnings = []
 		if not self.state_file.exists():
 			self.data = empty_state_data()
-			return
-		self.data = self._read_guarded()
+		else:
+			self.data = self._read_guarded()
+		self._saved_data = deepcopy(self.data)
 
 	def save(self) -> None:
-		"""Atomically write the current in-memory data."""
-		self._atomic_write(self.data)
+		"""Save local changes only if no other writer has changed the state."""
+		with self.locked():
+			current = self._read_guarded() if self.state_file.exists() else empty_state_data()
+			if current != self._saved_data:
+				raise ValueError("State changed on disk; reload it before saving")
+			self._atomic_write(self.data)
+			self._saved_data = deepcopy(self.data)
 
 	@contextmanager
 	def mutation(self) -> Generator[dict[str, Any], None, None]:
@@ -63,10 +74,11 @@ class StateStore:
 		is reloaded from disk before the caller mutates it, so concurrent
 		writers cannot silently lose each other's changes.
 		"""
-		with self._lock():
+		with self.locked():
 			self.data = self._read_guarded() if self.state_file.exists() else empty_state_data()
 			yield self.data
 			self._atomic_write(self.data)
+			self._saved_data = deepcopy(self.data)
 
 	def _read_guarded(self) -> dict[str, Any]:
 		"""Read and validate state.json, backing up and warning on corruption."""
@@ -95,7 +107,7 @@ class StateStore:
 		return backup
 
 	def _atomic_write(self, data: dict[str, Any]) -> None:
-		self.state_dir.mkdir(parents=True, exist_ok=True)
+		self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
 		fd, tmp_name = tempfile.mkstemp(dir=self.state_dir, prefix=f".{STATE_FILENAME}.", suffix=".tmp")
 		try:
 			with os.fdopen(fd, "w") as tmp_file:
@@ -111,15 +123,20 @@ class StateStore:
 			raise
 
 	@contextmanager
-	def _lock(self) -> Generator[None, None, None]:
-		try:
-			import fcntl
-		except ImportError:
-			yield
-			return
-		with open(self.lock_file, "w") as lock_file:
-			fcntl.flock(lock_file, fcntl.LOCK_EX)
-			try:
+	def locked(self) -> Generator[None, None, None]:
+		import fcntl
+
+		# Lifecycle operations call registry mutations while holding this lock.
+		with self._mutex:
+			if self._lock_depth:
 				yield
-			finally:
-				fcntl.flock(lock_file, fcntl.LOCK_UN)
+				return
+			self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+			with open(self.lock_file, "a") as lock_file:
+				fcntl.flock(lock_file, fcntl.LOCK_EX)
+				self._lock_depth += 1
+				try:
+					yield
+				finally:
+					self._lock_depth -= 1
+					fcntl.flock(lock_file, fcntl.LOCK_UN)

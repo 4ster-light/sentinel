@@ -183,7 +183,7 @@ class TestStopProcess:
 		stopped = stop_process(state, info.id)
 
 		assert stopped.id == info.id
-		assert info.id not in state.processes
+		assert state.get_process(info.id).stopped
 
 		# Wait for process to die
 		time.sleep(0.5)
@@ -196,7 +196,7 @@ class TestStopProcess:
 		stopped = stop_process(state, "stoppable")
 
 		assert stopped.name == "stoppable"
-		assert info.id not in state.processes
+		assert state.get_process(info.id).stopped
 
 		time.sleep(0.5)
 		assert not psutil.pid_exists(info.pid)
@@ -238,7 +238,7 @@ class TestStopProcess:
 		time.sleep(1.0)
 
 		# Process should be dead or removed from state
-		assert stopped.id not in state.processes
+		assert state.get_process(stopped.id).stopped
 
 	def test_stop_nonexistent_process(self, state):
 		with pytest.raises(ValueError, match="not found"):
@@ -256,7 +256,7 @@ class TestStopProcess:
 		# Should not raise an error
 		stopped = stop_process(state, info.id)
 		assert stopped.id == info.id
-		assert info.id not in state.processes
+		assert state.get_process(info.id).stopped
 
 
 class TestRestartProcess:

@@ -31,8 +31,8 @@ class TestMainCommands:
 	def test_run_command_with_group(self, state: State):
 		"""Test run command with group that doesn't exist"""
 		result = runner.invoke(app, ["run", "echo", "test", "--group", "nonexistent"])
-		assert result.exit_code == 0
-		assert "group" in result.stdout.lower() or "started" in result.stdout.lower()
+		assert result.exit_code == 1
+		assert "group" in result.stderr.lower()
 
 	def test_run_command_with_restart(self, state: State):
 		"""Test run command with restart flag"""
@@ -55,7 +55,7 @@ class TestMainCommands:
 	def test_run_command_rejects_invalid_instances(self, state: State):
 		result = runner.invoke(app, ["run", "echo", "test", "--instances", "0"])
 		assert result.exit_code != 0
-		assert "--instances" in result.stdout
+		assert "--instances" in result.stderr
 
 	@pytest.mark.skipif(not hasattr(os, "geteuid"), reason="POSIX-only user switching")
 	def test_run_command_with_user(self, state: State):
@@ -70,12 +70,12 @@ class TestMainCommands:
 	def test_run_command_rejects_unknown_user(self, state: State):
 		result = runner.invoke(app, ["run", "sleep", "5", "--name", "unknown_user", "--user", "__missing_user__"])
 		assert result.exit_code != 0
-		assert "not found" in result.stdout.lower()
+		assert "not found" in result.stderr.lower()
 
 	def test_run_command_rejects_empty_command(self, state: State):
 		result = runner.invoke(app, ["run", "   ", "--name", "empty_cli_cmd"])
 		assert result.exit_code != 0
-		assert "cannot be empty" in result.stdout.lower()
+		assert "cannot be empty" in result.stderr.lower()
 
 	def test_run_command_with_cwd(self, state: State, tmp_path):
 		"""Test run command with cwd option"""
@@ -147,24 +147,24 @@ class TestMainCommands:
 			],
 		)
 		assert result.exit_code != 0
-		assert "Use only one" in result.stdout
+		assert "Use only one" in result.stderr
 
 	def test_run_command_rejects_invalid_health_failures(self, state: State):
 		result = runner.invoke(
 			app, ["run", "echo", "test", "--health-http", "http://127.0.0.1", "--health-failures", "0"]
 		)
 		assert result.exit_code != 0
-		assert "--health-failures" in result.stdout
+		assert "--health-failures" in result.stderr
 
 	def test_run_command_rejects_invalid_startup_timeout(self, state: State):
 		result = runner.invoke(app, ["run", "sleep", "5", "--name", "sto_timeout_bad", "--startup-timeout", "0"])
 		assert result.exit_code != 0
-		assert "startup-timeout" in result.stdout
+		assert "startup-timeout" in result.stderr
 
 	def test_run_command_rejects_invalid_nice(self, state: State):
 		result = runner.invoke(app, ["run", "sleep", "5", "--name", "nice_bad", "--nice", "99"])
 		assert result.exit_code != 0
-		assert "nice" in result.stdout.lower()
+		assert "nice" in result.stderr.lower()
 
 	def test_run_command_rejects_invalid_ionice(self, state: State):
 		result = runner.invoke(app, ["run", "sleep", "5", "--name", "ionice_bad", "--ionice", "nope"])
