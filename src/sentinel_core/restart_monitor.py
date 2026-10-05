@@ -13,7 +13,7 @@ import psutil
 from .health import run_health_check, should_run_health_check
 from .logs import rotate_process_logs
 from .process import restart_from_info
-from .state import ProcessInfo, State
+from .state import ProcessInfo, State, serialized
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +182,7 @@ def restart_monitor(check_interval: float = 5.0) -> Generator[RestartMonitor, No
 		monitor.stop()
 
 
+@serialized
 def check_and_restart_processes(
 	state: State,
 	on_restart: Callable[[ProcessInfo, ProcessInfo], None] | None = None,

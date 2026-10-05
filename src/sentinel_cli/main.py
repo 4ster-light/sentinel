@@ -29,6 +29,8 @@ console = Console()
 
 def _perform_lazy_restart_check(state: State) -> None:
 	"""Perform a one-time check for dead processes and restart/cleanup as needed."""
+	if is_daemon_running():
+		return
 
 	def on_restart(old_info: ProcessInfo, new_info: ProcessInfo) -> None:
 		console.print(

@@ -11,7 +11,7 @@ import psutil
 
 from .env import build_process_environment, merge_environments
 from .logs import rotate_process_logs
-from .state import HealthCheckConfig, ProcessInfo, ProcessStatus, State, get_log_paths
+from .state import HealthCheckConfig, ProcessInfo, ProcessStatus, State, get_log_paths, serialized
 
 
 class _SpawnedChild(Protocol):
@@ -152,6 +152,7 @@ def _wait_startup_or_fail(proc: _SpawnedChild, startup_timeout_seconds: float) -
 		time.sleep(0.05)
 
 
+@serialized
 def start_process(
 	state: State,
 	cmd: str,
@@ -319,6 +320,7 @@ def _signal_process_group(pid: int, sig: int) -> None:
 		_signal_pid(pid, sig)
 
 
+@serialized
 def stop_process(state: State, id_or_name: int | str, force: bool = False) -> ProcessInfo:
 	info = state.find_process(id_or_name)
 
@@ -363,6 +365,7 @@ def restart_from_info(state: State, info: ProcessInfo) -> ProcessInfo:
 	)
 
 
+@serialized
 def restart_process(state: State, id_or_name: int | str) -> ProcessInfo:
 	info = state.find_process(id_or_name)
 
@@ -395,6 +398,7 @@ def get_process_status(info: ProcessInfo) -> ProcessStatus:
 		)
 
 
+@serialized
 def cleanup_dead_processes(state: State) -> list[ProcessInfo]:
 	dead = []
 	for info in list(state.processes.values()):
@@ -404,6 +408,7 @@ def cleanup_dead_processes(state: State) -> list[ProcessInfo]:
 	return dead
 
 
+@serialized
 def batch_start_processes(
 	state: State,
 	processes: list[ProcessInfo],
