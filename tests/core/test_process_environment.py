@@ -52,3 +52,25 @@ def test_regression_user_environment_matches_account(spawn_process, tmp_path: Pa
 	spawn_process(shlex.join([sys.executable, "-c", code]), name="user-env", user=account.pw_name)
 	wait_for(lambda: result.exists() and result.read_text())
 	assert json.loads(result.read_text()) == [account.pw_uid, account.pw_dir, account.pw_name]
+
+
+def test_regression_batch_start_preserves_environment_precedence(
+	state, spawn_process, tmp_path: Path, wait_for
+) -> None:
+	import shlex
+	import sys
+	from sentinel_core.process import batch_start_processes, stop_process
+
+	group_file = tmp_path / "group.env"
+	group_file.write_text("SHARED=from-file\n")
+	state.create_group("workers", env={"SHARED": "from-group"}, env_file=str(group_file))
+	output = tmp_path / "value"
+	code = f"import os,time; open({str(output)!r},'w').write(os.environ['SHARED']); time.sleep(60)"
+	info = spawn_process(shlex.join([sys.executable, "-c", code]), name="batch-env", group="workers")
+	wait_for(lambda: output.exists() and output.read_text() == "from-file")
+	stop_process(state, info.id)
+	state.remove_process(info.id)
+	output.write_text("")
+	started, failed = batch_start_processes(state, [info])
+	assert len(started) == 1 and failed == []
+	wait_for(lambda: output.read_text() == "from-file")

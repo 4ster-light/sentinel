@@ -10,7 +10,7 @@ from typing import Any, Protocol, cast
 
 import psutil
 
-from .env import build_process_environment, merge_environments
+from .env import build_process_environment
 from .logs import rotate_process_logs
 from .state import HealthCheckConfig, ProcessInfo, ProcessStatus, State, get_log_paths
 
@@ -433,14 +433,6 @@ def batch_start_processes(
 
 	for info in processes:
 		try:
-			group_env: dict[str, str] | None = None
-			if info.group:
-				group = state.get_group(info.group)
-				if group:
-					group_env = group.env
-
-			merged_env = merge_environments(group_env, info.env)
-
 			new_info = start_process(
 				state,
 				info.cmd,
@@ -449,7 +441,7 @@ def batch_start_processes(
 				base_env=info.base_env,
 				restart=info.restart,
 				user=info.user,
-				env=merged_env if merged_env else None,
+				env=info.env,
 				env_file=info.env_file,
 				cwd=info.cwd,
 				health_check=info.health_check,
