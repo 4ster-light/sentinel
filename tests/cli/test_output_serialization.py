@@ -22,6 +22,9 @@ def test_regression_markup_names_remain_literal(state: State, spawn_process, mon
 
 def test_regression_json_ignores_color_width_and_markup(state, spawn_process, monkeypatch) -> None:
 	import json
+	from rich.console import Console
+
+	monkeypatch.setattr("sentinel_cli.metrics.console", Console(force_terminal=True, width=30))
 
 	name = "[bold]" + "long-name-" * 12 + "[/bold]"
 	spawn_process(name=name)
@@ -35,6 +38,9 @@ def test_regression_json_ignores_color_width_and_markup(state, spawn_process, mo
 
 
 def test_regression_systemd_output_is_not_terminal_formatted(monkeypatch) -> None:
+	from rich.console import Console
+
+	monkeypatch.setattr("sentinel_cli.startup.console", Console(force_terminal=True, width=25))
 	monkeypatch.setenv("FORCE_COLOR", "1")
 	monkeypatch.delenv("NO_COLOR", raising=False)
 	monkeypatch.setenv("COLUMNS", "25")
