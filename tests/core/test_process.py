@@ -418,3 +418,27 @@ class TestCleanupDeadProcesses:
 		proc = psutil.Process(info.pid)
 		proc.terminate()
 		proc.wait()
+
+
+@pytest.mark.parametrize("command", ["", "   "])
+def test_empty_command_does_not_spawn_or_register(state, monkeypatch, command: str) -> None:
+	def unexpected(*args: object, **kwargs: object) -> None:
+		raise AssertionError("An empty command must be rejected before spawning")
+
+	monkeypatch.setattr("sentinel_core.process.subprocess.Popen", unexpected)
+	with pytest.raises(ValueError, match="empty"):
+		start_process(state, command)
+	assert state.list_processes() == []
+	assert list(state.logs_dir.iterdir()) == []
+
+
+def test_duplicate_name_does_not_spawn_another_process(state, spawn_process, monkeypatch) -> None:
+	info = spawn_process(name="existing")
+
+	def unexpected(*args: object, **kwargs: object) -> None:
+		raise AssertionError("A duplicate name must be rejected before spawning")
+
+	monkeypatch.setattr("sentinel_core.process.subprocess.Popen", unexpected)
+	with pytest.raises(ValueError, match="already exists"):
+		start_process(state, "sleep 60", name="existing")
+	assert [process.pid for process in state.list_processes()] == [info.pid]

@@ -62,7 +62,8 @@ class TestBatchStartProcesses:
 		successful, failed = batch_start_processes(state, [info])
 
 		# Should successfully start the process (name will be unique since we removed the old one)
-		assert len(failed) >= 0  # May fail due to name conflicts
+		assert failed == []
+		assert len(successful) == 1
 
 	def test_batch_start_multiple_success(self, state: State):
 		"""Starting multiple processes should work without name conflicts"""
@@ -86,7 +87,9 @@ class TestBatchStartProcesses:
 		successful, failed = batch_start_processes(state, [info1])
 
 		# Should have failures due to invalid cwd
-		assert len(failed) >= 0  # May or may not fail depending on shell behavior
+		assert successful == []
+		assert len(failed) == 1
+		assert "Failed to start" in failed[0][1]
 
 	def test_batch_start_with_group_env(self, state: State):
 		"""Starting processes with group env vars should merge them"""
