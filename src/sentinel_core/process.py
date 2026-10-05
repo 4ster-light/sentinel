@@ -5,6 +5,7 @@ import signal
 import subprocess
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Protocol, cast
 
 import psutil
@@ -167,12 +168,18 @@ def start_process(
 	ionice_ioclass: str | None = None,
 	ionice_value: int | None = None,
 	priority_warnings: list[str] | None = None,
+	group: str | None = None,
+	base_env: dict[str, str] | None = None,
 ) -> ProcessInfo:
 	command = cmd.strip()
 	if not command:
 		raise ValueError("Command cannot be empty")
 
-	process_cwd = cwd or os.getcwd()
+	process_cwd = str(Path(cwd or os.getcwd()).resolve())
+	env_file = str(Path(env_file).resolve()) if env_file else None
+	group_info = state.get_group(group) if group else None
+	if group and group_info is None:
+		raise ValueError(f"Group '{group}' does not exist")
 
 	# Generate name from command if not provided
 	if name is None:
@@ -187,14 +194,6 @@ def start_process(
 	stdout_path, stderr_path = get_log_paths(name, logs_dir=state.logs_dir)
 	rotate_process_logs(str(stdout_path), str(stderr_path))
 
-	# Build merged environment with proper precedence
-	process_env = build_process_environment(
-		system_env=True,
-		global_env_files=True,
-		process_env=env,
-		process_env_file=env_file,
-	)
-
 	resolved_username: str | None = None
 	resolved_uid: int | None = None
 	resolved_gid: int | None = None
@@ -202,6 +201,23 @@ def start_process(
 	if user is not None:
 		resolved_username, resolved_uid, resolved_gid, resolved_group_ids = _resolve_process_user(user)
 		_validate_user_permissions(resolved_username, resolved_uid, resolved_gid)
+
+	# Capture inherited values once; restarts must not inherit the daemon's environment.
+	if base_env is None:
+		base_env = build_process_environment()
+		if resolved_uid is not None:
+			import pwd
+
+			account = pwd.getpwuid(resolved_uid)
+			base_env.update(HOME=account.pw_dir, USER=account.pw_name, LOGNAME=account.pw_name, SHELL=account.pw_shell)
+	process_env = base_env | build_process_environment(
+		system_env=False,
+		global_env_files=False,
+		group_env=group_info.env if group_info else None,
+		group_env_file=group_info.env_file if group_info else None,
+		process_env=env,
+		process_env_file=env_file,
+	)
 
 	extra_groups = _build_extra_groups(resolved_gid, resolved_group_ids)
 
@@ -270,6 +286,8 @@ def start_process(
 		restart=restart,
 		user=resolved_username,
 		started_at=datetime.now().isoformat(),
+		base_env=base_env,
+		group=group,
 		stdout_log=str(stdout_path),
 		stderr_log=str(stderr_path),
 		env=env or {},
@@ -350,6 +368,8 @@ def restart_from_info(state: State, info: ProcessInfo) -> ProcessInfo:
 		state,
 		info.cmd,
 		name=info.name,
+		base_env=info.base_env,
+		group=info.group,
 		restart=info.restart,
 		user=info.user,
 		env=info.env,
@@ -425,6 +445,8 @@ def batch_start_processes(
 				state,
 				info.cmd,
 				name=info.name,
+				group=info.group,
+				base_env=info.base_env,
 				restart=info.restart,
 				user=info.user,
 				env=merged_env if merged_env else None,

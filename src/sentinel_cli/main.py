@@ -144,6 +144,7 @@ def register_main_commands(app: typer.Typer) -> None:
 					name=instance_name,
 					restart=options.restart,
 					user=options.user,
+					group=options.group,
 					env_file=options.env_file,
 					cwd=options.cwd,
 					health_check=health_check,
@@ -158,17 +159,8 @@ def register_main_commands(app: typer.Typer) -> None:
 					console.print(f"[yellow]⚠[/] {note}")
 				if priority_notes:
 					console.print()
-				if group:
-					if not state.add_process_to_group(group, info.id):
-						console.print(
-							f"[yellow]⚠[/] Group '{group}' does not exist. Process started but not added to group."
-						)
-					else:
-						console.print(
-							f"[green]✓[/] Started [bold]{info.name}[/] (id: {info.id}, pid: {info.pid}) in group [bold]{group}[/]"
-						)
-				else:
-					console.print(f"[green]✓[/] Started [bold]{info.name}[/] (id: {info.id}, pid: {info.pid})")
+				group_label = f" in group [bold]{group}[/]" if group else ""
+				console.print(f"[green]✓[/] Started [bold]{info.name}[/] (id: {info.id}, pid: {info.pid}){group_label}")
 
 			if restart and not is_daemon_running():
 				console.print(

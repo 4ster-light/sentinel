@@ -31,7 +31,7 @@ class TestMainCommands:
 	def test_run_command_with_group(self, state: State):
 		"""Test run command with group that doesn't exist"""
 		result = runner.invoke(app, ["run", "echo", "test", "--group", "nonexistent"])
-		assert result.exit_code == 0
+		assert result.exit_code == 1
 		assert "group" in result.stdout.lower() or "started" in result.stdout.lower()
 
 	def test_run_command_with_restart(self, state: State):

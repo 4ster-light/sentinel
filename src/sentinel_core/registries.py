@@ -3,6 +3,7 @@
 import random
 import socket
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from .models import GroupInfo, PortInfo, ProcessInfo, RemoteInfo
@@ -138,7 +139,7 @@ class GroupRegistry:
 				name=name,
 				created_at=_now_isoformat(),
 				env=env or {},
-				env_file=env_file,
+				env_file=str(Path(env_file).resolve()) if env_file else None,
 			)
 			data.setdefault("groups", {})[name] = group.to_dict()
 		return group
