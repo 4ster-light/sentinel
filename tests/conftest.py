@@ -46,7 +46,8 @@ def temp_logs_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture(autouse=True)
 def isolated_runtime(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, temp_state_dir: Path) -> None:
-	# Implicit .env files must not come from the developer's home or working directory.
+	# Keep implicit .env files and terminal styling independent of the caller.
+	monkeypatch.delenv("FORCE_COLOR", raising=False)
 	home = tmp_path / "isolated-home"
 	home.mkdir()
 	monkeypatch.setenv("HOME", str(home))
