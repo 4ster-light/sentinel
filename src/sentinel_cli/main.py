@@ -4,6 +4,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from sentinel_core.format import format_memory_mb, format_uptime_seconds, uptime_from_started_at
@@ -21,6 +22,7 @@ from sentinel_core.process import (
 )
 from sentinel_core.restart_monitor import check_and_restart_processes
 from sentinel_core.state import ProcessInfo, State
+from .common import console as error_console
 from .common import load_state
 from .daemon import is_daemon_running
 
@@ -29,14 +31,16 @@ console = Console()
 
 def _perform_lazy_restart_check(state: State) -> None:
 	"""Perform a one-time check for dead processes and restart/cleanup as needed."""
+	if is_daemon_running():
+		return
 
 	def on_restart(old_info: ProcessInfo, new_info: ProcessInfo) -> None:
 		console.print(
-			f"[yellow]⚠[/] Auto-restarted [bold]{new_info.name}[/] (old_pid: {old_info.pid}, new_pid: {new_info.pid})"
+			f"[yellow]⚠[/] Auto-restarted [bold]{escape(new_info.name)}[/] (old_pid: {old_info.pid}, new_pid: {new_info.pid})"
 		)
 
 	def on_cleanup(info: ProcessInfo) -> None:
-		console.print(f"[dim]Cleaned up dead process [bold]{info.name}[/] (id: {info.id})[/]")
+		console.print(f"[dim]Cleaned up dead process [bold]{escape(info.name)}[/] (id: {info.id})[/]")
 
 	restarted, cleaned_up = check_and_restart_processes(state, on_restart=on_restart, on_cleanup=on_cleanup)
 
@@ -125,7 +129,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		try:
 			options.validate()
 		except ValueError as e:
-			console.print(f"[red]✗[/] {e}")
+			error_console.print(f"[red]✗[/] {escape(str(e))}")
 			raise typer.Exit(1)
 
 		health_check = options.health_check
@@ -144,6 +148,7 @@ def register_main_commands(app: typer.Typer) -> None:
 					name=instance_name,
 					restart=options.restart,
 					user=options.user,
+					group=options.group,
 					env_file=options.env_file,
 					cwd=options.cwd,
 					health_check=health_check,
@@ -155,20 +160,13 @@ def register_main_commands(app: typer.Typer) -> None:
 				)
 				started_infos.append(info)
 				for note in priority_notes:
-					console.print(f"[yellow]⚠[/] {note}")
+					console.print(f"[yellow]⚠[/] {escape(note)}")
 				if priority_notes:
 					console.print()
-				if group:
-					if not state.add_process_to_group(group, info.id):
-						console.print(
-							f"[yellow]⚠[/] Group '{group}' does not exist. Process started but not added to group."
-						)
-					else:
-						console.print(
-							f"[green]✓[/] Started [bold]{info.name}[/] (id: {info.id}, pid: {info.pid}) in group [bold]{group}[/]"
-						)
-				else:
-					console.print(f"[green]✓[/] Started [bold]{info.name}[/] (id: {info.id}, pid: {info.pid})")
+				group_label = f" in group [bold]{escape(group)}[/]" if group else ""
+				console.print(
+					f"[green]✓[/] Started [bold]{escape(info.name)}[/] (id: {info.id}, pid: {info.pid}){group_label}"
+				)
 
 			if restart and not is_daemon_running():
 				console.print(
@@ -185,9 +183,9 @@ def register_main_commands(app: typer.Typer) -> None:
 				console.print("[dim]  Run 'sentinel daemon start' for continuous monitoring.[/]")
 
 			if cluster_mode:
-				console.print(f"[green]✓[/] Started {len(started_infos)} instance(s) of [bold]{base_name}[/]")
+				console.print(f"[green]✓[/] Started {len(started_infos)} instance(s) of [bold]{escape(base_name)}[/]")
 		except ValueError as e:
-			console.print(f"[red]✗[/] {e}")
+			error_console.print(f"[red]✗[/] {escape(str(e))}")
 			raise typer.Exit(1)
 
 	@app.command()
@@ -200,9 +198,9 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		try:
 			info = stop_process(state, id_or_name, force=force)
-			console.print(f"[green]✓[/] Stopped [bold]{info.name}[/] (id: {info.id})")
+			console.print(f"[green]✓[/] Stopped [bold]{escape(info.name)}[/] (id: {info.id})")
 		except ValueError as e:
-			console.print(f"[red]✗[/] {e}")
+			error_console.print(f"[red]✗[/] {escape(str(e))}")
 			raise typer.Exit(1)
 
 	@app.command()
@@ -214,9 +212,9 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		try:
 			info = restart_process(state, id_or_name)
-			console.print(f"[green]✓[/] Restarted [bold]{info.name}[/] (id: {info.id}, pid: {info.pid})")
+			console.print(f"[green]✓[/] Restarted [bold]{escape(info.name)}[/] (id: {info.id}, pid: {info.pid})")
 		except ValueError as e:
-			console.print(f"[red]✗[/] {e}")
+			error_console.print(f"[red]✗[/] {escape(str(e))}")
 			raise typer.Exit(1)
 
 	@app.command(name="list")
@@ -245,14 +243,14 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		for info in processes:
 			status = get_process_status(info)
-			status_str = "[green]running[/]" if status.running else "[red]stopped[/]"
+			status_str = "[green]running[/]" if status.running else f"[red]{status.status}[/]"
 			restart_str = "[green]✓[/]" if info.restart else "[dim]-[/]"
-			user_str = info.user if info.user else "[dim]-[/]"
-			group_str = info.group if info.group else "[dim]-[/]"
+			user_str = escape(info.user) if info.user else "[dim]-[/]"
+			group_str = escape(info.group) if info.group else "[dim]-[/]"
 
 			table.add_row(
 				str(info.id),
-				info.name,
+				escape(info.name),
 				str(info.pid),
 				status_str,
 				f"{status.cpu_percent:.1f}%",
@@ -261,7 +259,7 @@ def register_main_commands(app: typer.Typer) -> None:
 				restart_str,
 				user_str,
 				group_str,
-				info.cmd[:40] + "..." if len(info.cmd) > 40 else info.cmd,
+				escape(info.cmd[:40] + "..." if len(info.cmd) > 40 else info.cmd),
 			)
 
 		console.print(table)
@@ -277,24 +275,24 @@ def register_main_commands(app: typer.Typer) -> None:
 		info = state.find_process(id_or_name)
 
 		if not info:
-			console.print(f"[red]✗[/] Process not found: {id_or_name}")
+			error_console.print(f"[red]✗[/] Process not found: {escape(id_or_name)}")
 			raise typer.Exit(1)
 
 		proc_status = get_process_status(info)
 
-		console.print(f"\n[bold]{info.name}[/] (id: {info.id})")
+		console.print(f"\n[bold]{escape(info.name)}[/] (id: {info.id})")
 		console.print(f"  PID:       {info.pid}")
-		console.print(f"  Status:    {'[green]running[/]' if proc_status.running else '[red]stopped[/]'}")
+		console.print(f"  Status:    {'[green]running[/]' if proc_status.running else f'[red]{proc_status.status}[/]'}")
 		console.print(f"  CPU:       {proc_status.cpu_percent:.1f}%")
 		console.print(f"  Memory:    {format_memory_mb(proc_status.memory_mb)}")
 		console.print(f"  Uptime:    {format_uptime_seconds(uptime_from_started_at(info.started_at))}")
 		console.print(f"  Restart:   {'yes' if info.restart else 'no'}")
-		console.print(f"  User:      {info.user if info.user else 'default'}")
-		console.print(f"  Group:     {info.group if info.group else 'none'}")
-		console.print(f"  CWD:       {info.cwd}")
-		console.print(f"  Command:   {info.cmd}")
-		console.print(f"  Stdout:    {info.stdout_log}")
-		console.print(f"  Stderr:    {info.stderr_log}")
+		console.print(f"  User:      {escape(info.user) if info.user else 'default'}")
+		console.print(f"  Group:     {escape(info.group) if info.group else 'none'}")
+		console.print(f"  CWD:       {escape(info.cwd)}")
+		console.print(f"  Command:   {escape(info.cmd)}")
+		console.print(f"  Stdout:    {escape(info.stdout_log)}")
+		console.print(f"  Stderr:    {escape(info.stderr_log)}")
 
 	@app.command()
 	def logs(
@@ -313,7 +311,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		info = state.find_process(id_or_name)
 
 		if not info:
-			console.print(f"[red]✗[/] Process not found: {id_or_name}")
+			error_console.print(f"[red]✗[/] Process not found: {escape(id_or_name)}")
 			raise typer.Exit(1)
 
 		if clear:
@@ -331,7 +329,7 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		if removed:
 			for info in removed:
-				console.print(f"[yellow]✓[/] Removed dead process [bold]{info.name}[/] (id: {info.id})")
+				console.print(f"[yellow]✓[/] Removed dead process [bold]{escape(info.name)}[/] (id: {info.id})")
 		else:
 			console.print("[dim]No dead processes found[/]")
 
@@ -345,10 +343,10 @@ def register_main_commands(app: typer.Typer) -> None:
 		successful, failed = batch_stop_processes(state, processes, force=force)
 
 		for info in successful:
-			console.print(f"[green]✓[/] Stopped [bold]{info.name}[/]")
+			console.print(f"[green]✓[/] Stopped [bold]{escape(info.name)}[/]")
 
 		for info, error in failed:
-			console.print(f"[red]✗[/] Failed to stop {info.name}: {error}")
+			error_console.print(f"[red]✗[/] Failed to stop {escape(info.name)}: {escape(error)}")
 
 		if successful:
 			console.print(f"\n[green]Stopped {len(successful)} process(es)[/]", end="")
@@ -356,6 +354,8 @@ def register_main_commands(app: typer.Typer) -> None:
 				console.print(f", [red]failed {len(failed)} process(es)[/]")
 			else:
 				console.print()
+		if failed:
+			raise typer.Exit(1)
 
 	@app.command()
 	def startall() -> None:
@@ -370,10 +370,10 @@ def register_main_commands(app: typer.Typer) -> None:
 		successful, failed = batch_start_processes(state, processes)
 
 		for info in successful:
-			console.print(f"[green]✓[/] Started [bold]{info.name}[/] (pid: {info.pid})")
+			console.print(f"[green]✓[/] Started [bold]{escape(info.name)}[/] (pid: {info.pid})")
 
 		for info, error in failed:
-			console.print(f"[red]✗[/] Failed to start {info.name}: {error}")
+			error_console.print(f"[red]✗[/] Failed to start {escape(info.name)}: {escape(error)}")
 
 		if successful:
 			console.print(f"\n[green]Started {len(successful)} process(es)[/]", end="")
@@ -381,6 +381,8 @@ def register_main_commands(app: typer.Typer) -> None:
 				console.print(f", [red]failed {len(failed)} process(es)[/]")
 			else:
 				console.print()
+		if failed:
+			raise typer.Exit(1)
 
 	@app.command()
 	def restartall() -> None:
@@ -395,10 +397,10 @@ def register_main_commands(app: typer.Typer) -> None:
 		successful, failed = batch_restart_processes(state, processes)
 
 		for info in successful:
-			console.print(f"[green]✓[/] Restarted [bold]{info.name}[/] (pid: {info.pid})")
+			console.print(f"[green]✓[/] Restarted [bold]{escape(info.name)}[/] (pid: {info.pid})")
 
 		for info, error in failed:
-			console.print(f"[red]✗[/] Failed to restart {info.name}: {error}")
+			error_console.print(f"[red]✗[/] Failed to restart {escape(info.name)}: {escape(error)}")
 
 		if successful:
 			console.print(f"\n[green]Restarted {len(successful)} process(es)[/]", end="")
@@ -406,3 +408,5 @@ def register_main_commands(app: typer.Typer) -> None:
 				console.print(f", [red]failed {len(failed)} process(es)[/]")
 			else:
 				console.print()
+		if failed:
+			raise typer.Exit(1)

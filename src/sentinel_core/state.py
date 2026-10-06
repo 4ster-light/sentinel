@@ -2,6 +2,10 @@
 
 import os
 from pathlib import Path
+from functools import wraps
+from collections.abc import Callable
+from typing import Concatenate
+from urllib.parse import quote
 
 from .models import (
 	GroupInfo,
@@ -161,7 +165,17 @@ class State:
 
 def get_log_paths(name: str, logs_dir: Path | None = None) -> tuple[Path, Path]:
 	base = logs_dir if logs_dir is not None else LOGS_DIR
-	safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
+	safe_name = quote(name, safe="")
 	stdout = base / f"{safe_name}.stdout.log"
 	stderr = base / f"{safe_name}.stderr.log"
 	return stdout, stderr
+
+
+def serialized[**P, R](function: Callable[Concatenate[State, P], R]) -> Callable[Concatenate[State, P], R]:
+	@wraps(function)
+	def wrapped(state: State, *args: P.args, **kwargs: P.kwargs) -> R:
+		with state.store.locked():
+			state.store.load()
+			return function(state, *args, **kwargs)
+
+	return wrapped

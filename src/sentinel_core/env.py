@@ -1,5 +1,6 @@
 """Environment variable loading and management utilities"""
 
+import logging
 import os
 import re
 from pathlib import Path
@@ -55,7 +56,7 @@ def load_env_file(file_path: str | Path) -> dict[str, str]:
 				if result:
 					env_vars[result[0]] = result[1]
 		return env_vars
-	except Exception as e:
+	except (OSError, UnicodeError) as e:
 		raise ValueError(f"Failed to load environment file {path}: {e}")
 
 
@@ -116,9 +117,8 @@ def build_process_environment(
 		for env_file in find_global_env_files():
 			try:
 				env_dicts.append(load_env_file(env_file))
-			except FileNotFoundError, ValueError:
-				# Log warning but continue (graceful)
-				pass
+			except (FileNotFoundError, ValueError) as e:
+				logging.getLogger(__name__).warning("Cannot load global env file %s: %s", env_file, e)
 
 	# Add group-level env
 	if group_env:

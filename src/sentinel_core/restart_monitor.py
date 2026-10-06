@@ -12,23 +12,14 @@ import psutil
 
 from .health import run_health_check, should_run_health_check
 from .logs import rotate_process_logs
-from .process import restart_from_info
-from .state import ProcessInfo, State
+from .process import ProcessIdentityError, managed_process, restart_process
+from .state import ProcessInfo, State, serialized
 
 logger = logging.getLogger(__name__)
 
 
 def _now_isoformat() -> str:
 	return datetime.now().isoformat()
-
-
-def _is_process_running(pid: int) -> bool:
-	try:
-		proc = psutil.Process(pid)
-		status = proc.status()
-		return status != psutil.STATUS_ZOMBIE
-	except psutil.NoSuchProcess, psutil.AccessDenied:
-		return False
 
 
 @dataclass
@@ -43,9 +34,22 @@ def _scan(state: State) -> _ScanOutcome:
 	outcome = _ScanOutcome()
 
 	for info in list(state.processes.values()):
+		if info.stopped:
+			continue
 		rotate_process_logs(info.stdout_log, info.stderr_log)
 
-		if not psutil.pid_exists(info.pid) or not _is_process_running(info.pid):
+		try:
+			legacy = info.create_time is None
+			running = managed_process(info) is not None
+			if legacy and info.create_time is not None:
+				outcome.health_updated.append(info)
+		except ProcessIdentityError as e:
+			logger.warning("%s", e)
+			continue
+		except psutil.AccessDenied:
+			logger.warning("Cannot inspect process %s (pid=%s)", info.name, info.pid)
+			continue
+		if not running:
 			if info.restart:
 				outcome.to_restart.append(info)
 			else:
@@ -98,8 +102,7 @@ def _apply_restarts(
 	restarted: list[ProcessInfo] = []
 	for info in to_restart:
 		try:
-			state.remove_process(info.id)
-			new_info = restart_from_info(state, info)
+			new_info = restart_process(state, info.id)
 			restarted.append(new_info)
 			if on_restart:
 				on_restart(info, new_info)
@@ -107,7 +110,10 @@ def _apply_restarts(
 		except Exception as e:
 			logger.error(f"Failed to restart process {info.name}: {e}")
 			try:
-				state.add_process(info)
+				current = state.get_process(info.id)
+				if current:
+					current.stopped = False
+					state.add_process(current)
 			except Exception as add_error:
 				logger.error(f"Failed to add dead process info for {info.name}: {add_error}")
 	return restarted
@@ -182,6 +188,7 @@ def restart_monitor(check_interval: float = 5.0) -> Generator[RestartMonitor, No
 		monitor.stop()
 
 
+@serialized
 def check_and_restart_processes(
 	state: State,
 	on_restart: Callable[[ProcessInfo, ProcessInfo], None] | None = None,

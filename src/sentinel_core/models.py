@@ -54,6 +54,9 @@ class ProcessInfo:
 	nice: int | None = None
 	ionice_ioclass: str | None = None
 	ionice_value: int | None = None
+	stopped: bool = False
+	create_time: float | None = None
+	base_env: dict[str, str] | None = None
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
@@ -77,6 +80,9 @@ class ProcessInfo:
 			"nice": self.nice,
 			"ionice_ioclass": self.ionice_ioclass,
 			"ionice_value": self.ionice_value,
+			"stopped": self.stopped,
+			"create_time": self.create_time,
+			"base_env": self.base_env,
 		}
 
 	@classmethod
@@ -102,6 +108,9 @@ class ProcessInfo:
 			nice=data.get("nice"),
 			ionice_ioclass=data.get("ionice_ioclass"),
 			ionice_value=data.get("ionice_value"),
+			stopped=data.get("stopped", False),
+			create_time=data.get("create_time"),
+			base_env=data.get("base_env"),
 		)
 
 
