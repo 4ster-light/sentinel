@@ -19,13 +19,14 @@ check: test-all lint fmt-check
 test-all:
     uv run pytest
 
-# Run pytest with a specific test string
-test TEST_STRING:
-    uv run pytest -k {{ TEST_STRING }}
+# Run focused pytest targets or expressions (for example: just test -k restart)
+[positional-arguments]
+test *ARGS:
+    uv run pytest --no-cov "$@"
 
 # Lint code with ruff and type check with ty
 lint:
-    uv run ruff check --fix
+    uv run ruff check
     uv run ty check
 
 # Format code with ruff
