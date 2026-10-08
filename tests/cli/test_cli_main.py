@@ -4,6 +4,7 @@ import os
 
 import pytest
 from typer.testing import CliRunner
+from rich.text import Text
 
 from sentinel_cli import app
 from sentinel_core.options import parse_ionice_spec
@@ -46,8 +47,8 @@ class TestMainCommands:
 			["run", "echo", "test", "--name", "cluster", "--instances", "2"],
 		)
 		assert result.exit_code == 0
-		assert "cluster-1" in result.stdout
-		assert "cluster-2" in result.stdout
+		assert "cluster-1" in Text.from_ansi(result.stdout).plain
+		assert "cluster-2" in Text.from_ansi(result.stdout).plain
 		reloaded_state = State()
 		assert reloaded_state.find_process_by_name("cluster-1") is not None
 		assert reloaded_state.find_process_by_name("cluster-2") is not None
