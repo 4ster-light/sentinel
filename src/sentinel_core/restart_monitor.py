@@ -2,7 +2,6 @@
 
 import logging
 import threading
-import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -126,6 +125,7 @@ class RestartMonitor:
 		self._check_interval = check_interval
 		self._thread: threading.Thread | None = None
 		self._running = False
+		self._stop_event = threading.Event()
 		self._lock = threading.Lock()
 		self._restart_callback: Callable[[ProcessInfo, ProcessInfo], None] | None = None
 
@@ -137,6 +137,7 @@ class RestartMonitor:
 			if self._running:
 				return
 
+			self._stop_event.clear()
 			self._running = True
 			self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
 			self._thread.start()
@@ -147,6 +148,7 @@ class RestartMonitor:
 				return
 
 			self._running = False
+			self._stop_event.set()
 
 		if self._thread:
 			self._thread.join(timeout=10)
@@ -162,7 +164,7 @@ class RestartMonitor:
 				check_and_restart_processes(state, on_restart=self._on_restart)
 			except Exception as e:
 				logger.error(f"Unexpected error in restart monitor loop: {e}", exc_info=True)
-			time.sleep(self._check_interval)
+			self._stop_event.wait(self._check_interval)
 
 	def is_running(self) -> bool:
 		return self._running
