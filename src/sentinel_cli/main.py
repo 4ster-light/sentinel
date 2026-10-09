@@ -1,5 +1,6 @@
 """Main process commands"""
 
+import shlex
 from typing import Annotated
 
 import typer
@@ -54,6 +55,10 @@ def register_main_commands(app: typer.Typer) -> None:
 	@app.command()
 	def run(
 		command: Annotated[list[str], typer.Argument(help="Command to run")],
+		shell: Annotated[
+			bool,
+			typer.Option("--shell", help="Interpret one command string with shell syntax"),
+		] = False,
 		name: Annotated[str | None, typer.Option("--name", "-n", help="Process name")] = None,
 		restart: Annotated[bool, typer.Option("--restart", "-r", help="Auto-restart on exit")] = False,
 		user: Annotated[
@@ -105,7 +110,18 @@ def register_main_commands(app: typer.Typer) -> None:
 	) -> None:
 		"""Start a background process"""
 		state = load_state()
-		cmd = " ".join(command)
+		if shell and len(command) != 1:
+			error_console.print("[red]✗[/] --shell requires one command string")
+			raise typer.Exit(1)
+		if not command[0].strip():
+			error_console.print("[red]✗[/] Command cannot be empty")
+			raise typer.Exit(1)
+		cmd = command[0] if shell else shlex.join(command)
+		try:
+			command_name = shlex.split(command[0])[0] if shell else command[0]
+		except ValueError, IndexError:
+			error_console.print("[red]✗[/] Command must contain a valid executable name")
+			raise typer.Exit(1)
 
 		options = StartOptions(
 			cmd=cmd,
@@ -134,13 +150,13 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		health_check = options.health_check
 		ionice_ioclass, ionice_value = options.ionice_spec()
-		base_name = name or command[0].split("/")[-1]
+		base_name = name or command_name.split("/")[-1]
 		started_infos: list[ProcessInfo] = []
 		cluster_mode = options.instances > 1
 
 		try:
 			for index in range(1, options.instances + 1):
-				instance_name = f"{base_name}-{index}" if cluster_mode else name
+				instance_name = f"{base_name}-{index}" if cluster_mode else base_name
 				priority_notes: list[str] = []
 				info = start_process(
 					state,

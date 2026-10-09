@@ -14,19 +14,19 @@ from sentinel_core.state import RemoteInfo
 class TestBuildSshCommand:
 	def test_basic_host(self):
 		remote = RemoteInfo(host="example.com")
-		assert _build_ssh_command(remote) == ["ssh", "example.com"]
+		assert _build_ssh_command(remote) == ["ssh", "-o", "BatchMode=yes", "--", "example.com"]
 
 	def test_with_user(self):
 		remote = RemoteInfo(host="example.com", user="admin")
-		assert _build_ssh_command(remote) == ["ssh", "admin@example.com"]
+		assert _build_ssh_command(remote) == ["ssh", "-o", "BatchMode=yes", "--", "admin@example.com"]
 
 	def test_with_port(self):
 		remote = RemoteInfo(host="example.com", port=2222)
-		assert _build_ssh_command(remote) == ["ssh", "-p", "2222", "example.com"]
+		assert _build_ssh_command(remote) == ["ssh", "-o", "BatchMode=yes", "-p", "2222", "--", "example.com"]
 
 	def test_with_user_and_port(self):
 		remote = RemoteInfo(host="example.com", user="admin", port=2222)
-		assert _build_ssh_command(remote) == ["ssh", "-p", "2222", "admin@example.com"]
+		assert _build_ssh_command(remote) == ["ssh", "-o", "BatchMode=yes", "-p", "2222", "--", "admin@example.com"]
 
 
 class TestRunRemoteCommand:
@@ -42,7 +42,7 @@ class TestRunRemoteCommand:
 		assert result.stdout == "hello"
 		assert result.stderr == ""
 		mock_run.assert_called_once_with(
-			["ssh", "admin@example.com", "echo", "hello"],
+			["ssh", "-o", "BatchMode=yes", "--", "admin@example.com", "echo hello"],
 			capture_output=True,
 			text=True,
 			check=False,
@@ -76,7 +76,7 @@ class TestRunRemoteCommand:
 			run_remote_command(remote, ["echo"], timeout=30)
 
 		mock_run.assert_called_once_with(
-			["ssh", "example.com", "echo"],
+			["ssh", "-o", "BatchMode=yes", "--", "example.com", "echo"],
 			capture_output=True,
 			text=True,
 			check=False,
@@ -96,7 +96,7 @@ class TestRunRemoteSentinel:
 		assert result.returncode == 0
 		assert result.stdout == "ok"
 		mock_run.assert_called_once_with(
-			["ssh", "example.com", "sentinel", "list"],
+			["ssh", "-o", "BatchMode=yes", "--", "example.com", "sentinel list"],
 			capture_output=True,
 			text=True,
 			check=False,
