@@ -297,7 +297,7 @@ def register_main_commands(app: typer.Typer) -> None:
 	@app.command()
 	def logs(
 		id_or_name: Annotated[str, typer.Argument(help="Process ID or name")],
-		lines: Annotated[int, typer.Option("--lines", "-n", help="Number of lines to show")] = 50,
+		lines: Annotated[int, typer.Option("--lines", "-n", help="Number of lines to show", min=0)] = 50,
 		follow: Annotated[bool, typer.Option("--follow", "-f", help="Follow log output")] = False,
 		stream: Annotated[
 			str,
@@ -316,10 +316,14 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		if clear:
 			clear_logs(info.stdout_log, info.stderr_log)
-			console.print(f"[green]✓[/] Cleared logs for [bold]{info.name}[/]")
+			console.print(f"[green]✓[/] Cleared logs for [bold]{escape(info.name)}[/]")
 			return
 
-		show_logs(info.stdout_log, info.stderr_log, lines=lines, follow=follow, stream=stream)
+		try:
+			show_logs(info.stdout_log, info.stderr_log, lines=lines, follow=follow, stream=stream)
+		except ValueError as e:
+			error_console.print(str(e), markup=False)
+			raise typer.Exit(1)
 
 	@app.command()
 	def clean() -> None:

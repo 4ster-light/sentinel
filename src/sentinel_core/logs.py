@@ -1,9 +1,13 @@
 """Log viewing and tailing"""
 
+import os
+import shutil
 import time
+from collections import deque
 from pathlib import Path
 
 from rich.console import Console
+from rich.markup import escape
 
 console = Console()
 
@@ -31,8 +35,10 @@ def rotate_log_file(
 			current_backup_path.replace(next_backup_path)
 
 	first_backup_path = path.with_name(f"{path.name}.1")
-	path.replace(first_backup_path)
-	path.touch()
+	# Keep the inode: running children still hold append descriptors to this file.
+	shutil.copy2(path, first_backup_path)
+	with path.open("r+b") as active:
+		active.truncate(0)
 	return True
 
 
@@ -49,13 +55,11 @@ def rotate_process_logs(
 
 def tail_file(path: Path, lines: int = 50) -> list[str]:
 	"""Get the last N lines from a file"""
-	if not path.exists():
+	if lines <= 0:
 		return []
-
 	try:
-		content = path.read_text()
-		all_lines = content.splitlines()
-		return all_lines[-lines:] if len(all_lines) > lines else all_lines
+		with path.open(encoding="utf-8", errors="replace") as stream:
+			return [line.rstrip("\r\n") for line in deque(stream, maxlen=lines)]
 	except OSError:
 		return []
 
@@ -68,18 +72,22 @@ def show_logs(
 	stream: str = "both",
 ) -> None:
 	"""Display logs from a process"""
+	if stream not in ("stdout", "stderr", "both"):
+		raise ValueError("stream must be stdout, stderr, or both")
+	if lines < 0:
+		raise ValueError("lines must be non-negative")
 	stdout = Path(stdout_path)
 	stderr = Path(stderr_path)
 
 	if stream in ("stdout", "both") and stdout.exists():
-		console.print(f"[bold cyan]═══ stdout ({stdout}) ═══[/]")
+		console.print(f"[bold cyan]═══ stdout ({escape(str(stdout))}) ═══[/]")
 		for line in tail_file(stdout, lines):
-			console.print(line)
+			console.print(line, markup=False, highlight=False)
 
 	if stream in ("stderr", "both") and stderr.exists():
-		console.print(f"\n[bold red]═══ stderr ({stderr}) ═══[/]")
+		console.print(f"\n[bold red]═══ stderr ({escape(str(stderr))}) ═══[/]")
 		for line in tail_file(stderr, lines):
-			console.print(f"[red]{line}[/]")
+			console.print(line, style="red", markup=False, highlight=False)
 
 	if follow:
 		console.print("\n[dim]Following logs (Ctrl+C to stop)...[/]")
@@ -87,32 +95,38 @@ def show_logs(
 
 
 def _follow_logs(stdout: Path, stderr: Path, stream: str) -> None:
-	"""Follow log files in real-time"""
-	stdout_pos = stdout.stat().st_size if stdout.exists() else 0
-	stderr_pos = stderr.stat().st_size if stderr.exists() else 0
-
+	"""Follow complete lines, reopening files that have been replaced or truncated."""
+	paths = [(stdout, "out", "cyan"), (stderr, "err", "red")]
+	positions: dict[Path, tuple[int, int, int]] = {}
+	pending: dict[Path, bytes] = {}
+	for path, _, _ in paths:
+		try:
+			stat = path.stat()
+			positions[path] = (stat.st_dev, stat.st_ino, stat.st_size)
+		except FileNotFoundError:
+			pass
 	try:
 		while True:
-			if stream in ("stdout", "both") and stdout.exists():
-				current_size = stdout.stat().st_size
-				if current_size > stdout_pos:
-					with open(stdout) as f:
-						f.seek(stdout_pos)
-						new_content = f.read()
-						for line in new_content.splitlines():
-							console.print(f"[cyan]out:[/] {line}")
-					stdout_pos = current_size
-
-			if stream in ("stderr", "both") and stderr.exists():
-				current_size = stderr.stat().st_size
-				if current_size > stderr_pos:
-					with open(stderr) as f:
-						f.seek(stderr_pos)
-						new_content = f.read()
-						for line in new_content.splitlines():
-							console.print(f"[red]err:[/] {line}")
-					stderr_pos = current_size
-
+			for path, label, color in paths:
+				if stream != "both" and stream != ("stdout" if label == "out" else "stderr"):
+					continue
+				try:
+					with path.open("rb") as log:
+						stat = os.fstat(log.fileno())
+						device, inode, offset = positions.get(path, (stat.st_dev, stat.st_ino, 0))
+						if (device, inode) != (stat.st_dev, stat.st_ino) or stat.st_size < offset:
+							offset = 0
+							pending[path] = b""
+						log.seek(offset)
+						content = pending.get(path, b"") + log.read(65536)
+						positions[path] = (stat.st_dev, stat.st_ino, log.tell())
+						parts = content.split(b"\n")
+						pending[path] = parts.pop()
+						for line in parts:
+							text = line.rstrip(b"\r").decode("utf-8", errors="replace")
+							console.print(f"{label}: {text}", style=color, markup=False, highlight=False)
+				except FileNotFoundError:
+					continue
 			time.sleep(0.5)
 	except KeyboardInterrupt:
 		console.print("\n[dim]Stopped following logs.[/]")
