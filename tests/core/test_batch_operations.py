@@ -69,12 +69,13 @@ class TestBatchStartProcesses:
 		"""Starting multiple processes should work without name conflicts"""
 		info1 = start_process(state, "echo test1", name="batch1")
 		info2 = start_process(state, "echo test2", name="batch2")
+		state.remove_process(info1.id)
+		state.remove_process(info2.id)
 
-		# These are already started, so just verify batch function works
 		successful, failed = batch_start_processes(state, [info1, info2])
 
-		# Function should complete without errors
-		assert len(successful) + len(failed) == 2
+		assert failed == []
+		assert len(successful) == 2
 
 	def test_batch_start_with_failures(self, state: State):
 		"""Starting processes with invalid commands should record failures"""

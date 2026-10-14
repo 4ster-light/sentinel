@@ -105,9 +105,10 @@ def managed_process(info: ProcessInfo, include_zombie: bool = False) -> psutil.P
 				raise ProcessIdentityError(f"Cannot verify legacy process '{info.name}'") from e
 			# Old timestamps were recorded after startup; creation may be much earlier.
 			clock_tick = 1 / os.sysconf("SC_CLK_TCK")
+			shell_wrapped = len(actual_arguments) == 3 and actual_arguments[1:] == ["-c", info.cmd]
 			if (
 				created > started + clock_tick
-				or actual_arguments not in (["/bin/sh", "-c", info.cmd], arguments)
+				or (actual_arguments != arguments and not shell_wrapped)
 				or proc.cwd() != info.cwd
 				or os.getpgid(info.pid) != info.pid
 			):
@@ -497,10 +498,11 @@ def batch_start_processes(
 
 	for info in processes:
 		try:
-			info = state.get_process(info.id) or info
-			if managed_process(info) is not None:
-				continue
-			if state.get_process(info.id):
+			tracked = state.get_process(info.id)
+			if tracked is not None:
+				info = tracked
+				if managed_process(info) is not None:
+					continue
 				stop_process(state, info.id)
 			new_info = restart_from_info(state, info)
 			successful.append(new_info)
