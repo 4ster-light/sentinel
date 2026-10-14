@@ -1,45 +1,74 @@
-# AGENTS.md - Sentinel
+# AGENTS.md — Sentinel
 
-## Workflow
+Guidance for AI coding agents working on Sentinel. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for the codebase map and
+[CONTRIBUTING.md](CONTRIBUTING.md) for the human-facing workflow.
 
-Nix flake is the main form of development and testing. Everything is
-reproducible and isolated this way, always prefer to work within the flake
-environment. Use `nix` and `just` to run commands in this shell preferrably and
-only use custom ones when necessary.
+## Nix-first workflow
 
-## Available Commands
+The Nix flake is the single source of truth for development, testing and CI.
+It pins Python 3.14, `uv`, `ruff`, `ty`, `just`, `pytest` and the runtime
+dependencies, so every command is reproducible and isolated.
 
-Refer to `justfile` for all available commands. Source of truth is `justfile`,
-`flake.nix` and `pyproject.toml`.
+- Run everything inside the flake: `nix develop -c <command>`.
+- Prefer `nix` + `just` recipes over ad-hoc commands.
+- `nix flake check` builds the package, runs a smoke test and executes the
+  pytest check phase with a fresh `HOME` and `TMPDIR`.
+- Only fall back to system tooling if Nix is genuinely unavailable and it is
+  blocking progress. A non-Nix result is treated as unvalidated.
 
-In order to see all available commands, run:
+Entering the shell creates `.venv` automatically and points `UV_PROJECT_ENVIRONMENT`
+at it:
 
 ```bash
-nix develop -c just -l
+nix develop
 ```
 
-If nix isn't available, you can also run `just -l`, but if just isn't available
-either read the justfile directly and try to work with what's available in the
-system as long as it doesn't become a roadblocker.
+## Commands
+
+`justfile`, `flake.nix` and `pyproject.toml` are authoritative. List recipes
+with `nix develop -c just -l`.
+
+| Command                    | Purpose                                                      |
+| -------------------------- | ------------------------------------------------------------ |
+| `just c` / `just check`    | Full gate: tests, lint, format check, `nix flake check`      |
+| `just t` / `just test-all` | Full pytest run with coverage (85% floor)                    |
+| `just test <TARGET>`       | Focused pytest without coverage: file, class, method or `-k` |
+| `just lint`                | `ruff check` + `ty check`                                    |
+| `just fmt`                 | `ruff format` (write)                                        |
+| `just b` / `just build`    | `nix build`                                                  |
+| `just s` / `just serve`    | Serve the HTML coverage report at :8000                      |
+
+## Before submitting
 
 > [!IMPORTANT]
-> Any kind of submit that doesn't pass these checks in any way will be rejected:
+> Submissions that fail any of these are rejected:
 >
-> - Always run `nix develop -c just c` before submitting a PR.
-> - Use focused pytest targets when possible with
->   `nix develop -c just test <TEST_STRING>`: file, class, method, or `-k`.
+> - Always run `nix develop -c just c` before opening a PR.
+> - Use focused targets while iterating: `nix develop -c just test <TEST_STRING>`,
+>   where `<TEST_STRING>` is a file, class, method or `-k` expression.
+> - Follow [conventional commits](https://gist.github.com/qoomon/5dfcdf8eec66a051ecd85625518cfd13)
+>   (`feat(scope): ...`, `fix(core): ...`, `docs: ...`).
+> - New behavior and bug fixes require tests. Coverage is measured on
+>   `sentinel_core` and `sentinel_cli` and must stay at or above 85%.
 
-## Project Shape
+## Project shape
 
-- Main code lives in `src/sentinel_core` and `src/sentinel_cli`.
-- The CLI entry point is `sentinel_cli:app`.
-- Tests mirror source layout under `tests/`.
+- `src/sentinel_core` — domain logic with no CLI dependencies, usable as a library.
+- `src/sentinel_cli` — Typer/Rich presentation layer over the core.
+- CLI entry point: `sentinel_cli:app` (installed as `sentinel`).
+- Tests mirror the source layout under `tests/` (`tests/core`, `tests/cli`).
+- State lives in `~/.sentinel/`; override with `SENTINEL_STATE_DIR`. Tests set
+  this and other globals via the autouse `isolated_runtime` fixture in
+  `tests/conftest.py`.
+- Rule of thumb: *what happens* belongs in `sentinel_core`; *how it looks or is
+  phrased* belongs in `sentinel_cli`.
 
-## Style Constraints
+## Style constraints
 
 - Python 3.14+ only: use `str | None`, `list[str]`, and full type hints.
 - Ruff formatting is authoritative: tabs, double quotes, 120-character lines.
-  Don't ever make formatting changes, just use ruff to fix them.
-- Avoid unnecessary docstrings and trailing comments, prefer self documenting
-  code and meaningfull concise explanation where needed.
-- Catch specific exceptions; do not use bare `except`.
+  Never hand-format; run `just fmt` and let Ruff decide.
+- Avoid unnecessary docstrings and trailing comments; prefer self-documenting
+  code with concise explanations only where the intent is non-obvious.
+- Catch specific exceptions; never use a bare `except`.
