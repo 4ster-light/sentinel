@@ -5,8 +5,10 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
+from .common import console as error_console
 from .common import load_state
 
 console = Console()
@@ -29,16 +31,16 @@ def port_allocate(
 	"""Allocate a port"""
 	state = load_state()
 	if port is not None and port_option is not None:
-		console.print("[red]✗[/] Provide either positional port or --port, not both")
+		error_console.print("[red]✗[/] Provide either positional port or --port, not both")
 		raise typer.Exit(1)
 
 	requested_port = port_option if port_option is not None else port
 	allocated = state.allocate_port(name, requested_port)
 
 	if allocated:
-		console.print(f"[green]✓[/] Allocated port [bold]{allocated}[/] ({name})")
+		console.print(f"[green]✓[/] Allocated port [bold]{allocated}[/] ({escape(name)})")
 	else:
-		console.print("[red]✗[/] Failed to allocate port")
+		error_console.print("[red]✗[/] Failed to allocate port")
 		raise typer.Exit(1)
 
 
@@ -52,7 +54,7 @@ def port_free(
 	if state.free_port(port):
 		console.print(f"[green]✓[/] Freed port [bold]{port}[/]")
 	else:
-		console.print(f"[red]✗[/] Port {port} not found")
+		error_console.print(f"[red]✗[/] Port {port} not found")
 		raise typer.Exit(1)
 
 
@@ -77,7 +79,7 @@ def port_list(
 		allocated = datetime.fromisoformat(info.allocated_at)
 		table.add_row(
 			str(info.port),
-			info.name,
+			escape(info.name),
 			allocated.strftime("%Y-%m-%d %H:%M"),
 		)
 

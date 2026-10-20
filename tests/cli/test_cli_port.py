@@ -31,7 +31,7 @@ class TestPortCommands:
 		"""Test that positional port and --port cannot be used together"""
 		result = runner.invoke(app, ["port", "allocate", "19997", "--port", "19996"])
 		assert result.exit_code != 0
-		assert "either positional port or --port" in result.stdout
+		assert "either positional port or --port" in result.stderr
 
 	def test_port_allocate_with_name(self):
 		"""Test allocating a port with name"""

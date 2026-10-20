@@ -1,11 +1,26 @@
 """Tests for startup script generation CLI commands"""
 
+import pytest
 from typer.testing import CliRunner
 
 from sentinel_cli import app
-from sentinel_cli.startup import render_systemd_service
+from sentinel_cli.startup import _systemd_argument, render_systemd_service
 
 runner = CliRunner()
+
+
+@pytest.mark.parametrize(
+	("value", "quoted"),
+	[("", '""'), ("%", '"%%"'), ("$", '"$$"'), ("a\tb", '"a\tb"'), ("a'b", '"a\'b"')],
+)
+def test_systemd_argument_edge_cases(value: str, quoted: str) -> None:
+	assert _systemd_argument(value) == quoted
+
+
+def test_systemd_user_and_directory_escape_literal_percent() -> None:
+	unit = render_systemd_service("literal", ["/bin/true"], user="%u", cwd="/tmp/a%b")
+	assert "User=%%u\n" in unit
+	assert "WorkingDirectory=/tmp/a%%b\n" in unit
 
 
 class TestStartupCommands:
@@ -28,7 +43,7 @@ class TestStartupCommands:
 		assert "User=deploy" in unit
 		assert "WorkingDirectory=/srv/app" in unit
 		assert "Restart=always" in unit
-		assert "'value with spaces'" in unit
+		assert '"value with spaces"' in unit
 
 	def test_startup_systemd_command(self) -> None:
 		result = runner.invoke(app, ["startup", "systemd", "--name", "myservice", "python", "app.py"])
