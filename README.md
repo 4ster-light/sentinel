@@ -67,13 +67,15 @@ pip install git+https://github.com/4ster-light/sentinel
 | `sentinel restartall` | Restart all managed processes     |
 | `sentinel daemon`     | Manage the restart monitor daemon |
 | `sentinel group`      | Manage process groups             |
+| `sentinel cluster`    | Manage process clusters           |
 | `sentinel port`       | Manage port allocations           |
 | `sentinel startup`    | Generate startup scripts          |
 | `sentinel metrics`    | Export process metrics            |
 | `sentinel remote`     | Manage remote hosts via SSH       |
 
 Run `sentinel run --help` to see process runtime options including `--user`,
-`--startup-timeout`, `--instances`, `--nice`, and `--ionice`.
+`--startup-timeout`, `--instances`, `--scale`, `--depends-on`, `--nice`, and
+`--ionice`.
 
 ## Process Management
 
@@ -90,6 +92,9 @@ sentinel run "python server.py" --name myserver
 
 # Start multiple instances with derived names
 sentinel run "python server.py" --name web --instances 3
+
+# Start a cluster that can grow later within a range
+sentinel run "python server.py" --name web --scale 2-4
 
 # Start only after another process is already running
 sentinel run "python worker.py" --name worker --depends-on redis
@@ -400,6 +405,28 @@ sentinel group delete workers --with-processes
 # Alias for --with-processes
 sentinel group delete workers --stop
 ```
+
+## Process Clusters
+
+`--scale N` starts N instances with a fixed size. `--scale MIN-MAX` starts
+`MIN` instances and records the range so the cluster can be resized later:
+
+```bash
+# Start two instances of web, growable up to four
+sentinel run "python server.py" --name web --scale 2-4
+
+# Show clusters, how many instances are running and their allowed range
+sentinel cluster list
+
+# Grow to four instances
+sentinel cluster scale web 4
+
+# Shrink back to two (the highest instance numbers are stopped)
+sentinel cluster scale web 2
+```
+
+Scaling outside the recorded range is refused. Scaled-down instances are stopped
+and removed from state, and a restart keeps an instance in its cluster.
 
 ## Port Management
 
