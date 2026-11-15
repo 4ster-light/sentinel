@@ -91,6 +91,9 @@ sentinel run "python server.py" --name myserver
 # Start multiple instances with derived names
 sentinel run "python server.py" --name web --instances 3
 
+# Start only after another process is already running
+sentinel run "python worker.py" --name worker --depends-on redis
+
 # Enable auto-restart on crash or exit
 sentinel run "npm start" --name frontend --restart
 
@@ -109,6 +112,12 @@ sentinel run "python api.py" --name api --restart --health-http http://127.0.0.1
 # Add a TCP health check with custom thresholds
 sentinel run "python worker.py" --name worker --restart --health-tcp 127.0.0.1:9000 --health-interval 10 --health-failures 2
 ```
+
+`--depends-on` is repeatable and records the dependency on the process so
+`group start`, `stopall`, `startall`, and `restartall` order their work by it:
+dependencies start first and stop last. Starting a process whose dependency is
+unknown or not running is refused, and dependency cycles are reported before
+anything is started.
 
 When you use `--restart` without the daemon running, you will see a warning:
 
@@ -368,6 +377,15 @@ sentinel group stop workers
 
 # Restart all processes in a group
 sentinel group restart workers
+```
+
+Group operations honor `--depends-on` ordering: `start` and `restart` start
+dependencies first, while `stop` stops dependents first. A cycle or a missing
+dependency aborts the start with a message naming the processes involved.
+
+```bash
+# Inspect the recorded dependencies of a process
+sentinel status worker
 ```
 
 ### Deleting Groups

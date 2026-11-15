@@ -11,6 +11,7 @@ from typing import Any, Protocol, cast
 
 import psutil
 
+from .dependencies import start_order, stop_order
 from .env import build_process_environment
 from .logs import rotate_process_logs
 from .state import HealthCheckConfig, ProcessInfo, ProcessStatus, State, get_log_paths, serialized
@@ -219,6 +220,42 @@ def _wait_startup_or_fail(proc: _SpawnedChild, startup_timeout_seconds: float) -
 		time.sleep(0.05)
 
 
+def _running_process_names(state: State) -> set[str]:
+	names: set[str] = set()
+	for candidate in state.processes.values():
+		if candidate.stopped:
+			continue
+		try:
+			if managed_process(candidate) is not None:
+				names.add(candidate.name)
+		except ProcessIdentityError:
+			continue
+	return names
+
+
+def running_dependency_problems(state: State, depends_on: list[str]) -> list[str]:
+	"""Describe each dependency that is unknown or not running."""
+	problems: list[str] = []
+	for dependency in depends_on:
+		info = state.find_process_by_name(dependency)
+		if info is None:
+			problems.append(f"Unknown dependency '{dependency}'")
+			continue
+		try:
+			if managed_process(info) is None:
+				problems.append(f"Dependency '{dependency}' is not running")
+		except ProcessIdentityError:
+			problems.append(f"Dependency '{dependency}' cannot be verified as running")
+	return problems
+
+
+def _normalized_dependencies(name: str, depends_on: list[str] | None) -> list[str]:
+	dependencies = list(dict.fromkeys(dependency.strip() for dependency in depends_on or [] if dependency.strip()))
+	if name in dependencies:
+		raise ValueError(f"Process {name!r} cannot depend on itself")
+	return dependencies
+
+
 @serialized
 def start_process(
 	state: State,
@@ -236,6 +273,7 @@ def start_process(
 	ionice_value: int | None = None,
 	priority_warnings: list[str] | None = None,
 	group: str | None = None,
+	depends_on: list[str] | None = None,
 	process_id: int | None = None,
 	base_env: dict[str, str] | None = None,
 ) -> ProcessInfo:
@@ -257,6 +295,7 @@ def start_process(
 	existing = state.find_process_by_name(name)
 	if existing and (existing.id != process_id or not existing.stopped):
 		raise ValueError(f"Process with name '{name}' already exists (id: {existing.id})")
+	dependencies = _normalized_dependencies(name, depends_on)
 
 	# Setup log files
 	stdout_path, stderr_path = get_log_paths(name, logs_dir=state.logs_dir)
@@ -351,6 +390,7 @@ def start_process(
 			create_time=create_time,
 			base_env=base_env,
 			group=group,
+			depends_on=dependencies,
 			stdout_log=str(stdout_path),
 			stderr_log=str(stderr_path),
 			env=env or {},
@@ -406,6 +446,7 @@ def restart_from_info(state: State, info: ProcessInfo) -> ProcessInfo:
 		process_id=info.id,
 		base_env=info.base_env,
 		group=info.group,
+		depends_on=info.depends_on,
 		restart=info.restart,
 		user=info.user,
 		env=info.env,
@@ -496,7 +537,7 @@ def batch_start_processes(
 	successful: list[ProcessInfo] = []
 	failed: list[tuple[ProcessInfo, str]] = []
 
-	for info in processes:
+	for info in start_order(processes, available=_running_process_names(state)):
 		try:
 			tracked = state.get_process(info.id)
 			if tracked is not None:
@@ -520,7 +561,7 @@ def batch_stop_processes(
 	successful: list[ProcessInfo] = []
 	failed: list[tuple[ProcessInfo, str]] = []
 
-	for info in processes:
+	for info in stop_order(processes):
 		try:
 			stopped_info = stop_process(state, info.id, force=force)
 			successful.append(stopped_info)
@@ -537,7 +578,7 @@ def batch_restart_processes(
 	successful: list[ProcessInfo] = []
 	failed: list[tuple[ProcessInfo, str]] = []
 
-	for info in processes:
+	for info in start_order(processes, strict=False):
 		try:
 			restarted_info = restart_process(state, info.id)
 			successful.append(restarted_info)

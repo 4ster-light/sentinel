@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
+from sentinel_core.dependencies import DependencyError
 from sentinel_core.format import format_memory_mb, format_uptime_seconds, uptime_from_started_at
 from sentinel_core.logs import clear_logs, show_logs
 from sentinel_core.options import StartOptions
@@ -17,6 +18,7 @@ from sentinel_core.process import (
 	cleanup_dead_processes,
 	get_process_status,
 	restart_process,
+	running_dependency_problems,
 	start_process,
 	stop_process,
 )
@@ -91,6 +93,10 @@ def register_main_commands(app: typer.Typer) -> None:
 			int,
 			typer.Option("--instances", "-c", help="Number of instances to start"),
 		] = 1,
+		depends_on: Annotated[
+			list[str],
+			typer.Option("--depends-on", "-d", help="Start only after this process is running (repeatable)"),
+		] = [],
 		nice: Annotated[
 			int | None,
 			typer.Option("--nice", help="Nice value (-20 to 19) for the process"),
@@ -122,6 +128,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			health_failures=health_failures,
 			startup_timeout_seconds=startup_timeout,
 			instances=instances,
+			depends_on=depends_on,
 			nice=nice,
 			ionice=ionice,
 		)
@@ -137,6 +144,11 @@ def register_main_commands(app: typer.Typer) -> None:
 		base_name = name or command[0].split("/")[-1]
 		started_infos: list[ProcessInfo] = []
 		cluster_mode = options.instances > 1
+		dependency_problems = running_dependency_problems(state, options.depends_on)
+		if dependency_problems:
+			for problem in dependency_problems:
+				error_console.print(f"[red]✗[/] {escape(problem)}")
+			raise typer.Exit(1)
 
 		try:
 			for index in range(1, options.instances + 1):
@@ -156,6 +168,7 @@ def register_main_commands(app: typer.Typer) -> None:
 					nice=options.nice,
 					ionice_ioclass=ionice_ioclass,
 					ionice_value=ionice_value,
+					depends_on=options.depends_on,
 					priority_warnings=priority_notes,
 				)
 				started_infos.append(info)
@@ -289,6 +302,7 @@ def register_main_commands(app: typer.Typer) -> None:
 		console.print(f"  Restart:   {'yes' if info.restart else 'no'}")
 		console.print(f"  User:      {escape(info.user) if info.user else 'default'}")
 		console.print(f"  Group:     {escape(info.group) if info.group else 'none'}")
+		console.print(f"  Depends:   {escape(', '.join(info.depends_on)) if info.depends_on else 'none'}")
 		console.print(f"  CWD:       {escape(info.cwd)}")
 		console.print(f"  Command:   {escape(info.cmd)}")
 		console.print(f"  Stdout:    {escape(info.stdout_log)}")
@@ -367,7 +381,11 @@ def register_main_commands(app: typer.Typer) -> None:
 			console.print("[dim]No processes to start[/]")
 			return
 
-		successful, failed = batch_start_processes(state, processes)
+		try:
+			successful, failed = batch_start_processes(state, processes)
+		except DependencyError as error:
+			error_console.print(f"[red]✗[/] {escape(str(error))}")
+			raise typer.Exit(1)
 
 		for info in successful:
 			console.print(f"[green]✓[/] Started [bold]{escape(info.name)}[/] (pid: {info.pid})")
