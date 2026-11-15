@@ -58,6 +58,23 @@ def isolated_runtime(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, temp_state
 	monkeypatch.chdir(tmp_path)
 
 
+def _can_create_sockets() -> bool:
+	import socket
+
+	try:
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM):
+			return True
+	except OSError:
+		return False
+
+
+@pytest.fixture
+def require_sockets() -> None:
+	"""Skip tests that need real sockets where the sandbox forbids creating them."""
+	if not _can_create_sockets():
+		pytest.skip("socket creation is not permitted in this environment")
+
+
 @pytest.fixture
 def spawn_process(state: State) -> Iterator[Callable[..., ProcessInfo]]:
 	import signal

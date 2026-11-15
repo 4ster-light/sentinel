@@ -8,7 +8,7 @@ import psutil
 
 from sentinel_core.process import start_process, stop_process
 from sentinel_core.restart_monitor import RestartMonitor
-from sentinel_core.state import HealthCheckConfig, State
+from sentinel_core.state import HealthCheckConfig, ProcessInfo, State
 
 
 class TestRestartMonitor:
@@ -41,62 +41,54 @@ class TestRestartMonitor:
 		assert thread1 is thread2
 		monitor.stop()
 
-	def test_monitor_restart_dead_process(self, state: State, temp_state_dir: Path):
-		"""Test that monitor restarts a process with restart=True"""
-		# Start a short-lived process with restart=True
+	def test_monitor_restart_dead_process(self, state: State, temp_state_dir: Path, wait_for):
+		"""The monitor replaces a dead restart process with a new running one."""
 		info = start_process(state, "sleep 0.5", name="short_lived", restart=True)
 		original_pid = info.pid
 		assert psutil.pid_exists(original_pid)
 
-		# Create monitor with short check interval
 		monitor = RestartMonitor(check_interval=0.1)
 		monitor.start()
-		state_after = State()
+
+		def replacement() -> ProcessInfo | None:
+			candidate = State().find_process_by_name("short_lived")
+			if candidate is None or candidate.pid == original_pid:
+				return None
+			if not psutil.pid_exists(candidate.pid):
+				return None
+			return candidate
 
 		try:
-			# Wait for process to die and monitor to detect it
-			time.sleep(2.0)
-
-			# Check that a new process exists with the same name
-			state_after = State()
-			new_info = state_after.find_process_by_name("short_lived")
+			wait_for(lambda: replacement() is not None)
+			new_info = replacement()
 			assert new_info is not None
 			assert new_info.restart is True
-			# The PID should be different (new process)
-			# Note: We can't reliably test that new_info.pid != original_pid
-			# because the monitor may not have restarted yet
+			assert new_info.pid != original_pid
 		finally:
 			monitor.stop()
-			# Cleanup any remaining process
-			try:
-				state_after = State()
-				new_info = state_after.find_process_by_name("short_lived")
-				if new_info:
-					stop_process(state_after, new_info.id)
-			except Exception:
-				pass
+			remaining = State().find_process_by_name("short_lived")
+			if remaining is not None:
+				stop_process(State(), remaining.id)
 
-	def test_monitor_does_not_restart_without_flag(self, state: State, temp_state_dir: Path):
-		"""Test that monitor does NOT restart processes without restart=True"""
-		# Start a short-lived process without restart
+	def test_monitor_does_not_restart_without_flag(self, state: State, temp_state_dir: Path, wait_for):
+		"""A process without the restart flag is cleaned up, not restarted."""
 		info = start_process(state, "sleep 0.5", name="no_restart", restart=False)
 		original_id = info.id
 		original_pid = info.pid
 		assert psutil.pid_exists(original_pid)
 
-		# Create monitor with short check interval
 		monitor = RestartMonitor(check_interval=0.1)
 		monitor.start()
 
 		try:
-			# Wait for process to die and monitor to run cleanup
-			time.sleep(2.0)
-
-			# Check that process was cleaned up (removed from state)
+			wait_for(lambda: State().find_process_by_name("no_restart") is None)
 			state_after = State()
-			new_info = state_after.find_process_by_name("no_restart")
-			# The process should be cleaned up from state since it has no restart flag
-			assert new_info is None or new_info.id != original_id
+			assert state_after.find_process_by_name("no_restart") is None
+			assert original_id not in [process.id for process in state_after.list_processes()]
+			try:
+				assert psutil.Process(original_pid).status() == psutil.STATUS_ZOMBIE
+			except psutil.NoSuchProcess:
+				pass
 		finally:
 			monitor.stop()
 

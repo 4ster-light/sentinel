@@ -2,6 +2,8 @@ import socket
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import pytest
+
 from sentinel_core.health import run_health_check, should_run_health_check
 from sentinel_core.state import HealthCheckConfig, ProcessInfo
 
@@ -48,6 +50,7 @@ class TestShouldRunHealthCheck:
 		assert should_run_health_check(process_info) is True
 
 
+@pytest.mark.usefixtures("require_sockets")
 class TestRunHealthCheck:
 	def test_http_health_check_success(self) -> None:
 		http_server = HTTPServer(("127.0.0.1", 0), _HealthyHandler)

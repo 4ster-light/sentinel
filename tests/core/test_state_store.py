@@ -255,3 +255,35 @@ class TestLockedMutations:
 			data["next_id"] = 2
 
 		assert (tmp_path / "state.json.lock").exists()
+
+
+class TestEncoding:
+	def test_invalid_utf8_is_backed_up_with_exact_bytes(self, tmp_path: Path):
+		state_file = tmp_path / "state.json"
+		corrupt = b'{"processes": {"1": {"name": "\xff"}}}'
+		state_file.write_bytes(corrupt)
+
+		store = StateStore(tmp_path)
+		store.load()
+
+		assert store.data == empty_state_data()
+		assert store.warnings
+		backups = list(tmp_path.glob("state.json.corrupt-*"))
+		assert len(backups) == 1
+		assert backups[0].read_bytes() == corrupt
+
+	def test_non_ascii_values_survive_a_roundtrip(self, tmp_path: Path):
+		store = StateStore(tmp_path)
+		store.load()
+		store.data["groups"]["café"] = {
+			"name": "café",
+			"created_at": "2024-01-01T00:00:00",
+			"env": {"Ñ": "✓"},
+			"env_file": None,
+		}
+		store.save()
+
+		reloaded = StateStore(tmp_path)
+		reloaded.load()
+
+		assert reloaded.data["groups"]["café"]["env"] == {"Ñ": "✓"}

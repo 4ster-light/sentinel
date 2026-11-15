@@ -1,7 +1,14 @@
-"""State data models"""
+"""State data models
+
+Timestamps are naive local-time ISO 8601 strings. ``create_time`` is the
+process creation time reported by psutil and guards against PID reuse.
+``env`` holds the variables explicitly requested for a process; ``base_env``
+holds the environment captured at first start so restarts do not inherit the
+daemon's environment.
+"""
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Self
 
 
 @dataclass
@@ -22,13 +29,13 @@ class HealthCheckConfig:
 		}
 
 	@classmethod
-	def from_dict(cls, data: dict[str, Any]) -> HealthCheckConfig:
+	def from_dict(cls, data: dict[str, Any]) -> Self:
 		return cls(
 			kind=data["kind"],
 			target=data["target"],
-			interval_seconds=data.get("interval_seconds", 30.0),
-			timeout_seconds=data.get("timeout_seconds", 3.0),
-			failure_threshold=data.get("failure_threshold", 3),
+			interval_seconds=float(data.get("interval_seconds", 30.0)),
+			timeout_seconds=float(data.get("timeout_seconds", 3.0)),
+			failure_threshold=int(data.get("failure_threshold", 3)),
 		)
 
 
@@ -46,6 +53,11 @@ class ProcessInfo:
 	user: str | None = None
 	env: dict[str, str] = field(default_factory=dict)
 	group: str | None = None
+	depends_on: list[str] = field(default_factory=list)
+	cluster: str | None = None
+	cluster_index: int | None = None
+	cluster_min: int | None = None
+	cluster_max: int | None = None
 	env_file: str | None = None
 	health_check: HealthCheckConfig | None = None
 	health_failures: int = 0
@@ -70,8 +82,13 @@ class ProcessInfo:
 			"started_at": self.started_at,
 			"stdout_log": self.stdout_log,
 			"stderr_log": self.stderr_log,
-			"env": self.env,
+			"env": dict(self.env),
 			"group": self.group,
+			"depends_on": self.depends_on,
+			"cluster": self.cluster,
+			"cluster_index": self.cluster_index,
+			"cluster_min": self.cluster_min,
+			"cluster_max": self.cluster_max,
 			"env_file": self.env_file,
 			"health_check": self.health_check.to_dict() if self.health_check else None,
 			"health_failures": self.health_failures,
@@ -82,11 +99,11 @@ class ProcessInfo:
 			"ionice_value": self.ionice_value,
 			"stopped": self.stopped,
 			"create_time": self.create_time,
-			"base_env": self.base_env,
+			"base_env": dict(self.base_env) if self.base_env is not None else None,
 		}
 
 	@classmethod
-	def from_dict(cls, data: dict[str, Any]) -> ProcessInfo:
+	def from_dict(cls, data: dict[str, Any]) -> Self:
 		return cls(
 			id=data["id"],
 			pid=data["pid"],
@@ -98,10 +115,17 @@ class ProcessInfo:
 			started_at=data["started_at"],
 			stdout_log=data["stdout_log"],
 			stderr_log=data["stderr_log"],
-			env=data.get("env", {}),
+			env=data.get("env") or {},
 			group=data.get("group"),
+			depends_on=data.get("depends_on") or [],
+			cluster=data.get("cluster"),
+			cluster_index=data.get("cluster_index"),
+			cluster_min=data.get("cluster_min"),
+			cluster_max=data.get("cluster_max"),
 			env_file=data.get("env_file"),
-			health_check=HealthCheckConfig.from_dict(data["health_check"]) if data.get("health_check") else None,
+			health_check=HealthCheckConfig.from_dict(data["health_check"])
+			if data.get("health_check") is not None
+			else None,
 			health_failures=data.get("health_failures", 0),
 			health_last_checked_at=data.get("health_last_checked_at"),
 			startup_timeout_seconds=data.get("startup_timeout_seconds"),
@@ -125,16 +149,16 @@ class GroupInfo:
 		return {
 			"name": self.name,
 			"created_at": self.created_at,
-			"env": self.env,
+			"env": dict(self.env),
 			"env_file": self.env_file,
 		}
 
 	@classmethod
-	def from_dict(cls, data: dict[str, Any]) -> GroupInfo:
+	def from_dict(cls, data: dict[str, Any]) -> Self:
 		return cls(
 			name=data["name"],
 			created_at=data["created_at"],
-			env=data.get("env", {}),
+			env=data.get("env") or {},
 			env_file=data.get("env_file"),
 		)
 
@@ -153,7 +177,7 @@ class PortInfo:
 		}
 
 	@classmethod
-	def from_dict(cls, data: dict[str, Any]) -> PortInfo:
+	def from_dict(cls, data: dict[str, Any]) -> Self:
 		return cls(
 			port=data["port"],
 			name=data["name"],
@@ -185,7 +209,7 @@ class RemoteInfo:
 		}
 
 	@classmethod
-	def from_dict(cls, data: dict[str, Any]) -> RemoteInfo:
+	def from_dict(cls, data: dict[str, Any]) -> Self:
 		return cls(
 			host=data["host"],
 			user=data.get("user"),

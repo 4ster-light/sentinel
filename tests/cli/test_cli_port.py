@@ -1,8 +1,11 @@
 """Tests for CLI port commands"""
 
+import pytest
 from typer.testing import CliRunner
 
 from sentinel_cli import app
+
+pytestmark = pytest.mark.usefixtures("require_sockets")
 
 runner = CliRunner()
 

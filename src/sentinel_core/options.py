@@ -1,7 +1,8 @@
 """Validated process start options"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from .cluster import ScaleSpec
 from .state import HealthCheckConfig
 
 
@@ -55,6 +56,8 @@ class StartOptions:
 	health_failures: int = 3
 	startup_timeout_seconds: float | None = None
 	instances: int = 1
+	scale: str | None = None
+	depends_on: list[str] = field(default_factory=list)
 	nice: int | None = None
 	ionice: str | None = None
 
@@ -64,6 +67,18 @@ class StartOptions:
 			raise ValueError("--startup-timeout must be greater than 0")
 		if self.instances < 1:
 			raise ValueError("--instances must be at least 1")
+		if self.scale is not None:
+			ScaleSpec.parse(self.scale)
+			if self.instances != 1:
+				raise ValueError("--scale cannot be combined with --instances")
+			if self.depends_on:
+				raise ValueError("--scale cannot be combined with --depends-on")
+		if any(not dependency.strip() for dependency in self.depends_on):
+			raise ValueError("--depends-on requires a process name")
+		if self.name is not None and self.name in self.depends_on:
+			raise ValueError("--depends-on cannot name the process itself")
+		if self.depends_on and self.instances > 1:
+			raise ValueError("--depends-on cannot be combined with --instances")
 		if self.nice is not None and not -20 <= self.nice <= 19:
 			raise ValueError("--nice must be between -20 and 19")
 		if self.ionice is not None:
@@ -76,6 +91,11 @@ class StartOptions:
 			raise ValueError("--health-timeout must be greater than 0")
 		if self.health_failures < 1:
 			raise ValueError("--health-failures must be at least 1")
+
+	@property
+	def scale_spec(self) -> ScaleSpec | None:
+		"""Parsed instance range, or None when the process is not clustered."""
+		return ScaleSpec.parse(self.scale) if self.scale is not None else None
 
 	@property
 	def health_check(self) -> HealthCheckConfig | None:

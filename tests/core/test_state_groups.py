@@ -203,20 +203,19 @@ class TestStateGroupOperations:
 		assert groups == []
 
 	def test_get_processes_in_group(self, state: State):
-		"""Getting processes in a group should return them"""
+		"""Only the members of the queried group are returned"""
 		state.create_group("test_group")
 		info1 = start_process(state, "echo test1", name="proc1")
 		info2 = start_process(state, "echo test2", name="proc2")
+		outsider = start_process(state, "echo outsider", name="outsider")
 
 		state.add_process_to_group("test_group", info1.id)
 		state.add_process_to_group("test_group", info2.id)
 
 		processes = state.get_processes_in_group("test_group")
 
-		assert len(processes) == 2
-		names = [p.name for p in processes]
-		assert "proc1" in names
-		assert "proc2" in names
+		assert [p.name for p in processes] == ["proc1", "proc2"]
+		assert outsider.id not in {p.id for p in processes}
 
 	def test_get_processes_in_empty_group(self, state: State):
 		"""Getting processes in an empty group should return empty list"""

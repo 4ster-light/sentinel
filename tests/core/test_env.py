@@ -251,26 +251,30 @@ class TestBuildProcessEnvironment:
 		assert result["GROUP_VAR"] == "group_value"
 
 	def test_build_env_merge_precedence(self, tmp_path: Path):
-		"""Test complete merge precedence order"""
-		# Create env files
+		"""Each layer contributes, and later layers win on conflicts."""
 		group_env_file = tmp_path / "group.env"
-		group_env_file.write_text("VAR=group_file")
+		group_env_file.write_text("VAR=group_file\nGROUP_FILE_ONLY=group_file")
 
 		process_env_file = tmp_path / "process.env"
-		process_env_file.write_text("VAR=process_file")
+		process_env_file.write_text("VAR=process_file\nPROCESS_FILE_ONLY=process_file")
 
 		result = build_process_environment(
 			system_env=False,
 			global_env_files=False,
-			group_env={"VAR": "group_dict"},
+			group_env={"VAR": "group_dict", "GROUP_DICT_ONLY": "group_dict"},
 			group_env_file=group_env_file,
-			process_env={"VAR": "process_dict"},
+			process_env={"VAR": "process_dict", "PROCESS_DICT_ONLY": "process_dict"},
 			process_env_file=process_env_file,
 			override_env={"VAR": "override"},
 		)
 
-		# Override should win
-		assert result["VAR"] == "override"
+		assert result == {
+			"VAR": "override",
+			"GROUP_FILE_ONLY": "group_file",
+			"GROUP_DICT_ONLY": "group_dict",
+			"PROCESS_FILE_ONLY": "process_file",
+			"PROCESS_DICT_ONLY": "process_dict",
+		}
 
 	def test_build_with_missing_env_file_raises_error(self):
 		"""Test that missing process env file raises ValueError"""

@@ -94,6 +94,9 @@ def test_regression_manual_restart_preserves_id_and_group(state, spawn_process) 
 	state.add_process_to_group("workers", info.id)
 	new = restart_process(state, info.id)
 	assert (new.id, new.group) == (info.id, "workers")
+	assert new.pid != info.pid
+	assert psutil.pid_exists(new.pid)
+	assert get_process_status(new).running
 	assert not psutil.pid_exists(info.pid)
 
 

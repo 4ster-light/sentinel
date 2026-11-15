@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -115,9 +116,11 @@ class TestExportMetrics:
 		path = tmp_path / "metrics.json"
 		export_to_json(metrics, path)
 
-		content = path.read_text()
-		assert '"name": "proc"' in content
-		assert '"pid": 123' in content
+		data = json.loads(path.read_text())
+
+		assert data == [metrics[0].to_dict()]
+		assert type(data[0]["pid"]) is int
+		assert type(data[0]["running"]) is bool
 
 	def test_export_to_stdout(self, capsys):
 		metrics = [
