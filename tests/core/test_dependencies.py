@@ -103,25 +103,30 @@ class TestBatchOrdering:
 			start_process(state, "sleep 30", name="loop", depends_on=["loop"])
 
 	def test_batch_start_starts_dependencies_first(self, state: State, tmp_path: Path, wait_for, spawn_process):
-		order_file = tmp_path / "order.log"
-		db = spawn_process(f"sh -c 'echo db >> {order_file}; sleep 30'", name="db")
+		app_marker = tmp_path / "app.started"
+		db_marker = tmp_path / "db.started"
+		db_checked = tmp_path / "db.checked"
+		db = spawn_process(
+			f"sh -c 'test ! -f {app_marker} && touch {db_marker}; touch {db_checked}; sleep 30'",
+			name="db",
+		)
 		app = start_process(
 			state,
-			f"sh -c 'echo app >> {order_file}; sleep 30'",
+			f"sh -c 'touch {app_marker}; sleep 30'",
 			name="app",
 			depends_on=["db"],
 		)
 		stop_process(state, "db")
 		stop_process(state, "app")
-		order_file.unlink(missing_ok=True)
-		assert not order_file.exists()
+		for marker in (app_marker, db_marker, db_checked):
+			marker.unlink(missing_ok=True)
 
 		successful, failed = batch_start_processes(State(), [app, db])
 
 		assert failed == []
 		assert [info.name for info in successful] == ["db", "app"]
-		wait_for(lambda: order_file.exists() and len(order_file.read_text().split()) >= 2)
-		assert order_file.read_text().split() == ["db", "app"]
+		wait_for(lambda: db_checked.exists() and app_marker.exists())
+		assert db_marker.exists(), "app started before its dependency db"
 		batch_stop_processes(State(), [db, app])
 
 	def test_batch_start_rejects_a_stopped_dependency(self, state: State, spawn_process):
