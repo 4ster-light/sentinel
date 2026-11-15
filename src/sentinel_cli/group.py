@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
+from sentinel_core.dependencies import DependencyError
 from sentinel_core.process import batch_restart_processes
 from sentinel_core.process import batch_start_processes
 from sentinel_core.process import batch_stop_processes
@@ -183,7 +184,11 @@ def group_start(
 		console.print(f"[dim]No processes in group '{escape(group_name)}'[/]")
 		return
 
-	successful, failed = batch_start_processes(state, processes)
+	try:
+		successful, failed = batch_start_processes(state, processes)
+	except DependencyError as error:
+		console.print(f"[red]✗[/] {escape(str(error))}")
+		raise typer.Exit(1)
 
 	for info in successful:
 		console.print(f"[green]✓[/] Started [bold]{escape(info.name)}[/] (pid: {info.pid})")
@@ -256,7 +261,11 @@ def group_restart(
 		console.print(f"[dim]No processes in group '{escape(group_name)}'[/]")
 		return
 
-	successful, failed = batch_restart_processes(state, processes)
+	try:
+		successful, failed = batch_restart_processes(state, processes)
+	except DependencyError as error:
+		console.print(f"[red]✗[/] {escape(str(error))}")
+		raise typer.Exit(1)
 
 	for info in successful:
 		console.print(f"[green]✓[/] Restarted [bold]{escape(info.name)}[/] (pid: {info.pid})")

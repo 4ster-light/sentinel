@@ -46,6 +46,7 @@ class ProcessInfo:
 	user: str | None = None
 	env: dict[str, str] = field(default_factory=dict)
 	group: str | None = None
+	depends_on: list[str] = field(default_factory=list)
 	env_file: str | None = None
 	health_check: HealthCheckConfig | None = None
 	health_failures: int = 0
@@ -72,6 +73,7 @@ class ProcessInfo:
 			"stderr_log": self.stderr_log,
 			"env": self.env,
 			"group": self.group,
+			"depends_on": self.depends_on,
 			"env_file": self.env_file,
 			"health_check": self.health_check.to_dict() if self.health_check else None,
 			"health_failures": self.health_failures,
@@ -100,6 +102,7 @@ class ProcessInfo:
 			stderr_log=data["stderr_log"],
 			env=data.get("env", {}),
 			group=data.get("group"),
+			depends_on=data.get("depends_on") or [],
 			env_file=data.get("env_file"),
 			health_check=HealthCheckConfig.from_dict(data["health_check"]) if data.get("health_check") else None,
 			health_failures=data.get("health_failures", 0),

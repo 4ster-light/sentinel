@@ -24,6 +24,7 @@ belongs in `sentinel_cli`.
 | `state_store.py` | Owns the `state.json` file: parsing, validation, atomic writes, and advisory locking |
 | `registries.py` | One registry per domain section (processes, ports, groups, remotes), each mutating the store under its lock |
 | `state.py` | `State` facade over the registries (stable API) plus module constants and `get_log_paths` |
+| `dependencies.py` | Dependency ordering for batch start/stop, with cycle and missing-dependency detection |
 | `process.py` | Spawning, stopping (whole process group), restarting, priority, and batch operations |
 | `restart_monitor.py` | The restart engine: a single scan pass shared by the daemon loop and the lazy CLI check |
 | `health.py` | HTTP/TCP health probes and scheduling decisions |
