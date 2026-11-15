@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
+from sentinel_core.cluster import ScaleSpec, instance_name
 from sentinel_core.dependencies import DependencyError
 from sentinel_core.format import format_memory_mb, format_uptime_seconds, uptime_from_started_at
 from sentinel_core.logs import clear_logs, show_logs
@@ -93,10 +94,14 @@ def register_main_commands(app: typer.Typer) -> None:
 			int,
 			typer.Option("--instances", "-c", help="Number of instances to start"),
 		] = 1,
+		scale: Annotated[
+			str | None,
+			typer.Option("--scale", help="Instance range: N or MIN-MAX (for example 2-4)"),
+		] = None,
 		depends_on: Annotated[
-			list[str],
+			list[str] | None,
 			typer.Option("--depends-on", "-d", help="Start only after this process is running (repeatable)"),
-		] = [],
+		] = None,
 		nice: Annotated[
 			int | None,
 			typer.Option("--nice", help="Nice value (-20 to 19) for the process"),
@@ -128,7 +133,8 @@ def register_main_commands(app: typer.Typer) -> None:
 			health_failures=health_failures,
 			startup_timeout_seconds=startup_timeout,
 			instances=instances,
-			depends_on=depends_on,
+			scale=scale,
+			depends_on=depends_on or [],
 			nice=nice,
 			ionice=ionice,
 		)
@@ -143,7 +149,11 @@ def register_main_commands(app: typer.Typer) -> None:
 		ionice_ioclass, ionice_value = options.ionice_spec()
 		base_name = name or command[0].split("/")[-1]
 		started_infos: list[ProcessInfo] = []
-		cluster_mode = options.instances > 1
+		scale_spec = options.scale_spec
+		if scale_spec is None and options.instances > 1:
+			scale_spec = ScaleSpec(options.instances, options.instances)
+		cluster_mode = scale_spec is not None
+		instance_count = scale_spec.min_instances if scale_spec is not None else 1
 		dependency_problems = running_dependency_problems(state, options.depends_on)
 		if dependency_problems:
 			for problem in dependency_problems:
@@ -151,13 +161,13 @@ def register_main_commands(app: typer.Typer) -> None:
 			raise typer.Exit(1)
 
 		try:
-			for index in range(1, options.instances + 1):
-				instance_name = f"{base_name}-{index}" if cluster_mode else name
+			for index in range(1, instance_count + 1):
+				instance_label = instance_name(base_name, index) if cluster_mode else name
 				priority_notes: list[str] = []
 				info = start_process(
 					state,
 					cmd,
-					name=instance_name,
+					name=instance_label,
 					restart=options.restart,
 					user=options.user,
 					group=options.group,
@@ -169,6 +179,10 @@ def register_main_commands(app: typer.Typer) -> None:
 					ionice_ioclass=ionice_ioclass,
 					ionice_value=ionice_value,
 					depends_on=options.depends_on,
+					cluster=base_name if cluster_mode else None,
+					cluster_index=index if cluster_mode else None,
+					cluster_min=scale_spec.min_instances if scale_spec else None,
+					cluster_max=scale_spec.max_instances if scale_spec else None,
 					priority_warnings=priority_notes,
 				)
 				started_infos.append(info)
@@ -243,16 +257,16 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		table = Table(show_header=True, header_style="bold")
 		table.add_column("ID", style="cyan", justify="right")
-		table.add_column("NAME", style="bold")
+		table.add_column("NAME", style="bold", max_width=24, overflow="ellipsis")
 		table.add_column("PID", justify="right")
 		table.add_column("STATUS")
 		table.add_column("CPU", justify="right")
 		table.add_column("MEM", justify="right")
 		table.add_column("UPTIME", justify="right")
 		table.add_column("RESTART")
-		table.add_column("USER")
-		table.add_column("GROUP", style="magenta")
-		table.add_column("COMMAND", max_width=40)
+		table.add_column("USER", max_width=16, overflow="ellipsis")
+		table.add_column("GROUP", style="magenta", max_width=16, overflow="ellipsis")
+		table.add_column("COMMAND", max_width=40, overflow="ellipsis")
 
 		for info in processes:
 			status = get_process_status(info)
@@ -272,7 +286,7 @@ def register_main_commands(app: typer.Typer) -> None:
 				restart_str,
 				user_str,
 				group_str,
-				escape(info.cmd[:40] + "..." if len(info.cmd) > 40 else info.cmd),
+				escape(info.cmd),
 			)
 
 		console.print(table)
@@ -330,7 +344,7 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		if clear:
 			clear_logs(info.stdout_log, info.stderr_log)
-			console.print(f"[green]✓[/] Cleared logs for [bold]{info.name}[/]")
+			console.print(f"[green]✓[/] Cleared logs for [bold]{escape(info.name)}[/]")
 			return
 
 		show_logs(info.stdout_log, info.stderr_log, lines=lines, follow=follow, stream=stream)
@@ -354,7 +368,16 @@ def register_main_commands(app: typer.Typer) -> None:
 		"""Stop all managed processes"""
 		state = load_state()
 		processes = state.list_processes()
-		successful, failed = batch_stop_processes(state, processes, force=force)
+
+		if not processes:
+			console.print("[dim]No processes to stop[/]")
+			return
+
+		try:
+			successful, failed = batch_stop_processes(state, processes, force=force)
+		except DependencyError as error:
+			error_console.print(f"[red]✗[/] {escape(str(error))}")
+			raise typer.Exit(1)
 
 		for info in successful:
 			console.print(f"[green]✓[/] Stopped [bold]{escape(info.name)}[/]")
@@ -412,7 +435,11 @@ def register_main_commands(app: typer.Typer) -> None:
 			console.print("[dim]No processes to restart[/]")
 			return
 
-		successful, failed = batch_restart_processes(state, processes)
+		try:
+			successful, failed = batch_restart_processes(state, processes)
+		except DependencyError as error:
+			error_console.print(f"[red]✗[/] {escape(str(error))}")
+			raise typer.Exit(1)
 
 		for info in successful:
 			console.print(f"[green]✓[/] Restarted [bold]{escape(info.name)}[/] (pid: {info.pid})")

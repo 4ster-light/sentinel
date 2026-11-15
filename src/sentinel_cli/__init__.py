@@ -2,6 +2,7 @@
 
 import typer
 
+from .cluster import cluster_app
 from .daemon import daemon_app
 from .group import group_app
 from .main import register_main_commands
@@ -18,6 +19,7 @@ app = typer.Typer(
 
 register_main_commands(app)
 app.add_typer(port_app, name="port")
+app.add_typer(cluster_app, name="cluster")
 app.add_typer(group_app, name="group")
 app.add_typer(daemon_app, name="daemon")
 app.add_typer(startup_app, name="startup")
