@@ -201,8 +201,8 @@ class TestStopProcess:
 		time.sleep(0.5)
 		assert not psutil.pid_exists(info.pid)
 
-	def test_stop_process_kills_process_group(self, state, temp_state_dir: Path):
-		# A background child shares the process group but survives leader-only signals
+	def test_stop_process_kills_process_group(self, state, temp_state_dir: Path, wait_for):
+		"""Stopping a process kills children in its process group, not just the leader."""
 		info = start_process(state, "sleep 60 & sleep 60", name="groupkill")
 		proc = psutil.Process(info.pid)
 
@@ -213,32 +213,29 @@ class TestStopProcess:
 				break
 			time.sleep(0.1)
 		assert children, "expected at least one shell child"
+		leader_pgid = os.getpgid(info.pid)
+		assert all(os.getpgid(child.pid) == leader_pgid for child in children)
 
-		stopped = stop_process(state, info.id)
+		stop_process(state, info.id)
 
-		assert stopped.id == info.id
-		time.sleep(0.5)
-
-		for child in children:
+		def gone(child: psutil.Process) -> bool:
 			try:
-				assert not child.is_running() or child.status() == psutil.STATUS_ZOMBIE
+				return child.status() == psutil.STATUS_ZOMBIE
 			except psutil.NoSuchProcess:
-				pass
+				return True
 
-	def test_stop_process_force(self, state, temp_state_dir: Path):
-		# Start a process that ignores SIGTERM
-		info = start_process(state, "sleep 60", name="stubborn")
+		wait_for(lambda: all(gone(child) for child in children))
+
+	def test_stop_process_force(self, state, temp_state_dir: Path, wait_for):
+		"""force=True sends SIGKILL to a process that ignores SIGTERM."""
+		info = start_process(state, "trap '' TERM; while :; do sleep 0.1; done", name="stubborn")
 		assert psutil.pid_exists(info.pid)
 
 		stopped = stop_process(state, info.id, force=True)
 
 		assert stopped.id == info.id
-
-		# Wait for force kill to complete
-		time.sleep(1.0)
-
-		# Process should be dead or removed from state
-		assert state.get_process(stopped.id).stopped
+		assert stopped.stopped is True
+		wait_for(lambda: not psutil.pid_exists(info.pid))
 
 	def test_stop_nonexistent_process(self, state):
 		with pytest.raises(ValueError, match="not found"):

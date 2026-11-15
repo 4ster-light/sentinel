@@ -155,8 +155,11 @@ class TestShowLogs:
 		stdout_log = temp_logs_dir / "nonexistent.stdout.log"
 		stderr_log = temp_logs_dir / "nonexistent.stderr.log"
 
-		# Should not raise an error
 		show_logs(str(stdout_log), str(stderr_log), lines=50, follow=False, stream="both")
+
+		captured = capsys.readouterr()
+		assert captured.out.strip() == ""
+		assert "Traceback" not in captured.err
 
 
 class TestFollowLogs:
@@ -197,6 +200,14 @@ class TestLogRotation:
 		assert log_file.exists()
 		assert log_file.read_text() == ""
 		assert (temp_logs_dir / "rotate.log.1").read_text() == "abcdef"
+
+	def test_rotate_log_file_rotates_at_exact_max_size(self, temp_logs_dir: Path) -> None:
+		log_file = temp_logs_dir / "rotate.log"
+		log_file.write_text("abcd")
+
+		assert rotate_log_file(log_file, max_bytes=4, backups=2) is True
+		assert log_file.read_text() == ""
+		assert (temp_logs_dir / "rotate.log.1").read_text() == "abcd"
 
 	def test_rotate_log_file_when_below_max_size(self, temp_logs_dir: Path) -> None:
 		log_file = temp_logs_dir / "rotate.log"

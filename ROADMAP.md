@@ -58,9 +58,9 @@ features for developers and DevOps.
   - [x] Developer Experience: Nix-based CI, ARCHITECTURE.md, coverage floor
         raised to 85%
 
-- [ ] **v0.2.4**
-  - [ ] Process Dependencies: Start processes in a specific order
-  - [ ] Improved Cluster Mode: Dynamic scaling (e.g., `--scale 2-4`)
+- [x] ~~**v0.2.4**~~ _**COMPLETED**_
+  - [x] Process Dependencies: Start processes in a specific order
+  - [x] Improved Cluster Mode: Dynamic scaling (e.g., `--scale 2-4`)
 
 - [ ] **v0.2.5**
   - [ ] Advanced Startup Scripts: Support for `init.d` and Windows services

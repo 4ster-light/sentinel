@@ -25,10 +25,19 @@ class TestParseIoniceSpec:
 
 	@pytest.mark.parametrize(
 		"raw",
-		["nope", "best-effort:99", "realtime:-1", "best-effort:x"],
+		[
+			"nope",
+			"best-effort:99",
+			"realtime:-1",
+			"best-effort:x",
+			"best-effort:8",
+			"realtime:8",
+			"idle:0",
+			"best effort",
+		],
 	)
 	def test_invalid(self, raw: str):
-		with pytest.raises(ValueError):
+		with pytest.raises(ValueError, match="ionice"):
 			parse_ionice_spec(raw)
 
 

@@ -135,8 +135,11 @@ class TestBatchStopProcesses:
 
 		successful, failed = batch_stop_processes(state, [info1, info2])
 
-		assert len(successful) == 2
-		assert len(failed) == 0
+		assert {info.name for info in successful} == {"stop1", "stop2"}
+		assert failed == []
+		reloaded = State()
+		assert reloaded.processes[info1.id].stopped
+		assert reloaded.processes[info2.id].stopped
 
 	def test_batch_stop_force(self, state: State):
 		"""Stopping with force flag should use SIGKILL"""

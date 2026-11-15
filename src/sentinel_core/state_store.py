@@ -19,6 +19,8 @@ LOGS_DIRNAME = "logs"
 
 logger = logging.getLogger(__name__)
 
+_CORRUPTION_ERRORS = (json.JSONDecodeError, KeyError, TypeError, ValueError, AttributeError)
+
 
 def empty_state_data() -> dict[str, Any]:
 	return {"next_id": 1, "processes": {}, "ports": {}, "groups": {}, "remotes": {}}
@@ -51,10 +53,7 @@ class StateStore:
 		self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
 		self.logs_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
 		self.warnings = []
-		if not self.state_file.exists():
-			self.data = empty_state_data()
-		else:
-			self.data = self._read_guarded()
+		self.data = self._read_guarded() if self.state_file.exists() else empty_state_data()
 		self._saved_data = deepcopy(self.data)
 
 	def save(self) -> None:
@@ -83,18 +82,27 @@ class StateStore:
 	def _read_guarded(self) -> dict[str, Any]:
 		"""Read and validate state.json, backing up and warning on corruption."""
 		try:
-			raw = json.loads(self.state_file.read_text())
-			data = empty_state_data() | raw
-			_validate_data(data)
-			return data
-		except (json.JSONDecodeError, KeyError, TypeError, ValueError, AttributeError) as e:
-			backup = self._backup_corrupt_file()
+			return self._parse()
+		except _CORRUPTION_ERRORS as e:
+			# Re-read under the writer lock: a concurrent save may have replaced the
+			# unreadable file, and that valid state must not be renamed away.
+			with self.locked():
+				try:
+					return self._parse()
+				except _CORRUPTION_ERRORS:
+					backup = self._backup_corrupt_file()
 			message = f"state file {self.state_file} is corrupt ({type(e).__name__}: {e}); starting from empty state"
 			if backup:
 				message += f"; original backed up to {backup}"
 			self.warnings.append(message)
 			logger.warning(message)
 			return empty_state_data()
+
+	def _parse(self) -> dict[str, Any]:
+		raw = json.loads(self.state_file.read_text(encoding="utf-8"))
+		data = empty_state_data() | raw
+		_validate_data(data)
+		return data
 
 	def _backup_corrupt_file(self) -> Path | None:
 		timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
@@ -110,8 +118,8 @@ class StateStore:
 		self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
 		fd, tmp_name = tempfile.mkstemp(dir=self.state_dir, prefix=f".{STATE_FILENAME}.", suffix=".tmp")
 		try:
-			with os.fdopen(fd, "w") as tmp_file:
-				json.dump(data, tmp_file, indent=2)
+			with os.fdopen(fd, "w", encoding="utf-8") as tmp_file:
+				json.dump(data, tmp_file, indent=2, ensure_ascii=False)
 				tmp_file.flush()
 				os.fsync(tmp_file.fileno())
 			os.replace(tmp_name, self.state_file)

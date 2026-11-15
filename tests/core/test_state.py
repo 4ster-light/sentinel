@@ -1,6 +1,8 @@
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from sentinel_core.state import HealthCheckConfig, PortInfo, ProcessInfo, RemoteInfo, State, get_log_paths
 
 
@@ -115,6 +117,9 @@ class TestProcessInfo:
 		assert info.health_check is not None
 		assert info.health_check.kind == "tcp"
 		assert info.health_check.target == "127.0.0.1:3000"
+		assert info.health_check.interval_seconds == 10.0
+		assert info.health_check.timeout_seconds == 1.5
+		assert info.health_check.failure_threshold == 2
 		assert info.health_failures == 1
 		assert info.health_last_checked_at == "2024-01-01T00:00:01"
 
@@ -325,6 +330,7 @@ class TestState:
 		names = {p.name for p in processes}
 		assert names == {"proc1", "proc2"}
 
+	@pytest.mark.usefixtures("require_sockets")
 	def test_allocate_port_auto(self, state: State):
 		port = state.allocate_port("webapp")
 
@@ -333,6 +339,7 @@ class TestState:
 		assert port in state.ports
 		assert state.ports[port].name == "webapp"
 
+	@pytest.mark.usefixtures("require_sockets")
 	def test_allocate_port_specific(self, state: State):
 		# Find an available port first
 		import socket
@@ -348,6 +355,7 @@ class TestState:
 		assert port in state.ports
 		assert state.ports[port].name == "webapp"
 
+	@pytest.mark.usefixtures("require_sockets")
 	def test_allocate_port_duplicate(self, state: State):
 		import socket
 
@@ -362,6 +370,7 @@ class TestState:
 		port2 = state.allocate_port("other", available_port)
 		assert port2 is None
 
+	@pytest.mark.usefixtures("require_sockets")
 	def test_free_port(self, state: State):
 		port = state.allocate_port("webapp")
 		assert port is not None
@@ -374,6 +383,7 @@ class TestState:
 		freed_again = state.free_port(port)
 		assert freed_again is False
 
+	@pytest.mark.usefixtures("require_sockets")
 	def test_get_port(self, state: State):
 		port = state.allocate_port("webapp")
 		assert port is not None
@@ -386,6 +396,7 @@ class TestState:
 		not_found = state.get_port(99999)
 		assert not_found is None
 
+	@pytest.mark.usefixtures("require_sockets")
 	def test_list_ports(self, state: State):
 		_port1 = state.allocate_port("webapp")
 		_port2 = state.allocate_port("api")
@@ -402,6 +413,7 @@ class TestState:
 		assert len(api_ports) == 1
 		assert api_ports[0].name == "api"
 
+	@pytest.mark.usefixtures("require_sockets")
 	def test_save_and_load(self, state: State, temp_state_dir: Path):
 		# Add a process
 		info = ProcessInfo(
