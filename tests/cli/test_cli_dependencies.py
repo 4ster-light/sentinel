@@ -90,30 +90,33 @@ class TestRunDependencies:
 
 class TestGroupDependencyOrder:
 	def test_group_start_starts_dependencies_first(self, state: State, tmp_path: Path, wait_for):
-		order_file = tmp_path / "order.log"
+		app_marker = tmp_path / "app.started"
+		db_marker = tmp_path / "db.started"
+		db_checked = tmp_path / "db.checked"
 		state.create_group("stack")
 		db = start_process(
 			state,
-			f"sh -c 'echo db >> {order_file}; sleep 30'",
+			f"sh -c 'test ! -f {app_marker} && touch {db_marker}; touch {db_checked}; sleep 30'",
 			name="db",
 			group="stack",
 		)
 		app_info = start_process(
 			state,
-			f"sh -c 'echo app >> {order_file}; sleep 30'",
+			f"sh -c 'touch {app_marker}; sleep 30'",
 			name="app",
 			group="stack",
 			depends_on=["db"],
 		)
 		result = runner.invoke(app, ["group", "stop", "stack"])
 		assert result.exit_code == 0, result.output
-		order_file.unlink(missing_ok=True)
+		for marker in (app_marker, db_marker, db_checked):
+			marker.unlink(missing_ok=True)
 
 		result = runner.invoke(app, ["group", "start", "stack"])
 
 		assert result.exit_code == 0, result.output
-		wait_for(lambda: order_file.exists() and len(order_file.read_text().split()) >= 2)
-		assert order_file.read_text().split() == ["db", "app"]
+		wait_for(lambda: db_checked.exists() and app_marker.exists())
+		assert db_marker.exists(), "app started before its dependency db"
 		assert app_info.depends_on == ["db"]
 		stop_process(State(), db.id)
 		stop_process(State(), app_info.id)
