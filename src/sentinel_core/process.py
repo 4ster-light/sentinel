@@ -83,6 +83,16 @@ def _build_extra_groups(gid: int | None, group_ids: list[int] | None) -> list[in
 	return [group_id for group_id in group_ids if group_id != gid]
 
 
+def _same_directory(actual: str, expected: str) -> bool:
+	"""Compare two paths by identity so symlinked or bind-mounted aliases match."""
+	if actual == expected:
+		return True
+	try:
+		return os.path.samefile(actual, expected)
+	except OSError:
+		return os.path.realpath(actual) == os.path.realpath(expected)
+
+
 def managed_process(info: ProcessInfo, include_zombie: bool = False) -> psutil.Process | None:
 	if info.stopped or info.pid <= 0:
 		return None
@@ -97,23 +107,43 @@ def managed_process(info: ProcessInfo, include_zombie: bool = False) -> psutil.P
 				started = datetime.fromisoformat(info.started_at).timestamp()
 				arguments = shlex.split(info.cmd)
 			except ValueError as e:
-				raise ProcessIdentityError(f"Cannot verify legacy process '{info.name}'") from e
+				raise ProcessIdentityError(
+					f"Cannot verify legacy process '{info.name}': unreadable start time or command"
+				) from e
 			if arguments and arguments[0] == "exec":
 				arguments = arguments[1:]
 			try:
 				actual_arguments = proc.cmdline()
 			except psutil.ZombieProcess as e:
-				raise ProcessIdentityError(f"Cannot verify legacy process '{info.name}'") from e
+				raise ProcessIdentityError(f"Cannot verify legacy process '{info.name}': it is a zombie") from e
 			# Old timestamps were recorded after startup; creation may be much earlier.
 			clock_tick = 1 / os.sysconf("SC_CLK_TCK")
-			shell_wrapped = len(actual_arguments) == 3 and actual_arguments[1:] == ["-c", info.cmd]
-			if (
-				created > started + clock_tick
-				or (actual_arguments != arguments and not shell_wrapped)
-				or proc.cwd() != info.cwd
-				or os.getpgid(info.pid) != info.pid
-			):
-				raise ProcessIdentityError(f"Cannot verify legacy process '{info.name}'; its state was left unchanged")
+			shell_wrapped = len(actual_arguments) >= 3 and actual_arguments[-2:] == ["-c", info.cmd]
+			problems: list[str] = []
+			if created > started + clock_tick:
+				problems.append(f"creation time {created:.2f} is after the recorded start {info.started_at}")
+			if actual_arguments != arguments and not shell_wrapped:
+				problems.append(f"command line {actual_arguments!r} does not match {info.cmd!r}")
+			try:
+				actual_cwd: str | None = proc.cwd()
+			except psutil.AccessDenied, OSError:
+				actual_cwd = None
+			if actual_cwd is None:
+				problems.append("cannot read the process working directory")
+			elif not _same_directory(actual_cwd, info.cwd):
+				problems.append(f"working directory {actual_cwd!r} does not match {info.cwd!r}")
+			try:
+				pgid: int | None = os.getpgid(info.pid)
+			except OSError:
+				pgid = None
+			if pgid is None:
+				problems.append("cannot read the process group")
+			elif pgid != info.pid:
+				problems.append(f"process group {pgid} is not the leader {info.pid}")
+			if problems:
+				raise ProcessIdentityError(
+					f"Cannot verify legacy process '{info.name}'; its state was left unchanged ({'; '.join(problems)})"
+				)
 			info.create_time = created
 		return proc if include_zombie or proc.status() != psutil.STATUS_ZOMBIE else None
 	except psutil.NoSuchProcess, ProcessLookupError:

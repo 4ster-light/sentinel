@@ -222,6 +222,22 @@ def test_legacy_migration_allows_extra_startup_delay(state, spawn_process) -> No
 	assert get_process_status(current).running
 
 
+def test_legacy_cwd_alias_is_accepted(state, spawn_process, tmp_path) -> None:
+	real = tmp_path / "real"
+	real.mkdir()
+	alias = tmp_path / "alias"
+	alias.symlink_to(real, target_is_directory=True)
+	info = spawn_process(name="alias-cwd", cwd=str(alias))
+	info.create_time = None
+	info.cwd = str(alias)
+	state.add_process(info)
+
+	proc = managed_process(info)
+
+	assert proc is not None
+	assert proc.cwd() == str(real)
+
+
 def test_legacy_pid_created_after_record_is_not_signalled(state, spawn_process) -> None:
 	info = spawn_process(name="legacy-reused")
 	assert info.create_time is not None
