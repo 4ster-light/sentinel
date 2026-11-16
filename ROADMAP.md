@@ -62,9 +62,9 @@ features for developers and DevOps.
   - [x] Process Dependencies: Start processes in a specific order
   - [x] Improved Cluster Mode: Dynamic scaling (e.g., `--scale 2-4`)
 
-- [ ] **v0.2.5**
-  - [ ] Advanced Startup Scripts: Support for `init.d` and Windows services
-  - [ ] Advanced Metrics Export: Prometheus integration
+- [x] ~~**v0.2.5**~~ _**COMPLETED**_
+  - [x] Advanced Startup Scripts: Support for `init.d` and Windows services
+  - [x] Advanced Metrics Export: Prometheus integration
 
 ---
 
