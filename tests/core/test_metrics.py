@@ -5,10 +5,13 @@ from unittest.mock import patch
 
 
 from sentinel_core.metrics import (
+	PROMETHEUS_CONTENT_TYPE,
 	ProcessMetrics,
 	collect_metrics,
 	export_to_json,
+	export_to_prometheus,
 	export_to_stdout,
+	render_prometheus,
 )
 from sentinel_core.state import ProcessInfo, ProcessStatus, State
 
@@ -225,3 +228,99 @@ class TestExportMetrics:
 			metrics = collect_metrics(state)
 
 		assert metrics[0].uptime_seconds == 0.0
+
+
+class TestPrometheusExport:
+	def test_render_prometheus_families_and_values(self) -> None:
+		metrics = [
+			ProcessMetrics(
+				id=1,
+				name="web",
+				pid=123,
+				status="running",
+				running=True,
+				cpu_percent=2.5,
+				memory_mb=32.0,
+				uptime_seconds=90.0,
+			)
+		]
+
+		text = render_prometheus(metrics)
+
+		assert text.endswith("\n")
+		assert text.count("# HELP sentinel_process_up ") == 1
+		assert "# TYPE sentinel_processes_total gauge" in text
+		assert "sentinel_processes_total 1" in text
+		assert 'sentinel_process_up{id="1",name="web"} 1' in text
+		assert 'sentinel_process_cpu_percent{id="1",name="web"} 2.5' in text
+		assert 'sentinel_process_memory_bytes{id="1",name="web"} 33554432' in text
+		assert 'sentinel_process_uptime_seconds{id="1",name="web"} 90' in text
+
+	def test_render_prometheus_dead_process(self) -> None:
+		metrics = [
+			ProcessMetrics(
+				id=7,
+				name="dead",
+				pid=0,
+				status="exited",
+				running=False,
+				cpu_percent=0.0,
+				memory_mb=0.0,
+				uptime_seconds=0.0,
+			)
+		]
+
+		text = render_prometheus(metrics)
+
+		assert 'sentinel_process_up{id="7",name="dead"} 0' in text
+		assert 'sentinel_process_memory_bytes{id="7",name="dead"} 0' in text
+
+	def test_render_prometheus_escapes_label_values(self) -> None:
+		name = 'api"one\\two\nline'
+		metrics = [
+			ProcessMetrics(
+				id=2,
+				name=name,
+				pid=1,
+				status="running",
+				running=True,
+				cpu_percent=0.0,
+				memory_mb=1.0,
+				uptime_seconds=1.0,
+			)
+		]
+
+		text = render_prometheus(metrics)
+
+		assert 'name="api\\"one\\\\two\\nline"' in text
+		label_line = next(line for line in text.splitlines() if line.startswith("sentinel_process_up{"))
+		assert label_line.endswith(" 1")
+
+	def test_render_prometheus_empty_state(self) -> None:
+		text = render_prometheus([])
+
+		assert "sentinel_processes_total 0" in text
+		assert "sentinel_process_up{" not in text
+		assert "# TYPE sentinel_process_memory_bytes gauge" in text
+
+	def test_export_to_prometheus_writes_file(self, tmp_path: Path) -> None:
+		metrics = [
+			ProcessMetrics(
+				id=1,
+				name="fileproc",
+				pid=42,
+				status="running",
+				running=True,
+				cpu_percent=1.5,
+				memory_mb=2.0,
+				uptime_seconds=5.0,
+			)
+		]
+		path = tmp_path / "metrics.prom"
+
+		export_to_prometheus(metrics, path)
+
+		assert path.read_text(encoding="utf-8") == render_prometheus(metrics)
+
+	def test_prometheus_content_type_matches_exposition_version(self) -> None:
+		assert PROMETHEUS_CONTENT_TYPE == "text/plain; version=0.0.4; charset=utf-8"

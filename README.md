@@ -518,6 +518,47 @@ Output (JSON format):
 ]
 ```
 
+### Prometheus
+
+Export the metrics in the Prometheus text exposition format, or let Prometheus scrape them from a built-in HTTP endpoint:
+
+```bash
+# Write the exposition format to stdout
+sentinel metrics export --format prometheus
+
+# Write it to a file for the node exporter textfile collector
+sentinel metrics export --format prometheus --output /var/lib/node_exporter/sentinel.prom
+
+# Serve http://127.0.0.1:9464/metrics for Prometheus to scrape
+sentinel metrics serve
+```
+
+Example output:
+
+```txt
+# HELP sentinel_processes_total Number of processes tracked by Sentinel.
+# TYPE sentinel_processes_total gauge
+sentinel_processes_total 2
+# HELP sentinel_process_up Whether Sentinel sees the process as running (1) or not (0).
+# TYPE sentinel_process_up gauge
+sentinel_process_up{id="1",name="myserver"} 1
+sentinel_process_up{id="2",name="frontend"} 0
+# HELP sentinel_process_cpu_percent CPU usage of the process, in percent.
+# TYPE sentinel_process_cpu_percent gauge
+sentinel_process_cpu_percent{id="1",name="myserver"} 2.1
+```
+
+Add the scrape target to `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: sentinel
+    static_configs:
+      - targets: ["127.0.0.1:9464"]
+```
+
+The endpoint renders metrics on every scrape, so values are always current, and answers `404` for any path other than `/metrics`.
+
 ### Quick Snapshot
 
 Print a one-shot metrics table to stdout:

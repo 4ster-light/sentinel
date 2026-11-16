@@ -31,7 +31,8 @@ belongs in `sentinel_cli`.
 | `health.py` | HTTP/TCP health probes and scheduling decisions |
 | `logs.py` | Log rotation, tailing, following, clearing |
 | `env.py` | `.env` loading and environment merge precedence |
-| `metrics.py` | Metrics collection and table/JSON export |
+| `metrics.py` | Metrics collection and table/JSON/Prometheus export |
+| `metrics_server.py` | HTTP endpoint serving metrics in the Prometheus text format |
 | `options.py` | `StartOptions` — validated start parameters, shared by CLI and tests |
 | `format.py` | Human-readable uptime/memory formatting shared by CLI and metrics |
 | `remote.py` | SSH transport for remote management |

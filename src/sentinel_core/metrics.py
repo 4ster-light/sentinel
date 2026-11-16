@@ -1,6 +1,7 @@
 """Metrics collection and export utilities"""
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -92,3 +93,72 @@ def export_to_stdout(metrics: list[ProcessMetrics], output_console: Console | No
 		)
 
 	output_console.print(table)
+
+
+PROMETHEUS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
+
+
+def _escape_label_value(value: str) -> str:
+	"""Escape a Prometheus label value: backslash, double quote and newline."""
+	return value.replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
+
+
+def _labels(**labels: str | int) -> str:
+	rendered = ",".join(f'{key}="{_escape_label_value(str(value))}"' for key, value in labels.items())
+	return "{" + rendered + "}"
+
+
+def _format_number(value: float) -> str:
+	if value == int(value):
+		return str(int(value))
+	return f"{value:.3f}".rstrip("0").rstrip(".")
+
+
+def render_prometheus(metrics: Sequence[ProcessMetrics]) -> str:
+	"""Render metrics in the Prometheus text exposition format (version 0.0.4)."""
+	series = [(metric, _labels(id=metric.id, name=metric.name)) for metric in metrics]
+	lines: list[str] = [
+		"# HELP sentinel_processes_total Number of processes tracked by Sentinel.",
+		"# TYPE sentinel_processes_total gauge",
+		f"sentinel_processes_total {len(metrics)}",
+		"# HELP sentinel_process_up Whether Sentinel sees the process as running (1) or not (0).",
+		"# TYPE sentinel_process_up gauge",
+	]
+	lines.extend(f"sentinel_process_up{labels} {int(metric.running)}" for metric, labels in series)
+
+	lines.extend(
+		[
+			"# HELP sentinel_process_cpu_percent CPU usage of the process, in percent.",
+			"# TYPE sentinel_process_cpu_percent gauge",
+		]
+	)
+	lines.extend(
+		f"sentinel_process_cpu_percent{labels} {_format_number(metric.cpu_percent)}" for metric, labels in series
+	)
+
+	lines.extend(
+		[
+			"# HELP sentinel_process_memory_bytes Resident memory of the process, in bytes.",
+			"# TYPE sentinel_process_memory_bytes gauge",
+		]
+	)
+	lines.extend(
+		f"sentinel_process_memory_bytes{labels} {round(metric.memory_mb * 1024 * 1024)}" for metric, labels in series
+	)
+
+	lines.extend(
+		[
+			"# HELP sentinel_process_uptime_seconds Seconds since the process started.",
+			"# TYPE sentinel_process_uptime_seconds gauge",
+		]
+	)
+	lines.extend(
+		f"sentinel_process_uptime_seconds{labels} {_format_number(metric.uptime_seconds)}" for metric, labels in series
+	)
+
+	return "\n".join(lines) + "\n"
+
+
+def export_to_prometheus(metrics: Sequence[ProcessMetrics], path: Path | str) -> None:
+	output = Path(path)
+	output.write_text(render_prometheus(metrics), encoding="utf-8")
