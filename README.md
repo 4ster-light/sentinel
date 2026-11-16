@@ -158,6 +158,25 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
+### SysV init.d Scripts
+
+Generate an LSB-compatible init script for systems that boot with SysV init or OpenRC's sysv-rc compatibility layer:
+
+```bash
+sentinel startup initd --name web --cwd /srv/web --user deploy -- python app.py
+```
+
+The script writes its PID to `/run/web.pid`, appends output to `/var/log/web.log`, and supports `start`, `stop`, `restart`, and `status`:
+
+```bash
+sudo sentinel startup initd --name web python app.py > /etc/init.d/web
+sudo chmod +x /etc/init.d/web
+sudo update-rc.d web defaults   # Debian and Ubuntu
+sudo chkconfig --add web        # RHEL and Fedora
+```
+
+Use `--pidfile` and `--logfile` to override the default paths. The command runs in its own session, so `stop` signals the whole process group and escalates to `SIGKILL` if the process does not exit within 30 seconds.
+
 ### Listing Processes
 
 View all managed processes:
