@@ -158,6 +158,23 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
+### Windows Services
+
+Generate a PowerShell script that installs the command as a Windows service through [NSSM](https://nssm.cc):
+
+```powershell
+sentinel startup windows --name web --cwd C:\srv\web --restart python app.py | Out-File install-web.ps1
+```
+
+Run the generated script from an elevated PowerShell prompt:
+
+```powershell
+.\install-web.ps1
+.\install-web.ps1 -Uninstall   # remove the service again
+```
+
+The script registers `sentinel-web` with the automatic startup type and starts it. The first command token is the executable and the remaining tokens are its arguments. With `--restart` NSSM restarts the process when it exits; with `--user` the script prompts for the account password through `Get-Credential` instead of embedding a secret.
+
 ### Listing Processes
 
 View all managed processes:
