@@ -1,0 +1,32 @@
+version: 2
+
+updates:
+  # Runtime dependencies feed the RPM through %pyproject_buildrequires, so they
+  # are left ungrouped: every bump needs its own look at the Fedora floors.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+      prefix-development: "build(deps-dev)"
+    labels: ["dependencies"]
+    groups:
+      dev:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci(deps)"
+    labels: ["ci", "dependencies"]
+    groups:
+      actions:
+        update-types: [minor, patch]
