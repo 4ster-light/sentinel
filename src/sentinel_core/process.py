@@ -93,6 +93,25 @@ def _same_directory(actual: str, expected: str) -> bool:
 		return os.path.realpath(actual) == os.path.realpath(expected)
 
 
+_EXEC_SETTLE_SECONDS = 1.0
+_CMDLINE_RETRY_SECONDS = 0.1
+_CMDLINE_POLL_SECONDS = 0.01
+
+
+def _cmdline_after_exec(proc: psutil.Process) -> list[str]:
+	"""Read argv, giving a just-forked child a moment to finish exec.
+
+	A child is visible in /proc with an empty command line between fork and
+	exec, so argv read in that window says nothing about its identity.
+	"""
+	arguments = proc.cmdline()
+	deadline = time.monotonic() + _CMDLINE_RETRY_SECONDS
+	while not arguments and time.monotonic() < deadline:
+		time.sleep(_CMDLINE_POLL_SECONDS)
+		arguments = proc.cmdline()
+	return arguments
+
+
 def managed_process(info: ProcessInfo, include_zombie: bool = False) -> psutil.Process | None:
 	if info.stopped or info.pid <= 0:
 		return None
@@ -113,7 +132,7 @@ def managed_process(info: ProcessInfo, include_zombie: bool = False) -> psutil.P
 			if arguments and arguments[0] == "exec":
 				arguments = arguments[1:]
 			try:
-				actual_arguments = proc.cmdline()
+				actual_arguments = _cmdline_after_exec(proc)
 			except psutil.ZombieProcess as e:
 				raise ProcessIdentityError(f"Cannot verify legacy process '{info.name}': it is a zombie") from e
 			# Old timestamps were recorded after startup; creation may be much earlier.
@@ -122,7 +141,10 @@ def managed_process(info: ProcessInfo, include_zombie: bool = False) -> psutil.P
 			problems: list[str] = []
 			if created > started + clock_tick:
 				problems.append(f"creation time {created:.2f} is after the recorded start {info.started_at}")
-			if actual_arguments != arguments and not shell_wrapped:
+			# A process created at the recorded start may still be between fork
+			# and exec, where an empty argv proves nothing either way.
+			argv_unsettled = not actual_arguments and created >= started - _EXEC_SETTLE_SECONDS
+			if actual_arguments != arguments and not shell_wrapped and not argv_unsettled:
 				problems.append(f"command line {actual_arguments!r} does not match {info.cmd!r}")
 			try:
 				actual_cwd: str | None = proc.cwd()

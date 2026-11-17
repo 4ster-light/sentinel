@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -236,6 +237,26 @@ def test_legacy_cwd_alias_is_accepted(state, spawn_process, tmp_path) -> None:
 
 	assert proc is not None
 	assert proc.cwd() == str(real)
+
+
+def test_legacy_process_still_execing_is_accepted(state, spawn_process, monkeypatch) -> None:
+	info = spawn_process(name="legacy-exec-race")
+	info.create_time = None
+	state.add_process(info)
+	monkeypatch.setattr(psutil.Process, "cmdline", lambda self: [])
+
+	assert managed_process(info) is not None
+
+
+def test_legacy_process_with_empty_argv_is_refused_when_stale(state, spawn_process, monkeypatch) -> None:
+	info = spawn_process(name="legacy-stale-argv")
+	info.create_time = None
+	state.add_process(info)
+	monkeypatch.setattr(psutil.Process, "cmdline", lambda self: [])
+	monkeypatch.setattr(psutil.Process, "create_time", lambda self: time.time() - 3600)
+
+	with pytest.raises(ProcessIdentityError, match="command line"):
+		managed_process(info)
 
 
 def test_legacy_pid_created_after_record_is_not_signalled(state, spawn_process) -> None:
