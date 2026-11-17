@@ -8,7 +8,7 @@ import signal
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -118,7 +118,7 @@ def _configure_daemon_logging() -> None:
 
 
 @contextmanager
-def _daemon_lock(name: str, blocking: bool = True) -> Iterator[None]:
+def _daemon_lock(name: str, blocking: bool = True) -> Generator[None]:
 	STATE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
 	with (STATE_DIR / name).open("a") as lock:
 		fcntl.flock(lock, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
