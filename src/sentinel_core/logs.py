@@ -5,6 +5,7 @@ import shutil
 import time
 from collections import deque
 from pathlib import Path
+from typing import IO
 
 from rich.console import Console
 from rich.markup import escape
@@ -13,6 +14,11 @@ console = Console()
 
 DEFAULT_LOG_ROTATION_MAX_BYTES = 10 * 1024 * 1024
 DEFAULT_LOG_ROTATION_BACKUPS = 3
+
+_FOLLOW_READ_CHUNK = 65536
+_FOLLOW_MAX_CHUNKS = 16
+_FOLLOW_MAX_PENDING = 65536
+_FOLLOW_FINGERPRINT_BYTES = 32
 
 
 def rotate_log_file(
@@ -94,15 +100,25 @@ def show_logs(
 		_follow_logs(stdout, stderr, stream)
 
 
+def _fingerprint_at(log: IO[bytes], offset: int) -> bytes:
+	"""Bytes just before offset, used to notice a file rewritten in place."""
+	if offset <= 0:
+		return b""
+	start = max(0, offset - _FOLLOW_FINGERPRINT_BYTES)
+	log.seek(start)
+	return log.read(offset - start)
+
+
 def _follow_logs(stdout: Path, stderr: Path, stream: str) -> None:
-	"""Follow complete lines, reopening files that have been replaced or truncated."""
+	"""Follow complete lines, reopening files that were replaced or rewritten."""
 	paths = [(stdout, "out", "cyan"), (stderr, "err", "red")]
-	positions: dict[Path, tuple[int, int, int]] = {}
+	positions: dict[Path, tuple[int, int, int, bytes]] = {}
 	pending: dict[Path, bytes] = {}
 	for path, _, _ in paths:
 		try:
-			stat = path.stat()
-			positions[path] = (stat.st_dev, stat.st_ino, stat.st_size)
+			with path.open("rb") as log:
+				stat = os.fstat(log.fileno())
+				positions[path] = (stat.st_dev, stat.st_ino, stat.st_size, _fingerprint_at(log, stat.st_size))
 		except FileNotFoundError:
 			pass
 	try:
@@ -113,18 +129,38 @@ def _follow_logs(stdout: Path, stderr: Path, stream: str) -> None:
 				try:
 					with path.open("rb") as log:
 						stat = os.fstat(log.fileno())
-						device, inode, offset = positions.get(path, (stat.st_dev, stat.st_ino, 0))
-						if (device, inode) != (stat.st_dev, stat.st_ino) or stat.st_size < offset:
+						device, inode, offset, fingerprint = positions.get(path, (stat.st_dev, stat.st_ino, 0, b""))
+						replaced = (device, inode) != (stat.st_dev, stat.st_ino) or stat.st_size < offset
+						# Rotation truncates in place, so a fast writer can pass the old offset
+						# before the next poll; the bytes before the offset then differ.
+						if not replaced and fingerprint and _fingerprint_at(log, offset) != fingerprint:
+							replaced = True
+						if replaced:
 							offset = 0
+							fingerprint = b""
 							pending[path] = b""
 						log.seek(offset)
-						content = pending.get(path, b"") + log.read(65536)
-						positions[path] = (stat.st_dev, stat.st_ino, log.tell())
+						chunks = [pending.get(path, b"")]
+						for _ in range(_FOLLOW_MAX_CHUNKS):
+							chunk = log.read(_FOLLOW_READ_CHUNK)
+							if not chunk:
+								break
+							chunks.append(chunk)
+						content = b"".join(chunks)
+						offset = log.tell()
+						if content:
+							fingerprint = content[-_FOLLOW_FINGERPRINT_BYTES:]
 						parts = content.split(b"\n")
 						pending[path] = parts.pop()
+						if len(pending[path]) > _FOLLOW_MAX_PENDING:
+							# Output without newlines must not grow the buffer forever.
+							text = pending[path].decode("utf-8", errors="replace")
+							console.print(f"{label}: {text}", style=color, markup=False, highlight=False)
+							pending[path] = b""
 						for line in parts:
 							text = line.rstrip(b"\r").decode("utf-8", errors="replace")
 							console.print(f"{label}: {text}", style=color, markup=False, highlight=False)
+						positions[path] = (stat.st_dev, stat.st_ino, offset, fingerprint)
 				except FileNotFoundError:
 					continue
 			time.sleep(0.5)

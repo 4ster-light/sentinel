@@ -352,7 +352,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			show_logs(info.stdout_log, info.stderr_log, lines=lines, follow=follow, stream=stream)
 		except ValueError as e:
 			error_console.print(str(e), markup=False)
-			raise typer.Exit(1)
+			raise typer.Exit(1) from None
 
 	@app.command()
 	def clean() -> None:

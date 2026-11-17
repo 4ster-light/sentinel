@@ -72,3 +72,49 @@ def test_regression_follow_truncation_replacement_and_partial_lines(temp_logs_di
 	assert "out: partial" in output
 	assert "out: [/tmp/data] replacement" in output
 	assert "out: part\n" not in output
+
+
+def test_regression_follow_survives_truncate_then_fast_write(temp_logs_dir: Path, monkeypatch, capsys) -> None:
+	from sentinel_core.logs import _follow_logs
+
+	path = temp_logs_dir / "fast.log"
+	path.write_text("first\nsecond\n")
+	step = 0
+
+	def rewrite(*args: object) -> None:
+		nonlocal step
+		step += 1
+		if step == 1:
+			# Longer than the previous offset, so a size check alone cannot see it.
+			path.write_text("third line\nfourth line that is much longer than before\n")
+		else:
+			raise KeyboardInterrupt
+
+	monkeypatch.setattr("sentinel_core.logs.time.sleep", rewrite)
+	_follow_logs(path, temp_logs_dir / "unused", "stdout")
+	output = capsys.readouterr().out
+	assert "out: third line" in output
+	assert "out: fourth line that is much longer than before" in output
+
+
+def test_regression_follow_bounds_partial_line_buffer(temp_logs_dir: Path, monkeypatch, capsys) -> None:
+	from sentinel_core.logs import _FOLLOW_MAX_PENDING, _follow_logs
+
+	path = temp_logs_dir / "progress.log"
+	path.write_text("")
+	step = 0
+
+	def write_progress(*args: object) -> None:
+		nonlocal step
+		step += 1
+		if step == 1:
+			with path.open("a") as writer:
+				writer.write("x" * (_FOLLOW_MAX_PENDING + 512))
+		else:
+			raise KeyboardInterrupt
+
+	monkeypatch.setattr("sentinel_core.logs.time.sleep", write_progress)
+	_follow_logs(path, temp_logs_dir / "unused", "stdout")
+	output = capsys.readouterr().out
+	assert "out: " in output
+	assert len(output) >= _FOLLOW_MAX_PENDING
