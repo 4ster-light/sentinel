@@ -23,7 +23,6 @@ class MetricsServer(ThreadingHTTPServer):
 class MetricsRequestHandler(BaseHTTPRequestHandler):
 	"""Serve rendered metrics at /metrics and 404 for everything else."""
 
-
 	def do_GET(self) -> None:
 		if self.path.split("?", 1)[0] not in ("/metrics", "/metrics/"):
 			self.send_error(HTTPStatus.NOT_FOUND, "Only /metrics is available")
