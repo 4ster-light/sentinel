@@ -56,8 +56,14 @@ def _get_daemon_pid() -> int | None:
 
 	try:
 		pid = int(DAEMON_PID_FILE.read_text().strip())
-		os.kill(pid, 0)
 	except ValueError, OSError:
+		# A half-written file belongs to a daemon that is still starting; the
+		# caller polls, so leave the child's file alone instead of deleting it.
+		return None
+
+	try:
+		os.kill(pid, 0)
+	except OSError:
 		DAEMON_PID_FILE.unlink(missing_ok=True)
 		return None
 
@@ -77,8 +83,20 @@ def _is_daemon_process(pid: int) -> bool:
 	return any("sentinel_cli.daemon" in part for part in cmdline)
 
 
+def _write_daemon_pid(pid: int) -> None:
+	"""Publish the pid atomically so a poll never sees a truncated file."""
+	STATE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+	temporary = DAEMON_PID_FILE.with_name(f"{DAEMON_PID_FILE.name}.tmp")
+	temporary.write_text(str(pid))
+	os.replace(temporary, DAEMON_PID_FILE)
+
+
 def _rotate_daemon_log(source: str, destination: str) -> None:
-	# Stderr also holds an append descriptor to this file.
+	"""Rotate the log in place, keeping the inherited stderr descriptor valid.
+
+	Copying and then truncating keeps stderr pointing at the live file, at the
+	cost of any bytes written between the two steps.
+	"""
 	shutil.copy2(source, destination)
 	with open(source, "r+b") as active:
 		active.truncate(0)
@@ -135,7 +153,7 @@ def _run_monitor() -> None:
 
 	monitor.set_restart_callback(on_restart)
 	monitor.start()
-	DAEMON_PID_FILE.write_text(str(os.getpid()))
+	_write_daemon_pid(os.getpid())
 	logger.info(f"Daemon started (pid: {os.getpid()})")
 
 	try:
@@ -195,7 +213,13 @@ def stop() -> None:
 		try:
 			proc = psutil.Process(pid)
 			proc.terminate()
-			proc.wait(timeout=10)
+			# The daemon leaves its loop within a second but may spend up to ten
+			# seconds joining the monitor thread.
+			try:
+				proc.wait(timeout=15)
+			except psutil.TimeoutExpired:
+				proc.kill()
+				proc.wait(timeout=5)
 		except psutil.NoSuchProcess:
 			pass
 		except (OSError, psutil.Error) as e:
