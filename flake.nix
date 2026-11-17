@@ -98,8 +98,6 @@
             pkgs.ty
             pkgs.just
             pkgs.git
-            py.pytest
-            py.pytest-cov
           ];
 
           UV_PROJECT_ENVIRONMENT = ".venv";
