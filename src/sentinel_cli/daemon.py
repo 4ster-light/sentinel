@@ -8,9 +8,9 @@ import signal
 import subprocess
 import sys
 import time
-from logging.handlers import RotatingFileHandler
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import psutil
@@ -186,7 +186,7 @@ def start() -> None:
 				)
 		except OSError as e:
 			console.print(f"[red]✗[/] Failed to start daemon: {escape(str(e))}")
-			raise typer.Exit(1)
+			raise typer.Exit(1) from None
 
 		deadline = time.monotonic() + 10
 		while proc.poll() is None and time.monotonic() < deadline:
@@ -224,7 +224,7 @@ def stop() -> None:
 			pass
 		except (OSError, psutil.Error) as e:
 			console.print(f"[red]✗[/] Failed to stop daemon: {escape(str(e))}")
-			raise typer.Exit(1)
+			raise typer.Exit(1) from None
 		console.print(f"[green]✓[/] Stopped daemon (pid: {pid})")
 
 
