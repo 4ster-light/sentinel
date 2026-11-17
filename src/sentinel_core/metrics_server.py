@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import cast
 
 from .metrics import PROMETHEUS_CONTENT_TYPE
 
@@ -22,14 +23,13 @@ class MetricsServer(ThreadingHTTPServer):
 class MetricsRequestHandler(BaseHTTPRequestHandler):
 	"""Serve rendered metrics at /metrics and 404 for everything else."""
 
-	server: MetricsServer
 
 	def do_GET(self) -> None:
 		if self.path.split("?", 1)[0] not in ("/metrics", "/metrics/"):
 			self.send_error(HTTPStatus.NOT_FOUND, "Only /metrics is available")
 			return
 
-		body = self.server.render_metrics().encode("utf-8")
+		body = cast(MetricsServer, self.server).render_metrics().encode("utf-8")
 		self.send_response(HTTPStatus.OK)
 		self.send_header("Content-Type", PROMETHEUS_CONTENT_TYPE)
 		self.send_header("Content-Length", str(len(body)))
