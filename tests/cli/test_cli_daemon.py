@@ -54,11 +54,11 @@ class TestDaemonCommands:
 		assert daemon._get_daemon_pid() is None
 
 	def test_get_daemon_pid_invalid_content(self, temp_state_dir: Path) -> None:
-		"""Test _get_daemon_pid when pid file has invalid content"""
+		"""An unreadable pid file belongs to a daemon that is still starting."""
 		daemon.DAEMON_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
 		daemon.DAEMON_PID_FILE.write_text("not_a_number")
 		assert daemon._get_daemon_pid() is None
-		assert not daemon.DAEMON_PID_FILE.exists()
+		assert daemon.DAEMON_PID_FILE.read_text() == "not_a_number"
 
 	def test_get_daemon_pid_dead_process(self, temp_state_dir: Path) -> None:
 		"""Test _get_daemon_pid when pid file refers to dead process"""
