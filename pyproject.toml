@@ -7,7 +7,7 @@ license = { file = "LICENSE" }
 keywords = ["process", "orchestrator", "CLI", "monitoring", "system administration", "development"]
 requires-python = ">=3.14"
 authors = [{ name = "4ster-light", email = "me@4ster.dev" }]
-dependencies = ["psutil>=7.1.3", "rich>=14.2.0", "typer>=0.20.1"]
+dependencies = ["psutil>=7.0", "rich>=14.1", "typer>=0.20.1"]
 classifiers = [
 	"Development Status :: 4 - Beta",
 	"License :: OSI Approved :: MIT License",
@@ -25,7 +25,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://sentinel.4ster.deno.net"
+Homepage = "https://github.com/4ster-light/sentinel"
 Repository = "https://github.com/4ster-light/sentinel"
 "Bug Tracker" = "https://github.com/4ster-light/sentinel/issues"
 Changelog = "https://github.com/4ster-light/sentinel/releases"

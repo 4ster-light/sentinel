@@ -2,11 +2,19 @@
 
 # Sentinel
 
-[![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-EA4AAA?logo=githubsponsors)](https://github.com/sponsors/4ster-light)
+A lightweight process orchestrator CLI
 
-**A lightweight process orchestrator CLI**
+[![Release](https://img.shields.io/github/v/release/4ster-light/sentinel?sort=semver&label=release&color=2f6f4e&style=flat-square)](https://github.com/4ster-light/sentinel/releases/latest)
+[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-teal?style=flat-square)](#installation)
+[![Nix flake](https://img.shields.io/badge/Nix-flake-5277C3?logo=nixos&logoColor=white&style=flat-square)](flake.nix)
+[![COPR](https://img.shields.io/badge/Fedora-COPR-3c6eb4?logo=fedora&logoColor=white&style=flat-square)](https://copr.fedorainfracloud.org/coprs/4ster-light/sentinel-pm)
+
+[![CI](https://img.shields.io/github/actions/workflow/status/4ster-light/sentinel/ci.yml?branch=main&event=push&style=flat-square)](https://github.com/4ster-light/sentinel/actions/workflows/ci.yml)
+[![COPR build](https://img.shields.io/copr/build/4ster-light/sentinel-pm/sentinel-pm?label=COPR&style=flat-square)](https://copr.fedorainfracloud.org/coprs/4ster-light/sentinel-pm/builds/)
+[![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-3776AB?logo=python&logoColor=white&style=flat-square)](https://www.python.org/downloads/)
+
+[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-EA4AAA?logo=githubsponsors&logoColor=white&style=flat-square)](https://github.com/sponsors/4ster-light)
+[![License: MIT](https://img.shields.io/badge/license-MIT-red?style=flat-square)](LICENSE)
 
 </div>
 
@@ -28,8 +36,18 @@
 
 ## Installation
 
-For more installation options, see the
-[installation guide in the docs](https://sentinel.4ster.deno.net/en/guide/installation).
+| Your situation | Recommended | What you get |
+| --- | --- | --- |
+| Fedora 44, 45 or rawhide | [Fedora (COPR)](#fedora-copr) | Native package, updated by `dnf`, dependencies from the distribution |
+| NixOS or Nix | [Nix](#nix) | Flake package and dev shell, no system Python needed |
+| Linux or macOS with Python 3.14+ | [uv](#uv) | Isolated tool install, upgrades with `uv tool upgrade` |
+
+### Fedora (COPR)
+
+```bash
+sudo dnf copr enable 4ster-light/sentinel-pm
+sudo dnf install sentinel-pm
+```
 
 ### Nix
 
@@ -37,15 +55,15 @@ For more installation options, see the
 nix profile add github:4ster-light/sentinel
 ```
 
-If you are on NixOS add the flake to your system configuration.
+On NixOS add the flake to your system configuration.
 
-### Python [(Uv)](https://docs.astral.sh/uv)
+### [uv](https://docs.astral.sh/uv)
 
 ```bash
 uv tool install git+https://github.com/4ster-light/sentinel
 ```
 
-Alternatively using pip:
+With pip instead:
 
 ```bash
 pip install git+https://github.com/4ster-light/sentinel
@@ -177,7 +195,6 @@ sudo chkconfig --add web        # RHEL and Fedora
 
 Use `--pidfile` and `--logfile` to override the default paths. The command runs in its own session, so `stop` signals the whole process group and escalates to `SIGKILL` if the process does not exit within 30 seconds.
 
-
 ### Windows Services
 
 Generate a PowerShell script that installs the command as a Windows service through [NSSM](https://nssm.cc):
@@ -194,6 +211,7 @@ Run the generated script from an elevated PowerShell prompt:
 ```
 
 The script registers `sentinel-web` with the automatic startup type and starts it. The first command token is the executable and the remaining tokens are its arguments. With `--restart` NSSM restarts the process when it exits; with `--user` the script prompts for the account password through `Get-Credential` instead of embedding a secret.
+
 ### Listing Processes
 
 View all managed processes:

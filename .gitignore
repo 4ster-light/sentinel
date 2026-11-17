@@ -23,3 +23,7 @@ result
 
 # Agents
 .hermes
+
+# RPM packaging
+packaging/fedora/SOURCES/
+packaging/fedora/*.src.rpm
