@@ -34,7 +34,7 @@ Changelog = "https://github.com/4ster-light/sentinel/releases"
 sentinel = "sentinel_cli:app"
 
 [dependency-groups]
-dev = ["packaging>=26.3", "pytest>=9.0.3", "pytest-cov>=7.0.0", "ruff>=0.15.20", "ty>=0.0.54"]
+dev = ["packaging>=26.3", "pytest>=9.2.0", "pytest-cov>=7.1.0", "ruff>=0.17.5", "ty>=0.0.104"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
