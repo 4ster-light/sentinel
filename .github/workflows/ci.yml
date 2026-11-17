@@ -27,3 +27,6 @@ jobs:
 
       - name: Run all checks (tests, lint, format, flake)
         run: nix develop -c just c
+
+      - name: Check Fedora dependency floors
+        run: nix develop -c just fedora-floors

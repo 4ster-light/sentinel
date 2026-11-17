@@ -37,6 +37,10 @@ fmt:
 fmt-check:
     uv run ruff format --check
 
+# Check runtime dependency floors against the Fedora COPR chroots
+fedora-floors:
+    uv run python packaging/fedora/check_floors.py
+
 # Serve the coverage report
 serve:
     python -m http.server 8000 --directory htmlcov
