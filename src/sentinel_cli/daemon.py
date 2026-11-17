@@ -15,8 +15,7 @@ from rich.console import Console
 
 from sentinel_core.logs import DEFAULT_LOG_ROTATION_BACKUPS, DEFAULT_LOG_ROTATION_MAX_BYTES
 from sentinel_core.restart_monitor import RestartMonitor
-from sentinel_core.state import ProcessInfo
-from sentinel_core.state import STATE_DIR
+from sentinel_core.state import STATE_DIR, ProcessInfo
 
 console = Console()
 daemon_app = typer.Typer(name="daemon", help="Manage the restart monitor daemon", no_args_is_help=True)

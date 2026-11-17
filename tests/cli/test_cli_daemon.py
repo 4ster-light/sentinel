@@ -7,8 +7,8 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from sentinel_cli import app
 import sentinel_cli.daemon as daemon
+from sentinel_cli import app
 
 runner = CliRunner()
 

@@ -1,7 +1,6 @@
 import subprocess
 from unittest.mock import patch
 
-
 from sentinel_core.remote import (
 	_build_ssh_command,
 	format_remote,

@@ -1,6 +1,6 @@
-from sentinel_core.logs import clear_logs, rotate_log_file, rotate_process_logs, tail_file
-
 from pathlib import Path
+
+from sentinel_core.logs import clear_logs, rotate_log_file, rotate_process_logs, tail_file
 
 
 class TestTailFile:

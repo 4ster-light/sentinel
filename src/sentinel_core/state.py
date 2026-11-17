@@ -1,9 +1,9 @@
 """Process and port state management"""
 
 import os
-from pathlib import Path
-from functools import wraps
 from collections.abc import Callable
+from functools import wraps
+from pathlib import Path
 from typing import Concatenate
 from urllib.parse import quote
 
@@ -23,6 +23,9 @@ STATE_FILE: Path = STATE_DIR / "state.json"
 LOGS_DIR: Path = STATE_DIR / "logs"
 
 __all__ = [
+	"LOGS_DIR",
+	"STATE_DIR",
+	"STATE_FILE",
 	"GroupInfo",
 	"HealthCheckConfig",
 	"PortInfo",
@@ -30,9 +33,6 @@ __all__ = [
 	"ProcessStatus",
 	"RemoteInfo",
 	"State",
-	"STATE_DIR",
-	"STATE_FILE",
-	"LOGS_DIR",
 	"get_log_paths",
 ]
 

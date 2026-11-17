@@ -8,9 +8,8 @@ from rich.markup import escape
 from rich.table import Table
 
 from sentinel_core.dependencies import DependencyError
-from sentinel_core.process import batch_restart_processes
-from sentinel_core.process import batch_start_processes
-from sentinel_core.process import batch_stop_processes
+from sentinel_core.process import batch_restart_processes, batch_start_processes, batch_stop_processes
+
 from .common import load_state
 
 console = Console()
@@ -24,10 +23,12 @@ group_app = typer.Typer(
 @group_app.command("create")
 def group_create(
 	name: Annotated[str, typer.Argument(help="Group name")],
-	env: Annotated[list[str], typer.Option("--env", "-e", help="Environment variables (KEY=VALUE)")] = [],
+	env: Annotated[list[str] | None, typer.Option("--env", "-e", help="Environment variables (KEY=VALUE)")] = None,
 	env_file: Annotated[str | None, typer.Option("--env-file", "-f", help="Path to .env file")] = None,
 ) -> None:
 	"""Create a new process group"""
+	if env is None:
+		env = []
 	state = load_state()
 
 	# Parse env vars
@@ -188,7 +189,7 @@ def group_start(
 		successful, failed = batch_start_processes(state, processes)
 	except DependencyError as error:
 		console.print(f"[red]✗[/] {escape(str(error))}")
-		raise typer.Exit(1)
+		raise typer.Exit(1) from None
 
 	for info in successful:
 		console.print(f"[green]✓[/] Started [bold]{escape(info.name)}[/] (pid: {info.pid})")
@@ -265,7 +266,7 @@ def group_restart(
 		successful, failed = batch_restart_processes(state, processes)
 	except DependencyError as error:
 		console.print(f"[red]✗[/] {escape(str(error))}")
-		raise typer.Exit(1)
+		raise typer.Exit(1) from None
 
 	for info in successful:
 		console.print(f"[green]✓[/] Restarted [bold]{escape(info.name)}[/] (pid: {info.pid})")

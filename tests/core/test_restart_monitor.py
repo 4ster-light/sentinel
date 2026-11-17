@@ -1,5 +1,6 @@
 """Tests for the restart monitor functionality"""
 
+import contextlib
 import time
 from pathlib import Path
 from unittest.mock import Mock
@@ -85,10 +86,8 @@ class TestRestartMonitor:
 			state_after = State()
 			assert state_after.find_process_by_name("no_restart") is None
 			assert original_id not in [process.id for process in state_after.list_processes()]
-			try:
+			with contextlib.suppress(psutil.NoSuchProcess):
 				assert psutil.Process(original_pid).status() == psutil.STATUS_ZOMBIE
-			except psutil.NoSuchProcess:
-				pass
 		finally:
 			monitor.stop()
 
@@ -120,7 +119,7 @@ class TestRestartMonitor:
 				new_info = state_after.find_process_by_name("callback_test")
 				if new_info:
 					stop_process(state_after, new_info.id)
-			except Exception:
+			except Exception:  # noqa: BLE001
 				pass
 
 	def test_monitor_env_preserved_on_restart(self, state: State, temp_state_dir: Path):
@@ -150,7 +149,7 @@ class TestRestartMonitor:
 				new_info = state_after.find_process_by_name("env_preserve")
 				if new_info:
 					stop_process(state_after, new_info.id)
-			except Exception:
+			except Exception:  # noqa: BLE001
 				pass
 
 	def test_monitor_restarts_process_with_empty_cwd(self, state: State, temp_state_dir: Path):
@@ -209,7 +208,7 @@ class TestRestartMonitorIntegration:
 					info = state_after.find_process_by_name(name)
 					if info:
 						stop_process(state_after, info.id)
-			except Exception:
+			except Exception:  # noqa: BLE001
 				pass
 
 	def test_restart_preserves_log_paths(self, state: State, temp_state_dir: Path):
@@ -241,7 +240,7 @@ class TestRestartMonitorIntegration:
 				new_info = state_after.find_process_by_name("log_test")
 				if new_info:
 					stop_process(state_after, new_info.id)
-			except Exception:
+			except Exception:  # noqa: BLE001
 				pass
 
 	def test_monitor_restarts_after_health_check_failures(self, state: State, temp_state_dir: Path):

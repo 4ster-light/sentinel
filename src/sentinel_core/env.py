@@ -13,7 +13,7 @@ def _parse_env_value(value: str) -> str:
 	# Handle quoted values
 	if value.startswith('"') and value.endswith('"') and len(value) > 1:
 		return value[1:-1].replace('\\"', '"').replace("\\n", "\n")
-	elif value.startswith("'") and value.endswith("'") and len(value) > 1:
+	if value.startswith("'") and value.endswith("'") and len(value) > 1:
 		return value[1:-1]
 
 	# Unquoted value
@@ -57,7 +57,7 @@ def load_env_file(file_path: str | Path) -> dict[str, str]:
 					env_vars[result[0]] = result[1]
 		return env_vars
 	except (OSError, UnicodeError) as e:
-		raise ValueError(f"Failed to load environment file {path}: {e}")
+		raise ValueError(f"Failed to load environment file {path}: {e}") from e
 
 
 def find_global_env_files() -> list[Path]:
@@ -129,7 +129,7 @@ def build_process_environment(
 		try:
 			env_dicts.append(load_env_file(group_env_file))
 		except (FileNotFoundError, ValueError) as e:
-			raise ValueError(f"Cannot load group env file: {e}")
+			raise ValueError(f"Cannot load group env file: {e}") from e
 
 	# Add process-level env
 	if process_env:
@@ -140,7 +140,7 @@ def build_process_environment(
 		try:
 			env_dicts.append(load_env_file(process_env_file))
 		except (FileNotFoundError, ValueError) as e:
-			raise ValueError(f"Cannot load process env file: {e}")
+			raise ValueError(f"Cannot load process env file: {e}") from e
 
 	# Add override env (highest priority)
 	if override_env:

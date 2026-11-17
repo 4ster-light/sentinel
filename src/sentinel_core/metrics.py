@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from rich.console import Console
-from rich.table import Table
 from rich.markup import escape
+from rich.table import Table
 
 from .format import format_memory_mb, format_uptime_seconds, uptime_from_started_at
 from .process import get_process_status

@@ -264,7 +264,7 @@ def systemd(
 		console.print(render_systemd_service(name, command, user=user, cwd=cwd, restart=restart))
 	except ValueError as e:
 		console.print(f"[red]✗[/] {e}")
-		raise typer.Exit(1)
+		raise typer.Exit(1) from None
 
 
 @startup_app.command("initd")
@@ -283,7 +283,7 @@ def initd(
 		script = render_initd_script(name, command, user=user, cwd=cwd, pidfile=pidfile, logfile=logfile)
 	except ValueError as e:
 		console.print(f"[red]✗[/] {e}")
-		raise typer.Exit(1)
+		raise typer.Exit(1) from None
 
 	typer.echo(script, nl=False)
 
@@ -301,6 +301,6 @@ def windows(
 		script = render_windows_service_script(name, command, user=user, cwd=cwd, restart=restart)
 	except ValueError as e:
 		console.print(f"[red]✗[/] {e}")
-		raise typer.Exit(1)
+		raise typer.Exit(1) from None
 
 	typer.echo(script, nl=False)

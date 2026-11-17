@@ -15,7 +15,7 @@ class _StubMetricsServer:
 		self.server_address = ("127.0.0.1", 9464)
 		self.served = False
 
-	def __enter__(self) -> "_StubMetricsServer":
+	def __enter__(self) -> _StubMetricsServer:
 		return self
 
 	def __exit__(self, *exc: object) -> None:

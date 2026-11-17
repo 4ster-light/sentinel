@@ -1,5 +1,6 @@
 """Pytest configuration and shared fixtures"""
 
+import contextlib
 import os
 import tempfile
 import warnings
@@ -103,10 +104,8 @@ def spawn_process(state: State) -> Iterator[Callable[..., ProcessInfo]]:
 				RuntimeWarning,
 				stacklevel=1,
 			)
-		try:
+		with contextlib.suppress(psutil.NoSuchProcess, psutil.TimeoutExpired):
 			psutil.Process(info.pid).wait(timeout=1)
-		except psutil.NoSuchProcess, psutil.TimeoutExpired:
-			pass
 
 
 @pytest.fixture

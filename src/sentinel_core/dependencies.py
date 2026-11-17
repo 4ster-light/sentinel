@@ -26,7 +26,7 @@ def start_order(
 	"""
 	by_name = _index_by_name(processes)
 	dependents: dict[str, list[str]] = {name: [] for name in by_name}
-	pending: dict[str, int] = {name: 0 for name in by_name}
+	pending: dict[str, int] = dict.fromkeys(by_name, 0)
 
 	for process in processes:
 		for dependency in dict.fromkeys(process.depends_on):

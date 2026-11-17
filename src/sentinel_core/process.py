@@ -1,5 +1,6 @@
 """Process management functions"""
 
+import contextlib
 import os
 import shlex
 import signal
@@ -423,10 +424,8 @@ def start_process(
 
 		assert proc is not None
 		pid = proc.pid
-		try:
+		with contextlib.suppress(psutil.NoSuchProcess):
 			create_time = psutil.Process(pid).create_time()
-		except psutil.NoSuchProcess:
-			pass
 
 		prio_warnings = _apply_process_priority(pid, nice, ionice_ioclass, ionice_value)
 		if priority_warnings is not None:
@@ -473,10 +472,8 @@ def start_process(
 def _signal_process_group(pid: int, sig: int) -> None:
 	if pid == os.getpgrp():
 		raise ValueError("Refusing to signal Sentinel's own process group")
-	try:
+	with contextlib.suppress(ProcessLookupError):
 		os.killpg(pid, sig)
-	except ProcessLookupError:
-		pass
 
 
 @serialized
@@ -544,10 +541,8 @@ def get_process_status(info: ProcessInfo) -> ProcessStatus:
 		status = proc.status()
 		processes = [proc, *proc.children(recursive=True)]
 		for member in processes:
-			try:
+			with contextlib.suppress(psutil.NoSuchProcess):
 				member.cpu_percent()
-			except psutil.NoSuchProcess:
-				pass
 		# psutil needs two samples; sample the shell and its children together.
 		time.sleep(0.1)
 		cpu = 0.0
@@ -602,6 +597,7 @@ def batch_start_processes(
 	failed: list[tuple[ProcessInfo, str]] = []
 
 	for info in start_order(processes, available=_running_process_names(state)):
+		# Failures are recorded against the process rather than aborting the batch.
 		try:
 			tracked = state.get_process(info.id)
 			if tracked is not None:
@@ -611,7 +607,7 @@ def batch_start_processes(
 				stop_process(state, info.id)
 			new_info = restart_from_info(state, info)
 			successful.append(new_info)
-		except Exception as e:
+		except Exception as e:  # noqa: BLE001
 			failed.append((info, str(e)))
 
 	return successful, failed
@@ -626,10 +622,11 @@ def batch_stop_processes(
 	failed: list[tuple[ProcessInfo, str]] = []
 
 	for info in stop_order(processes):
+		# Failures are recorded against the process rather than aborting the batch.
 		try:
 			stopped_info = stop_process(state, info.id, force=force)
 			successful.append(stopped_info)
-		except Exception as e:
+		except Exception as e:  # noqa: BLE001
 			failed.append((info, str(e)))
 
 	return successful, failed
@@ -643,10 +640,11 @@ def batch_restart_processes(
 	failed: list[tuple[ProcessInfo, str]] = []
 
 	for info in start_order(processes, strict=False):
+		# Failures are recorded against the process rather than aborting the batch.
 		try:
 			restarted_info = restart_process(state, info.id)
 			successful.append(restarted_info)
-		except Exception as e:
+		except Exception as e:  # noqa: BLE001
 			failed.append((info, str(e)))
 
 	return successful, failed

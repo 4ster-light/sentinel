@@ -5,11 +5,12 @@ import logging
 import os
 import tempfile
 import threading
+from collections.abc import Generator
+from contextlib import contextmanager, suppress
 from copy import deepcopy
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 from .models import GroupInfo, PortInfo, ProcessInfo, RemoteInfo
 
@@ -66,7 +67,7 @@ class StateStore:
 			self._saved_data = deepcopy(self.data)
 
 	@contextmanager
-	def mutation(self) -> Generator[dict[str, Any], None, None]:
+	def mutation(self) -> Generator[dict[str, Any]]:
 		"""Yield the data dict for modification, persisting it atomically.
 
 		Holds the state lock for the whole read-modify-write cycle: the data dict
@@ -124,14 +125,12 @@ class StateStore:
 				os.fsync(tmp_file.fileno())
 			os.replace(tmp_name, self.state_file)
 		except BaseException:
-			try:
+			with suppress(OSError):
 				os.unlink(tmp_name)
-			except OSError:
-				pass
 			raise
 
 	@contextmanager
-	def locked(self) -> Generator[None, None, None]:
+	def locked(self) -> Generator[None]:
 		import fcntl
 
 		# Lifecycle operations call registry mutations while holding this lock.

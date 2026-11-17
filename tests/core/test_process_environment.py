@@ -39,7 +39,8 @@ time.sleep(60)
 	first = json.loads(result.read_text())
 	assert first["SHARED"] == "process-file"
 	assert first["GROUP_FILE"] == first["GROUP_ONLY"] == first["FROM_INITIAL_CWD"] == "yes"
-	assert Path(info.cwd).is_absolute() and Path(info.env_file).is_absolute()
+	assert Path(info.cwd).is_absolute()
+	assert Path(info.env_file).is_absolute()
 	other = tmp_path / "other"
 	other.mkdir()
 	(other / ".env").write_text("FROM_INITIAL_CWD=wrong\n")
@@ -84,5 +85,6 @@ def test_regression_batch_start_preserves_environment_precedence(
 	state.remove_process(info.id)
 	output.write_text("")
 	started, failed = batch_start_processes(state, [info])
-	assert len(started) == 1 and failed == []
+	assert len(started) == 1
+	assert failed == []
 	wait_for(lambda: output.read_text() == "from-file")

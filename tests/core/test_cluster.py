@@ -55,7 +55,7 @@ class TestScaleSpec:
 		["", " ", "0", "0-2", "4-2", "abc", "1-2-3", "-2", "1-", f"1-{MAX_INSTANCES + 1}"],
 	)
 	def test_parse_invalid(self, raw: str):
-		with pytest.raises(ValueError):
+		with pytest.raises(ValueError, match=r"scale|invalid"):
 			ScaleSpec.parse(raw)
 
 	def test_allows_only_its_range(self):

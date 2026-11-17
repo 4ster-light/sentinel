@@ -55,7 +55,7 @@ class TestLoadEnvFile:
 
 	def test_load_env_file_is_directory(self, tmp_path: Path):
 		"""Test loading directory raises ValueError"""
-		with pytest.raises(ValueError):
+		with pytest.raises(ValueError, match="not a file"):
 			load_env_file(tmp_path)
 
 	def test_load_env_file_with_equals_in_value(self, tmp_path: Path):
@@ -278,7 +278,7 @@ class TestBuildProcessEnvironment:
 
 	def test_build_with_missing_env_file_raises_error(self):
 		"""Test that missing process env file raises ValueError"""
-		with pytest.raises(ValueError):
+		with pytest.raises(ValueError, match="Cannot load process env file"):
 			build_process_environment(
 				system_env=False,
 				global_env_files=False,
@@ -287,7 +287,7 @@ class TestBuildProcessEnvironment:
 
 	def test_build_with_missing_group_env_file_raises_error(self):
 		"""Test that missing group env file raises ValueError"""
-		with pytest.raises(ValueError):
+		with pytest.raises(ValueError, match="Cannot load group env file"):
 			build_process_environment(
 				system_env=False,
 				global_env_files=False,

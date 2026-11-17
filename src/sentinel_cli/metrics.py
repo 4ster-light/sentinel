@@ -14,6 +14,7 @@ from sentinel_core.metrics import (
 	render_prometheus,
 )
 from sentinel_core.metrics_server import create_metrics_server
+
 from .common import load_state
 
 console = Console()

@@ -2,9 +2,9 @@
 
 from datetime import datetime, timedelta
 from http.client import HTTPException
-from urllib.parse import urlsplit
 from socket import create_connection
 from urllib import error, request
+from urllib.parse import urlsplit
 
 from .state import HealthCheckConfig, ProcessInfo
 

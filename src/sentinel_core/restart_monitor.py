@@ -3,10 +3,10 @@
 import logging
 import threading
 import time
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Generator
 
 import psutil
 
@@ -84,12 +84,13 @@ def _apply_cleanups(
 ) -> list[ProcessInfo]:
 	cleaned_up: list[ProcessInfo] = []
 	for info in to_cleanup:
+		# One failing process must not abort the scan.
 		try:
 			state.remove_process(info.id)
 			cleaned_up.append(info)
 			if on_cleanup:
 				on_cleanup(info)
-		except Exception as e:
+		except Exception as e:  # noqa: BLE001
 			logger.debug(f"Failed to clean up process {info.name} (id={info.id}): {e}")
 	return cleaned_up
 
@@ -107,14 +108,14 @@ def _apply_restarts(
 			if on_restart:
 				on_restart(info, new_info)
 			logger.debug(f"Restarted process {info.name} (old_pid={info.pid}, new_pid={new_info.pid})")
-		except Exception as e:
+		except Exception as e:  # noqa: BLE001
 			logger.error(f"Failed to restart process {info.name}: {e}")
 			try:
 				current = state.get_process(info.id)
 				if current:
 					current.stopped = False
 					state.add_process(current)
-			except Exception as add_error:
+			except Exception as add_error:  # noqa: BLE001
 				logger.error(f"Failed to add dead process info for {info.name}: {add_error}")
 	return restarted
 
@@ -169,16 +170,16 @@ class RestartMonitor:
 
 
 @contextmanager
-def restart_monitor(check_interval: float = 5.0) -> Generator[RestartMonitor, None, None]:
+def restart_monitor(check_interval: float = 5.0) -> Generator[RestartMonitor]:
 	"""Context manager for restart monitor lifecycle.
 
 	Ensures the monitor thread is properly started and stopped,
 	even if an exception occurs during the monitored block.
 
 	Usage:
-	    with restart_monitor(check_interval=5.0) as monitor:
-	        monitor.set_restart_callback(on_restart)
-	        app.run(monitor=monitor)
+		with restart_monitor(check_interval=5.0) as monitor:
+			monitor.set_restart_callback(on_restart)
+			app.run(monitor=monitor)
 	"""
 	monitor = RestartMonitor(check_interval)
 	monitor.start()
@@ -200,12 +201,12 @@ def check_and_restart_processes(
 	Useful for "lazy" restart checking when CLI commands run.
 
 	Args:
-	    state: The State instance to use
-	    on_restart: Optional callback(old_info, new_info) when a process is restarted
-	    on_cleanup: Optional callback(info) when a non-restart process is cleaned up
+		state: The State instance to use
+		on_restart: Optional callback(old_info, new_info) when a process is restarted
+		on_cleanup: Optional callback(info) when a non-restart process is cleaned up
 
 	Returns:
-	    Tuple of (restarted_processes, cleaned_up_processes)
+		Tuple of (restarted_processes, cleaned_up_processes)
 	"""
 	outcome = _scan(state)
 	_apply_health_updates(state, outcome.health_updated)

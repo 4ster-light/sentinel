@@ -344,7 +344,8 @@ def test_regression_health_restart_stops_old_process(state, spawn_process) -> No
 	restarted, _ = check_and_restart_processes(state)
 	assert len(restarted) == 1
 	assert not psutil.pid_exists(info.pid)
-	assert restarted[0].id == info.id and restarted[0].group == "workers"
+	assert restarted[0].id == info.id
+	assert restarted[0].group == "workers"
 	assert len(state.list_processes()) == 1
 
 
@@ -371,7 +372,8 @@ def test_regression_batch_start_keeps_group_environment(state, spawn_process, tm
 	state.add_process_to_group("workers", info.id)
 	stop_process(state, info.id)
 	started, failed = batch_start_processes(state, state.list_processes())
-	assert len(started) == 1 and failed == []
+	assert len(started) == 1
+	assert failed == []
 	wait_for(lambda: output.read_text() == "from-group")
 
 

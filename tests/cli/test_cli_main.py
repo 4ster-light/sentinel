@@ -3,8 +3,8 @@
 import os
 
 import pytest
-from typer.testing import CliRunner
 from rich.text import Text
+from typer.testing import CliRunner
 
 from sentinel_cli import app
 from sentinel_core.options import parse_ionice_spec
@@ -176,7 +176,7 @@ class TestMainCommands:
 		assert parse_ionice_spec("idle") == ("idle", None)
 		assert parse_ionice_spec("best-effort") == ("best_effort", None)
 		assert parse_ionice_spec("best-effort:6") == ("best_effort", 6)
-		with pytest.raises(ValueError):
+		with pytest.raises(ValueError, match="between 0 and 7"):
 			parse_ionice_spec("best-effort:99")
 
 	def test_list_command_empty(self):

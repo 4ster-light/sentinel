@@ -25,6 +25,7 @@ from sentinel_core.process import (
 )
 from sentinel_core.restart_monitor import check_and_restart_processes
 from sentinel_core.state import ProcessInfo, State
+
 from .common import console as error_console
 from .common import load_state
 from .daemon import is_daemon_running
@@ -143,7 +144,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			options.validate()
 		except ValueError as e:
 			error_console.print(f"[red]✗[/] {escape(str(e))}")
-			raise typer.Exit(1)
+			raise typer.Exit(1) from None
 
 		health_check = options.health_check
 		ionice_ioclass, ionice_value = options.ionice_spec()
@@ -213,7 +214,7 @@ def register_main_commands(app: typer.Typer) -> None:
 				console.print(f"[green]✓[/] Started {len(started_infos)} instance(s) of [bold]{escape(base_name)}[/]")
 		except ValueError as e:
 			error_console.print(f"[red]✗[/] {escape(str(e))}")
-			raise typer.Exit(1)
+			raise typer.Exit(1) from None
 
 	@app.command()
 	def stop(
@@ -228,7 +229,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			console.print(f"[green]✓[/] Stopped [bold]{escape(info.name)}[/] (id: {info.id})")
 		except ValueError as e:
 			error_console.print(f"[red]✗[/] {escape(str(e))}")
-			raise typer.Exit(1)
+			raise typer.Exit(1) from None
 
 	@app.command()
 	def restart(
@@ -242,7 +243,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			console.print(f"[green]✓[/] Restarted [bold]{escape(info.name)}[/] (id: {info.id}, pid: {info.pid})")
 		except ValueError as e:
 			error_console.print(f"[red]✗[/] {escape(str(e))}")
-			raise typer.Exit(1)
+			raise typer.Exit(1) from None
 
 	@app.command(name="list")
 	def list_cmd() -> None:
@@ -377,7 +378,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			successful, failed = batch_stop_processes(state, processes, force=force)
 		except DependencyError as error:
 			error_console.print(f"[red]✗[/] {escape(str(error))}")
-			raise typer.Exit(1)
+			raise typer.Exit(1) from None
 
 		for info in successful:
 			console.print(f"[green]✓[/] Stopped [bold]{escape(info.name)}[/]")
@@ -408,7 +409,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			successful, failed = batch_start_processes(state, processes)
 		except DependencyError as error:
 			error_console.print(f"[red]✗[/] {escape(str(error))}")
-			raise typer.Exit(1)
+			raise typer.Exit(1) from None
 
 		for info in successful:
 			console.print(f"[green]✓[/] Started [bold]{escape(info.name)}[/] (pid: {info.pid})")
@@ -439,7 +440,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			successful, failed = batch_restart_processes(state, processes)
 		except DependencyError as error:
 			error_console.print(f"[red]✗[/] {escape(str(error))}")
-			raise typer.Exit(1)
+			raise typer.Exit(1) from None
 
 		for info in successful:
 			console.print(f"[green]✓[/] Restarted [bold]{escape(info.name)}[/] (pid: {info.pid})")

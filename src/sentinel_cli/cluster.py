@@ -10,6 +10,7 @@ from rich.table import Table
 from sentinel_core.cluster import cluster_members, cluster_spec, scale_cluster
 from sentinel_core.models import ProcessInfo
 from sentinel_core.process import ProcessIdentityError, managed_process
+
 from .common import load_state
 
 console = Console()
@@ -69,7 +70,7 @@ def cluster_scale(
 		result = scale_cluster(state, name, count, force=force)
 	except ValueError as error:
 		console.print(f"[red]✗[/] {escape(str(error))}")
-		raise typer.Exit(1)
+		raise typer.Exit(1) from None
 
 	for info in result.stopped:
 		console.print(f"[green]✓[/] Stopped [bold]{escape(info.name)}[/]")
