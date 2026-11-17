@@ -12,7 +12,14 @@ updates:
     commit-message:
       prefix: "build(deps)"
       prefix-development: "build(deps-dev)"
-    labels: ["dependencies"]
+    labels: ["dependencies", "python:uv"]
+    ignore:
+      # fedora-44 ships rich 14.3 and typer 0.24; a floor above those breaks the
+      # COPR build, so these bumps wait until the oldest chroot catches up.
+      - dependency-name: rich
+        update-types: ["version-update:semver-major"]
+      - dependency-name: typer
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
       dev:
         dependency-type: development
