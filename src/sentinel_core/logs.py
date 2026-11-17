@@ -1,14 +1,24 @@
 """Log viewing and tailing"""
 
+import os
+import shutil
 import time
+from collections import deque
 from pathlib import Path
+from typing import IO
 
 from rich.console import Console
+from rich.markup import escape
 
 console = Console()
 
 DEFAULT_LOG_ROTATION_MAX_BYTES = 10 * 1024 * 1024
 DEFAULT_LOG_ROTATION_BACKUPS = 3
+
+_FOLLOW_READ_CHUNK = 65536
+_FOLLOW_MAX_CHUNKS = 16
+_FOLLOW_MAX_PENDING = 65536
+_FOLLOW_FINGERPRINT_BYTES = 32
 
 
 def rotate_log_file(
@@ -31,8 +41,10 @@ def rotate_log_file(
 			current_backup_path.replace(next_backup_path)
 
 	first_backup_path = path.with_name(f"{path.name}.1")
-	path.replace(first_backup_path)
-	path.touch()
+	# Keep the inode: running children still hold append descriptors to this file.
+	shutil.copy2(path, first_backup_path)
+	with path.open("r+b") as active:
+		active.truncate(0)
 	return True
 
 
@@ -49,13 +61,11 @@ def rotate_process_logs(
 
 def tail_file(path: Path, lines: int = 50) -> list[str]:
 	"""Get the last N lines from a file"""
-	if not path.exists():
+	if lines <= 0:
 		return []
-
 	try:
-		content = path.read_text()
-		all_lines = content.splitlines()
-		return all_lines[-lines:] if len(all_lines) > lines else all_lines
+		with path.open(encoding="utf-8", errors="replace") as stream:
+			return [line.rstrip("\r\n") for line in deque(stream, maxlen=lines)]
 	except OSError:
 		return []
 
@@ -68,51 +78,91 @@ def show_logs(
 	stream: str = "both",
 ) -> None:
 	"""Display logs from a process"""
+	if stream not in ("stdout", "stderr", "both"):
+		raise ValueError("stream must be stdout, stderr, or both")
+	if lines < 0:
+		raise ValueError("lines must be non-negative")
 	stdout = Path(stdout_path)
 	stderr = Path(stderr_path)
 
 	if stream in ("stdout", "both") and stdout.exists():
-		console.print(f"[bold cyan]═══ stdout ({stdout}) ═══[/]")
+		console.print(f"[bold cyan]═══ stdout ({escape(str(stdout))}) ═══[/]")
 		for line in tail_file(stdout, lines):
-			console.print(line)
+			console.print(line, markup=False, highlight=False)
 
 	if stream in ("stderr", "both") and stderr.exists():
-		console.print(f"\n[bold red]═══ stderr ({stderr}) ═══[/]")
+		console.print(f"\n[bold red]═══ stderr ({escape(str(stderr))}) ═══[/]")
 		for line in tail_file(stderr, lines):
-			console.print(f"[red]{line}[/]")
+			console.print(line, style="red", markup=False, highlight=False)
 
 	if follow:
 		console.print("\n[dim]Following logs (Ctrl+C to stop)...[/]")
 		_follow_logs(stdout, stderr, stream)
 
 
-def _follow_logs(stdout: Path, stderr: Path, stream: str) -> None:
-	"""Follow log files in real-time"""
-	stdout_pos = stdout.stat().st_size if stdout.exists() else 0
-	stderr_pos = stderr.stat().st_size if stderr.exists() else 0
+def _fingerprint_at(log: IO[bytes], offset: int) -> bytes:
+	"""Bytes just before offset, used to notice a file rewritten in place."""
+	if offset <= 0:
+		return b""
+	start = max(0, offset - _FOLLOW_FINGERPRINT_BYTES)
+	log.seek(start)
+	return log.read(offset - start)
 
+
+def _follow_logs(stdout: Path, stderr: Path, stream: str) -> None:
+	"""Follow complete lines, reopening files that were replaced or rewritten."""
+	paths = [(stdout, "out", "cyan"), (stderr, "err", "red")]
+	positions: dict[Path, tuple[int, int, int, bytes]] = {}
+	pending: dict[Path, bytes] = {}
+	for path, _, _ in paths:
+		try:
+			with path.open("rb") as log:
+				stat = os.fstat(log.fileno())
+				positions[path] = (stat.st_dev, stat.st_ino, stat.st_size, _fingerprint_at(log, stat.st_size))
+		except FileNotFoundError:
+			pass
 	try:
 		while True:
-			if stream in ("stdout", "both") and stdout.exists():
-				current_size = stdout.stat().st_size
-				if current_size > stdout_pos:
-					with open(stdout) as f:
-						f.seek(stdout_pos)
-						new_content = f.read()
-						for line in new_content.splitlines():
-							console.print(f"[cyan]out:[/] {line}")
-					stdout_pos = current_size
-
-			if stream in ("stderr", "both") and stderr.exists():
-				current_size = stderr.stat().st_size
-				if current_size > stderr_pos:
-					with open(stderr) as f:
-						f.seek(stderr_pos)
-						new_content = f.read()
-						for line in new_content.splitlines():
-							console.print(f"[red]err:[/] {line}")
-					stderr_pos = current_size
-
+			for path, label, color in paths:
+				if stream != "both" and stream != ("stdout" if label == "out" else "stderr"):
+					continue
+				try:
+					with path.open("rb") as log:
+						stat = os.fstat(log.fileno())
+						device, inode, offset, fingerprint = positions.get(path, (stat.st_dev, stat.st_ino, 0, b""))
+						replaced = (device, inode) != (stat.st_dev, stat.st_ino) or stat.st_size < offset
+						# Rotation truncates in place, so a fast writer can pass the old offset
+						# before the next poll; the bytes before the offset then differ.
+						if not replaced and fingerprint and _fingerprint_at(log, offset) != fingerprint:
+							replaced = True
+						if replaced:
+							offset = 0
+							fingerprint = b""
+							pending[path] = b""
+						log.seek(offset)
+						chunks = [pending.get(path, b"")]
+						for _ in range(_FOLLOW_MAX_CHUNKS):
+							chunk = log.read(_FOLLOW_READ_CHUNK)
+							if not chunk:
+								break
+							chunks.append(chunk)
+						content = b"".join(chunks)
+						offset = log.tell()
+						if content:
+							fingerprint = content[-_FOLLOW_FINGERPRINT_BYTES:]
+						parts = content.split(b"\n")
+						pending[path] = parts.pop()
+						if len(pending[path]) > _FOLLOW_MAX_PENDING:
+							# Output without newlines must not grow the buffer forever.
+							text = pending[path].decode("utf-8", errors="replace")
+							console.print(f"{label}: {text}", style=color, markup=False, highlight=False)
+							pending[path] = b""
+						for line in parts:
+							text = line.rstrip(b"\r").decode("utf-8", errors="replace")
+							console.print(f"{label}: {text}", style=color, markup=False, highlight=False)
+						positions[path] = (stat.st_dev, stat.st_ino, offset, fingerprint)
+				except FileNotFoundError:
+					continue
 			time.sleep(0.5)
 	except KeyboardInterrupt:
 		console.print("\n[dim]Stopped following logs.[/]")
