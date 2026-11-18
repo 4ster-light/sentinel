@@ -14,15 +14,9 @@ updates:
       prefix: "build(deps)"
       prefix-development: "build(deps-dev)"
     labels: ["dependencies", "python:uv"]
-    ignore:
-      # fedora-44 ships rich 14.3.2 and typer 0.24; a floor above those breaks the
-      # COPR build, so Dependabot does not raise them. Drop these rules once the
-      # oldest supported chroot catches up (or at fedora-44 EOL); the lockfile can
-      # be refreshed by hand with `uv lock` without touching the floors.
-      - dependency-name: rich
-        update-types: ["version-update:semver-minor", "version-update:semver-major"]
-      - dependency-name: typer
-        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+    # Lockfile-only means Dependabot never edits [project.dependencies]: the floors
+    # stay at what the Fedora chroots ship, which is what %pyproject_buildrequires
+    # reads, while uv.lock tracks newer releases. No per-package ignores needed.
     groups:
       dev:
         dependency-type: development
