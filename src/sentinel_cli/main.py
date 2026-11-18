@@ -61,7 +61,11 @@ def register_main_commands(app: typer.Typer) -> None:
 		command: Annotated[list[str], typer.Argument(help="Command to run")],
 		shell: Annotated[
 			bool,
-			typer.Option("--shell", help="Interpret one command string with shell syntax"),
+			typer.Option("--shell", help="Read a single command argument as a shell command line"),
+		] = False,
+		literal: Annotated[
+			bool,
+			typer.Option("--literal", help="Read a single command argument as an executable path"),
 		] = False,
 		name: Annotated[str | None, typer.Option("--name", "-n", help="Process name")] = None,
 		restart: Annotated[bool, typer.Option("--restart", "-r", help="Auto-restart on exit")] = False,
@@ -122,18 +126,24 @@ def register_main_commands(app: typer.Typer) -> None:
 	) -> None:
 		"""Start a background process"""
 		state = load_state()
+		if shell and literal:
+			error_console.print("[red]✗[/] --shell and --literal are mutually exclusive")
+			raise typer.Exit(1)
 		if shell and len(command) != 1:
 			error_console.print("[red]✗[/] --shell requires one command string")
 			raise typer.Exit(1)
 		if not command[0].strip():
 			error_console.print("[red]✗[/] Command cannot be empty")
 			raise typer.Exit(1)
-		cmd = command[0] if shell else shlex.join(command)
+		# One argument is a shell command line unless --literal marks it as an
+		# executable path; several arguments are joined without shell syntax.
+		shell_line = not literal and (shell or len(command) == 1)
+		cmd = command[0] if shell_line else shlex.join(command)
 		try:
-			command_name = shlex.split(command[0])[0] if shell else command[0]
+			command_name = shlex.split(command[0])[0] if shell_line else command[0]
 		except ValueError, IndexError:
 			error_console.print("[red]✗[/] Command must contain a valid executable name")
-			raise typer.Exit(1)
+			raise typer.Exit(1) from None
 
 		options = StartOptions(
 			cmd=cmd,

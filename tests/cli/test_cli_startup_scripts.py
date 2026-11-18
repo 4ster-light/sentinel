@@ -3,6 +3,7 @@
 import subprocess
 from pathlib import Path
 from shutil import which
+
 import pytest
 from typer.testing import CliRunner
 

@@ -74,10 +74,11 @@ def test_run_single_executable_is_literal(state: State, spawn_process, tmp_path:
 	executable = tmp_path / filename
 	executable.write_text("#!/bin/sh\nprintf 'ready\\n'\nsleep 60\n")
 	executable.chmod(0o755)
-	result = runner.invoke(app, ["run", "--", str(executable)])
+	result = runner.invoke(app, ["run", "--literal", "--", str(executable)])
 	assert result.exit_code == 0, result.output
 	info = State().find_process_by_name(filename)
 	assert info is not None
+	assert "--literal" in runner.invoke(app, ["run", "--help"]).stdout
 	wait_for(lambda: Path(info.stdout_log).read_text() == "ready\n")
 	assert Path(info.stderr_log).read_text() == ""
 

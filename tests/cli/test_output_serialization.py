@@ -38,7 +38,8 @@ def test_regression_systemd_output_is_not_terminal_formatted(monkeypatch) -> Non
 	assert result.exit_code == 0, result.output
 	assert result.stdout == expected
 	assert "\x1b" not in result.stdout
-	assert "%%s" in result.stdout and "$$HOME" in result.stdout
+	assert "%%s" in result.stdout
+	assert "$$HOME" in result.stdout
 	assert '\\"' in result.stdout
 	assert sum(line.startswith("ExecStart=") for line in result.stdout.splitlines()) == 1
 	assert "\\[" not in result.stdout

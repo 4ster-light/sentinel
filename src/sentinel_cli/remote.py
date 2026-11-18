@@ -9,6 +9,7 @@ from rich.table import Table
 
 from sentinel_core.remote import RemoteResult, format_remote, run_remote_sentinel
 from sentinel_core.state import RemoteInfo
+
 from .common import console as error_console
 from .common import load_state
 

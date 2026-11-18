@@ -9,7 +9,6 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
-from rich.markup import escape
 
 console = Console()
 startup_app = typer.Typer(
