@@ -1,5 +1,5 @@
 [project]
-name = "sentinel"
+name = "sentinel-pm"
 version = "0.2.5"
 description = "A lightweight process orchestrator CLI"
 readme = "README.md"
@@ -79,6 +79,7 @@ select = ["E4", "E7", "E9", "E101", "F", "I", "B", "BLE", "C4", "PIE", "PT", "RE
 
 [tool.ruff.lint.per-file-ignores]
 # Standalone build helper: reporting to the console is its whole interface.
+"packaging/check_release.py" = ["T20"]
 "packaging/fedora/check_floors.py" = ["T20"]
 
 [tool.ruff.format]

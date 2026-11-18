@@ -215,7 +215,7 @@ wheels = [
 ]
 
 [[package]]
-name = "sentinel"
+name = "sentinel-pm"
 version = "0.2.5"
 source = { editable = "." }
 dependencies = [

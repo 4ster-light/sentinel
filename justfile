@@ -41,6 +41,10 @@ fmt-check:
 fedora-floors:
     uv run python packaging/fedora/check_floors.py
 
+# Check that the tag, project version and RPM spec agree before a release
+release-check:
+    uv run python packaging/check_release.py
+
 # Serve the coverage report
 serve:
     python -m http.server 8000 --directory htmlcov

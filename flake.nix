@@ -59,7 +59,7 @@
             description = pyproject.project.description;
             homepage = pyproject.project.urls.Homepage;
             license = licenses.mit;
-            mainProgram = pyproject.project.name;
+            mainProgram = "sentinel";
           };
         };
       in
@@ -71,7 +71,7 @@
 
         apps.default = {
           type = "app";
-          program = "${sentinel}/bin/${pyproject.project.name}";
+          program = "${sentinel}/bin/sentinel";
           meta.description = pyproject.project.description;
         };
 
