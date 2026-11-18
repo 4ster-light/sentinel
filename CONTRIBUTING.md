@@ -116,6 +116,35 @@ ROADMAP.md          # Release plan and feature goals
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together before
 diving into the code.
 
+## Releasing
+
+Releases are cut from `main` with a signed tag; the tag drives every channel.
+
+1. Refresh the flake inputs and merge the resulting pull request
+   (`nix flake update`; Dependabot also opens these monthly).
+2. Bump the version in `pyproject.toml`, the `Version:` line in
+   `packaging/fedora/sentinel-pm.spec`, and add a spec changelog entry.
+3. Run `just release-check` (tag, project version and spec must agree) and
+   `just c`.
+4. Commit as `chore(release): vX.Y.Z`, then create the annotated tag with an
+   explicit message so no editor is needed:
+   `git -c core.editor=true tag -a vX.Y.Z -m "vX.Y.Z: summary"`, and push it
+   with `git push origin vX.Y.Z`.
+5. The `Release` workflow runs the gate, publishes to TestPyPI and PyPI
+   through OIDC trusted publishing, and creates the GitHub release with the
+   sdist and wheel attached.
+6. Rebuild the COPR package from the tag:
+
+   ```bash
+   cd packaging/fedora
+   make srpm     # rpmbuild comes from `nix shell nixpkgs#rpm`
+   uvx copr-cli build sentinel-pm sentinel-pm-X.Y.Z-1.src.rpm
+   ```
+
+The floors in `[project.dependencies]` are the verified minimums the Fedora
+chroots can satisfy; `just fedora-floors` checks them against fedora-44,
+fedora-45 and rawhide. Dependabot is lockfile-only for uv, so it keeps
+`uv.lock` current without moving those floors.
 ## Questions?
 
 Feel free to open an issue if you have any questions or need clarification! Even
