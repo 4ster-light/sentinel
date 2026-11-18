@@ -179,7 +179,7 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		try:
 			for index in range(1, instance_count + 1):
-				instance_label = instance_name(base_name, index) if cluster_mode else name
+				instance_label = instance_name(base_name, index) if cluster_mode else base_name
 				priority_notes: list[str] = []
 				info = start_process(
 					state,
