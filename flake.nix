@@ -20,7 +20,7 @@
         python = pkgs.python314;
         py = python.pkgs;
 
-        pyproject = builtins.fromTOML (builtins.readFile ./pyproject.toml);
+        pyproject = fromTOML (builtins.readFile ./pyproject.toml);
 
         sentinel = py.buildPythonApplication {
           pname = pyproject.project.name;
@@ -97,7 +97,6 @@
             pkgs.ruff
             pkgs.ty
             pkgs.just
-            pkgs.git
           ];
 
           UV_PROJECT_ENVIRONMENT = ".venv";
