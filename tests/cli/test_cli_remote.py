@@ -85,7 +85,7 @@ class TestRemoteCommands:
 		assert "started" in result.stdout
 		mock_run.assert_called_once_with(
 			state.get_remote("remotehost"),
-			["run", "sleep", "10"],
+			["run", "--", "sleep", "10"],
 		)
 
 	def test_remote_run_unknown_host(self, state: State):
@@ -101,7 +101,7 @@ class TestRemoteCommands:
 		assert "stopped" in result.stdout
 		mock_run.assert_called_once_with(
 			state.get_remote("remotehost"),
-			["stop", "myproc"],
+			["stop", "--", "myproc"],
 		)
 
 	def test_remote_stop_unknown_host(self, state: State):
@@ -121,7 +121,7 @@ class TestRemoteCommands:
 			mock_run.return_value = RemoteResult(returncode=0, stdout="", stderr="warning\n")
 			result = runner.invoke(app, ["remote", "list", "remotehost"])
 		assert result.exit_code == 0
-		assert "warning" in result.stdout
+		assert "warning" in result.stderr
 
 	def test_remote_stop_stderr(self, state: State):
 		state.add_remote(RemoteInfo(host="remotehost"))
@@ -129,7 +129,7 @@ class TestRemoteCommands:
 			mock_run.return_value = RemoteResult(returncode=0, stdout="stopped\n", stderr="warn\n")
 			result = runner.invoke(app, ["remote", "stop", "remotehost", "myproc"])
 		assert result.exit_code == 0
-		assert "warn" in result.stdout
+		assert "warn" in result.stderr
 
 	def test_remote_stop_failure(self, state: State):
 		state.add_remote(RemoteInfo(host="remotehost"))

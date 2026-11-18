@@ -94,7 +94,7 @@ class TestMetricsCommands:
 		result = runner.invoke(app, ["metrics", "export", "--format", "xml"])
 
 		assert result.exit_code != 0
-		assert "prometheus" in result.stdout.lower()
+		assert "prometheus" in result.stderr.lower()
 
 	def test_metrics_serve_rejects_invalid_port(self, state: State):
 		result = runner.invoke(app, ["metrics", "serve", "--port", "0"])

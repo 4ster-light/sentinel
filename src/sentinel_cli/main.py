@@ -1,5 +1,6 @@
 """Main process commands"""
 
+import shlex
 from typing import Annotated
 
 import typer
@@ -58,6 +59,14 @@ def register_main_commands(app: typer.Typer) -> None:
 	@app.command()
 	def run(
 		command: Annotated[list[str], typer.Argument(help="Command to run")],
+		shell: Annotated[
+			bool,
+			typer.Option("--shell", help="Read a single command argument as a shell command line"),
+		] = False,
+		literal: Annotated[
+			bool,
+			typer.Option("--literal", help="Read a single command argument as an executable path"),
+		] = False,
 		name: Annotated[str | None, typer.Option("--name", "-n", help="Process name")] = None,
 		restart: Annotated[bool, typer.Option("--restart", "-r", help="Auto-restart on exit")] = False,
 		user: Annotated[
@@ -117,7 +126,24 @@ def register_main_commands(app: typer.Typer) -> None:
 	) -> None:
 		"""Start a background process"""
 		state = load_state()
-		cmd = " ".join(command)
+		if shell and literal:
+			error_console.print("[red]✗[/] --shell and --literal are mutually exclusive")
+			raise typer.Exit(1)
+		if shell and len(command) != 1:
+			error_console.print("[red]✗[/] --shell requires one command string")
+			raise typer.Exit(1)
+		if not command[0].strip():
+			error_console.print("[red]✗[/] Command cannot be empty")
+			raise typer.Exit(1)
+		# One argument is a shell command line unless --literal marks it as an
+		# executable path; several arguments are joined without shell syntax.
+		shell_line = not literal and (shell or len(command) == 1)
+		cmd = command[0] if shell_line else shlex.join(command)
+		try:
+			command_name = shlex.split(command[0])[0] if shell_line else command[0]
+		except ValueError, IndexError:
+			error_console.print("[red]✗[/] Command must contain a valid executable name")
+			raise typer.Exit(1) from None
 
 		options = StartOptions(
 			cmd=cmd,
@@ -148,7 +174,7 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		health_check = options.health_check
 		ionice_ioclass, ionice_value = options.ionice_spec()
-		base_name = name or command[0].split("/")[-1]
+		base_name = name or command_name.split("/")[-1]
 		started_infos: list[ProcessInfo] = []
 		scale_spec = options.scale_spec
 		if scale_spec is None and options.instances > 1:
@@ -163,7 +189,7 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		try:
 			for index in range(1, instance_count + 1):
-				instance_label = instance_name(base_name, index) if cluster_mode else name
+				instance_label = instance_name(base_name, index) if cluster_mode else base_name
 				priority_notes: list[str] = []
 				info = start_process(
 					state,

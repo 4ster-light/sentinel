@@ -33,6 +33,12 @@ def _powershell_quote(value: str) -> str:
 	return "'" + value.replace("'", "''") + "'"
 
 
+def _systemd_argument(value: str) -> str:
+	# systemd uses its own quoting and expands both specifiers and variables.
+	value = value.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%").replace("$", "$$")
+	return value if re.fullmatch(r"[A-Za-z0-9_./:=+-]+", value) else f'"{value}"'
+
+
 def render_systemd_service(
 	name: str,
 	command: Sequence[str],
@@ -47,6 +53,12 @@ def render_systemd_service(
 	if not command:
 		raise ValueError("Command cannot be empty")
 
+	if any(char in value for value in [name, user or "", cwd or "", *command] for char in "\n\r\0"):
+		raise ValueError("Unit fields and arguments cannot contain newlines or NUL bytes")
+	name = name.replace("%", "%%")
+	user = user.replace("%", "%%") if user else None
+	cwd = cwd.replace("%", "%%") if cwd else None
+	arguments = " ".join(_systemd_argument(arg) for arg in command)
 	lines: list[str] = [
 		"[Unit]",
 		f"Description=Sentinel process: {name}",
@@ -63,7 +75,7 @@ def render_systemd_service(
 
 	lines.extend(
 		[
-			f"ExecStart=/usr/bin/env {shlex_join(list(command))}",
+			f"ExecStart=/usr/bin/env {arguments}",
 			f"Restart={'always' if restart else 'no'}",
 			"",
 			"[Install]",
@@ -261,7 +273,7 @@ def systemd(
 ) -> None:
 	"""Generate a minimal systemd service unit."""
 	try:
-		console.print(render_systemd_service(name, command, user=user, cwd=cwd, restart=restart))
+		typer.echo(render_systemd_service(name, command, user=user, cwd=cwd, restart=restart), nl=False)
 	except ValueError as e:
 		console.print(f"[red]✗[/] {e}")
 		raise typer.Exit(1) from None
