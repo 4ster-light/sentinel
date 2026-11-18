@@ -14,10 +14,12 @@ updates:
       prefix-development: "build(deps-dev)"
     labels: ["dependencies", "python:uv"]
     ignore:
-      # fedora-44 ships rich 14.3 and typer 0.24; a floor above those breaks the
-      # COPR build, so these bumps wait until the oldest chroot catches up.
+      # fedora-44 ships rich 14.3.2 and typer 0.24; a floor above those breaks the
+      # COPR build, so Dependabot does not raise them. Drop these rules once the
+      # oldest supported chroot catches up (or at fedora-44 EOL); the lockfile can
+      # be refreshed by hand with `uv lock` without touching the floors.
       - dependency-name: rich
-        update-types: ["version-update:semver-major"]
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
       - dependency-name: typer
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
@@ -37,3 +39,15 @@ updates:
     groups:
       actions:
         update-types: [minor, patch]
+
+  # flake.lock inputs only (nixpkgs, flake-utils), one PR per input, version
+  # updates only. A nixpkgs bump changes the dev shell toolchain and the package
+  # build inputs, so these are merged by hand through the normal gate.
+  - package-ecosystem: nix
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "build(deps)"
+    labels: ["nix", "dependencies"]
