@@ -5,6 +5,7 @@
 A lightweight process orchestrator CLI
 
 [![Release](https://img.shields.io/github/v/release/4ster-light/sentinel?sort=semver&label=release&color=2f6f4e&style=flat-square)](https://github.com/4ster-light/sentinel/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/sentinel-pm?label=pypi&style=flat-square)](https://pypi.org/project/sentinel-pm/)
 [![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-teal?style=flat-square)](#installation)
 [![Nix flake](https://img.shields.io/badge/Nix-flake-5277C3?logo=nixos&logoColor=white&style=flat-square)](flake.nix)
 [![COPR](https://img.shields.io/badge/Fedora-COPR-3c6eb4?logo=fedora&logoColor=white&style=flat-square)](https://copr.fedorainfracloud.org/coprs/4ster-light/sentinel-pm)
@@ -40,7 +41,8 @@ A lightweight process orchestrator CLI
 | --- | --- | --- |
 | Fedora 44, 45 or rawhide | [Fedora (COPR)](#fedora-copr) | Native package, updated by `dnf`, dependencies from the distribution |
 | NixOS or Nix | [Nix](#nix) | Flake package and dev shell, no system Python needed |
-| Linux or macOS with Python 3.14+ | [uv](#uv) | Isolated tool install, upgrades with `uv tool upgrade` |
+| Linux or macOS with Python 3.14+ | [PyPI](#pypi) | Isolated tool install, upgrades with `uv tool upgrade sentinel-pm` |
+| Tracking `main` | [From git](#from-git) | Latest unreleased changes from the repository |
 
 ### Fedora (COPR)
 
@@ -57,7 +59,19 @@ nix profile add github:4ster-light/sentinel
 
 On NixOS add the flake to your system configuration.
 
-### [uv](https://docs.astral.sh/uv)
+### PyPI
+
+```bash
+uv tool install sentinel-pm
+```
+
+With pip instead:
+
+```bash
+pip install sentinel-pm
+```
+
+### From git
 
 ```bash
 uv tool install git+https://github.com/4ster-light/sentinel
