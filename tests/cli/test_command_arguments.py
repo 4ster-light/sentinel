@@ -78,7 +78,7 @@ def test_run_single_executable_is_literal(state: State, spawn_process, tmp_path:
 	assert result.exit_code == 0, result.output
 	info = State().find_process_by_name(filename)
 	assert info is not None
-	assert "--literal" in runner.invoke(app, ["run", "--help"]).stdout
+	assert "--literal" in runner.invoke(app, ["run", "--help"], env={"COLUMNS": "200"}).stdout
 	wait_for(lambda: Path(info.stdout_log).read_text() == "ready\n")
 	assert Path(info.stderr_log).read_text() == ""
 
@@ -89,7 +89,7 @@ def test_run_shell_requires_an_explicit_flag(state: State, spawn_process, wait_f
 	info = State().find_process_by_name("printf")
 	assert info is not None
 	wait_for(lambda: Path(info.stdout_log).read_text() == "ready\n")
-	assert "--shell" in runner.invoke(app, ["run", "--help"]).stdout
+	assert "--shell" in runner.invoke(app, ["run", "--help"], env={"COLUMNS": "200"}).stdout
 
 
 def test_run_shell_rejects_multiple_arguments(state: State) -> None:
