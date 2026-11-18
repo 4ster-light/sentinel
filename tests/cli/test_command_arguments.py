@@ -13,13 +13,12 @@ runner = CliRunner()
 
 
 def _run_option_flags() -> set[str]:
-	from typing import cast
-
-	from click import Group
 	from typer.main import get_command
 
-	group = cast(Group, get_command(app))
-	return {opt for parameter in group.commands["run"].params for opt in parameter.opts}
+	commands = getattr(get_command(app), "commands", {})
+	run_command = commands.get("run")
+	assert run_command is not None
+	return {opt for parameter in run_command.params for opt in parameter.opts}
 
 
 def test_regression_run_preserves_argument_boundaries(state: State, spawn_process, tmp_path: Path, wait_for) -> None:
