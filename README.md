@@ -14,6 +14,59 @@
 [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-EA4AAA?logo=githubsponsors&logoColor=white&style=flat-square)](https://github.com/sponsors/4ster-light)
 [![License: GPLv3](https://img.shields.io/badge/license-GPLv3-red?style=flat-square&logo=gnu&logoColor=white)](LICENSE)
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+  - [Fedora (COPR)](#fedora-copr)
+  - [Nix](#nix)
+  - [PyPI](#pypi)
+  - [From Source](#from-source)
+- [Commands Overview](#commands-overview)
+- [Process Management](#process-management)
+  - [Starting a Process](#starting-a-process)
+  - [Startup Script Generation](#startup-script-generation)
+  - [SysV init.d Scripts](#sysv-initd-scripts)
+  - [Windows Services](#windows-services)
+  - [Listing Processes](#listing-processes)
+  - [Process Status](#process-status)
+  - [Stopping Processes](#stopping-processes)
+  - [Restarting Processes](#restarting-processes)
+  - [Viewing Logs](#viewing-logs)
+  - [Bulk Operations](#bulk-operations)
+  - [Cleaning Up](#cleaning-up)
+- [Auto-Restart](#auto-restart)
+  - [Lazy Restart (Default)](#lazy-restart-default)
+  - [Daemon Mode (Continuous Monitoring)](#daemon-mode-continuous-monitoring)
+- [Process Groups](#process-groups)
+  - [Creating Groups](#creating-groups)
+  - [Managing Group Membership](#managing-group-membership)
+  - [Listing Groups](#listing-groups)
+  - [Group Operations](#group-operations)
+  - [Deleting Groups](#deleting-groups)
+- [Process Clusters](#process-clusters)
+- [Port Management](#port-management)
+  - [Allocating Ports](#allocating-ports)
+  - [Listing Ports](#listing-ports)
+  - [Freeing Ports](#freeing-ports)
+- [Metrics Export](#metrics-export)
+  - [Exporting Metrics](#exporting-metrics)
+  - [Prometheus](#prometheus)
+  - [Quick Snapshot](#quick-snapshot)
+- [Remote Management](#remote-management)
+  - [Registering Remote Hosts](#registering-remote-hosts)
+  - [Listing Remote Hosts](#listing-remote-hosts)
+  - [Running Commands on Remote Hosts](#running-commands-on-remote-hosts)
+  - [Removing Remote Hosts](#removing-remote-hosts)
+- [Configuration](#configuration)
+- [Environment Variables](#environment-variables)
+  - [Process Environment](#process-environment)
+  - [Process User](#process-user)
+  - [Group Environment](#group-environment)
+- [Getting Help](#getting-help)
+- [License](#license)
+- [Sponsor](#sponsor)
+
 ## Features
 
 A lightweight process orchestrator CLI:
@@ -37,7 +90,7 @@ A lightweight process orchestrator CLI:
 | Fedora 44, 45 or rawhide | [Fedora (COPR)](#fedora-copr) | Native package, updated by `dnf`, dependencies from the distribution |
 | NixOS or Nix | [Nix](#nix) | Flake package and dev shell, no system Python needed |
 | Linux or macOS with Python 3.14+ | [PyPI](#pypi) | Isolated tool install, upgrades with `uv tool upgrade sentinel-pm` |
-| Tracking `main` | [From git](#from-git) | Latest unreleased changes from the repository |
+| Tracking `main` | [From Source](#from-source) | Latest unreleased changes from the repository |
 
 ### Fedora (COPR)
 
@@ -66,7 +119,7 @@ With pip instead:
 pip install sentinel-pm
 ```
 
-### From git
+### From Source
 
 ```bash
 uv tool install git+https://github.com/4ster-light/sentinel
