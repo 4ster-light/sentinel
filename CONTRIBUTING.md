@@ -80,6 +80,30 @@ just lint
 just c
 ```
 
+## Branching & Pull Requests
+
+`main` is the integration branch: work on a topic branch and open a pull
+request instead of pushing directly. Direct pushes to `main` are acceptable
+for minor, inconsequential changes, but that should not become the norm.
+
+Name branches `<label>/<title>` using the same labels as conventional commits,
+with a short kebab-case title:
+
+- `feat/port-allocation`
+- `fix/restart-loop`
+- `docs/branch-workflow`
+- `chore/nix-update`
+
+Common labels are `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`,
+`ci`, `chore`, `style` and `revert`. Dependabot branches keep their generated
+names.
+
+Open pull requests against `main` with a conventional-commit title. CI runs the
+full gate on pull requests and merge queue entries (`merge_group`), plus manual
+`workflow_dispatch`; it intentionally does not run on every push to `main`, so
+merging a validated PR does not trigger a duplicate run. If you do push
+directly to `main`, run `just c` locally first.
+
 ## Before Submitting
 
 Make sure your changes pass all checks and tests:
@@ -88,8 +112,8 @@ Make sure your changes pass all checks and tests:
 just c
 ```
 
-Checks also run automatically via GitHub Actions on every push and pull
-request, using the same Nix environment described above.
+Checks also run automatically via GitHub Actions on pull requests and merge
+queue entries, using the same Nix environment described above.
 
 Any new features or bug fixes should be accompanied by tests. If you are adding
 a new feature, please include tests that cover the new functionality. All
@@ -145,6 +169,7 @@ The floors in `[project.dependencies]` are the verified minimums the Fedora
 chroots can satisfy; `just fedora-floors` checks them against fedora-44,
 fedora-45 and rawhide. Dependabot is lockfile-only for uv, so it keeps
 `uv.lock` current without moving those floors.
+
 ## Questions?
 
 Feel free to open an issue if you have any questions or need clarification! Even

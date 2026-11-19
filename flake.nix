@@ -58,7 +58,7 @@
           meta = with lib; {
             description = pyproject.project.description;
             homepage = pyproject.project.urls.Homepage;
-            license = licenses.mit;
+            license = licenses.gpl3Plus;
             mainProgram = "sentinel";
           };
         };
