@@ -1,27 +1,22 @@
-<div align="center">
-
 # Sentinel
 
-A lightweight process orchestrator CLI
-
-[![Release](https://img.shields.io/github/v/release/4ster-light/sentinel?sort=semver&label=release&color=2f6f4e&style=flat-square)](https://github.com/4ster-light/sentinel/releases/latest)
-[![PyPI](https://img.shields.io/pypi/v/sentinel-pm?label=pypi&style=flat-square)](https://pypi.org/project/sentinel-pm/)
-[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-teal?style=flat-square)](#installation)
+[![Release](https://img.shields.io/github/v/release/4ster-light/sentinel?sort=semver&label=release&color=2f6f4e&style=flat-square&logo=github)](https://github.com/4ster-light/sentinel/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/sentinel-pm?label=pypi&style=flat-square&logo=pypi&logoColor=white)](https://pypi.org/project/sentinel-pm/)
 [![Nix flake](https://img.shields.io/badge/Nix-flake-5277C3?logo=nixos&logoColor=white&style=flat-square)](flake.nix)
 [![COPR](https://img.shields.io/badge/Fedora-COPR-3c6eb4?logo=fedora&logoColor=white&style=flat-square)](https://copr.fedorainfracloud.org/coprs/4ster-light/sentinel-pm)
+[![Linux](https://img.shields.io/badge/platform-Linux-teal?style=flat-square&logo=linux&logoColor=white)](#installation)
+[![macOS](https://img.shields.io/badge/platform-macOS-teal?style=flat-square&logo=apple&logoColor=white)](#installation)
 
-[![CI](https://img.shields.io/github/actions/workflow/status/4ster-light/sentinel/ci.yml?branch=main&event=push&style=flat-square)](https://github.com/4ster-light/sentinel/actions/workflows/ci.yml)
-[![COPR build](https://img.shields.io/copr/build/4ster-light/sentinel-pm/sentinel-pm?label=COPR&style=flat-square)](https://copr.fedorainfracloud.org/coprs/4ster-light/sentinel-pm/builds/)
+[![CI](https://img.shields.io/github/actions/workflow/status/4ster-light/sentinel/ci.yml?label=CI&style=flat-square&logo=githubactions&logoColor=white)](https://github.com/4ster-light/sentinel/actions/workflows/ci.yml)
+[![COPR build](https://img.shields.io/copr/build/4ster-light/sentinel-pm/sentinel-pm?label=COPR&style=flat-square&logo=fedora&logoColor=white)](https://copr.fedorainfracloud.org/coprs/4ster-light/sentinel-pm/builds/)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-3776AB?logo=python&logoColor=white&style=flat-square)](https://www.python.org/downloads/)
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-EA4AAA?logo=githubsponsors&logoColor=white&style=flat-square)](https://github.com/sponsors/4ster-light)
-[![License: MIT](https://img.shields.io/badge/license-MIT-red?style=flat-square)](LICENSE)
-
-</div>
-
-<br />
+[![License: GPLv3](https://img.shields.io/badge/license-GPLv3-red?style=flat-square&logo=gnu&logoColor=white)](LICENSE)
 
 ## Features
+
+A lightweight process orchestrator CLI:
 
 - Start and manage background processes with automatic logging
 - Real-time CPU, memory, and uptime monitoring
@@ -772,4 +767,10 @@ sentinel remote --help
 
 ## License
 
-MIT
+[![License: GPLv3](https://img.shields.io/badge/license-GPLv3-red?style=flat-square&logo=gnu&logoColor=white)](LICENSE)
+
+## Sponsor
+
+Consider sponsoring if you like this proyect:
+
+[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-EA4AAA?logo=githubsponsors&logoColor=white&style=flat-square)](https://github.com/sponsors/4ster-light)

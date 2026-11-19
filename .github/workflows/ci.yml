@@ -1,9 +1,10 @@
 name: CI
 
+# PRs and merge queue entries are the gate. Direct pushes to main do not
+# re-run CI, so a validated PR does not duplicate the full check.
 on:
-  push:
-    branches: [main]
   pull_request:
+  merge_group:
   workflow_dispatch:
 
 permissions:

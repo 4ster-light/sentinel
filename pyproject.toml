@@ -10,7 +10,7 @@ authors = [{ name = "4ster-light", email = "me@4ster.dev" }]
 dependencies = ["psutil>=7.2.2", "rich>=14.1", "typer>=0.21.2"]
 classifiers = [
 	"Development Status :: 4 - Beta",
-	"License :: OSI Approved :: MIT License",
+	"License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
 	"Programming Language :: Python :: 3",
 	"Programming Language :: Python :: 3 :: Only",
 	"Programming Language :: Python :: 3.14",

@@ -39,6 +39,17 @@ with `nix develop -c just -l`.
 | `just b` / `just build`    | `nix build`                                                  |
 | `just s` / `just serve`    | Serve the HTML coverage report at :8000                      |
 
+## Branching
+
+- Never commit directly to `main` except for minor, inconsequential changes;
+  a pull request is the default for everything else, including small fixes.
+- Name branches `<label>/<title>` with a conventional-commit label and a short
+  kebab-case title, for example `feat/port-allocation`, `fix/restart-loop` or
+  `docs/branch-workflow`.
+- Open pull requests against `main` and use a conventional-commit title. CI
+  runs on `pull_request` and `merge_group` (plus manual dispatch), not on every
+  push to `main`, so merging a validated PR does not duplicate the gate.
+
 ## Before submitting
 
 > [!IMPORTANT]

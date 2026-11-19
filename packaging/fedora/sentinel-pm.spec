@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # COPR spec for the Sentinel process orchestrator CLI.
 #
@@ -16,7 +16,7 @@ Version:        0.2.6
 Release:        1%{?dist}
 Summary:        Lightweight process orchestrator CLI
 
-License:        MIT
+License:        GPL-3.0-or-later
 URL:            %{forgeurl}
 Source0:        %{forgeurl}/archive/v%{version}/%{archive_name}.tar.gz
 
