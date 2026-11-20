@@ -53,6 +53,7 @@
   - [Exporting Metrics](#exporting-metrics)
   - [Prometheus](#prometheus)
   - [Quick Snapshot](#quick-snapshot)
+- [Web Dashboard](#web-dashboard)
 - [Remote Management](#remote-management)
   - [Registering Remote Hosts](#registering-remote-hosts)
   - [Listing Remote Hosts](#listing-remote-hosts)
@@ -80,6 +81,7 @@ A lightweight process orchestrator CLI:
 - Run processes as specific system users
 - Port allocation and management
 - Metrics export in JSON and table formats
+- Built-in web dashboard for monitoring managed processes
 - Remote process management via SSH
 - Persistent state across sessions
 
@@ -151,6 +153,7 @@ pip install git+https://github.com/4ster-light/sentinel
 | `sentinel port`       | Manage port allocations           |
 | `sentinel startup`    | Generate startup scripts          |
 | `sentinel metrics`    | Export process metrics            |
+| `sentinel dashboard`  | Serve a web monitoring dashboard  |
 | `sentinel remote`     | Manage remote hosts via SSH       |
 
 Run `sentinel run --help` to see process runtime options including `--user`,
@@ -684,6 +687,30 @@ sentinel metrics snapshot
 ```
 
 This is equivalent to `sentinel metrics export` without options.
+
+## Web Dashboard
+
+Sentinel serves a self-contained monitoring page with no external assets:
+
+```bash
+# Serve at http://127.0.0.1:7331/
+sentinel dashboard
+
+# Choose the address and port
+sentinel dashboard --host 0.0.0.0 --port 8080
+```
+
+The page lists every managed process with its status, CPU, memory, uptime,
+group, and cluster, and refreshes itself every five seconds. It is read-only;
+use the CLI to act on what you see. `Ctrl+C` stops the server. With
+`sentinel daemon start` running, crashed processes restart in the background
+while you watch.
+
+The same data is available as JSON for scripting:
+
+```bash
+curl http://127.0.0.1:7331/api/processes
+```
 
 ## Remote Management
 

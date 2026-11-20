@@ -4,6 +4,7 @@ import typer
 
 from .cluster import cluster_app
 from .daemon import daemon_app
+from .dashboard import dashboard as dashboard_command
 from .group import group_app
 from .main import register_main_commands
 from .metrics import metrics_app
@@ -18,6 +19,7 @@ app = typer.Typer(
 )
 
 register_main_commands(app)
+app.command(name="dashboard")(dashboard_command)
 app.add_typer(port_app, name="port")
 app.add_typer(cluster_app, name="cluster")
 app.add_typer(group_app, name="group")
