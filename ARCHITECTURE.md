@@ -33,6 +33,7 @@ belongs in `sentinel_cli`.
 | `env.py` | `.env` loading and environment merge precedence |
 | `metrics.py` | Metrics collection and table/JSON/Prometheus export |
 | `metrics_server.py` | HTTP endpoint serving metrics in the Prometheus text format |
+| `dashboard.py` | HTTP endpoints for the web dashboard: monitoring page and process data |
 | `options.py` | `StartOptions` — validated start parameters, shared by CLI and tests |
 | `format.py` | Human-readable uptime/memory formatting shared by CLI and metrics |
 | `remote.py` | SSH transport for remote management |
@@ -41,7 +42,9 @@ belongs in `sentinel_cli`.
 
 One module per command group (`main`, `group`, `cluster`, `port`, `daemon`,
 `metrics`, `remote`, `startup`), each registering a Typer sub-app in
-`__init__.py`.
+`__init__.py`. The single-command `dashboard` module registers its plain
+command there too; the page markup is presentation and lives in this package,
+while `sentinel_core` serves the page and collects the data.
 `common.py` holds shared helpers such as `load_state()` (constructs the state
 and surfaces corruption warnings).
 
@@ -85,8 +88,8 @@ through.
 1. Implement the behavior in `sentinel_core` (with unit tests).
 2. Add a thin Typer command in `sentinel_cli` that validates input, calls the
    core function, and prints the result.
-3. Register the command (sub-apps in `__init__.py`, plain commands via
-   `register_main_commands`).
+3. Register the command (sub-apps and standalone commands in `__init__.py`,
+   main process commands via `register_main_commands`).
 4. Add CLI tests under `tests/cli/` mirroring the core tests under
    `tests/core/`.
 5. Document it in the README and run `nix develop -c just c`.
