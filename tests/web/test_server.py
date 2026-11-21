@@ -8,7 +8,7 @@ from typing import cast
 
 import pytest
 
-from sentinel_core.dashboard import (
+from sentinel_web.server import (
 	DATA_CONTENT_TYPE,
 	DATA_PATH,
 	PAGE_CONTENT_TYPE,

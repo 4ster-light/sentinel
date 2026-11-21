@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 from sentinel_cli import app
 from sentinel_core.process import start_process
 from sentinel_core.state import State
+from sentinel_web.page import DASHBOARD_PAGE
 
 runner = CliRunner()
 
@@ -64,19 +65,14 @@ class TestDashboardCommand:
 		assert created["address"] == ("127.0.0.1", 7331)
 		assert "http://127.0.0.1:7331/" in result.stdout
 
-	def test_dashboard_page_is_self_contained_and_polls_data(
-		self, state: State, monkeypatch: pytest.MonkeyPatch
-	) -> None:
+	def test_dashboard_serves_the_web_package_page(self, state: State, monkeypatch: pytest.MonkeyPatch) -> None:
 		created: dict[str, object] = {}
 		wire_stub_server(monkeypatch, created)
 		result = runner.invoke(app, ["dashboard"])
 
 		assert result.exit_code == 0, result.output
 		page = cast(Callable[[], str], created["page"])()
-		assert page.startswith("<!DOCTYPE html>")
-		assert "/api/processes" in page
-		assert "src=" not in page
-		assert "<link" not in page
+		assert page == DASHBOARD_PAGE
 
 	def test_dashboard_data_reports_spawned_process(self, state: State, monkeypatch: pytest.MonkeyPatch) -> None:
 		start_process(state, "sleep 10", name="dashproc")
