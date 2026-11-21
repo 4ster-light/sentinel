@@ -9,6 +9,7 @@ from datetime import datetime
 
 import psutil
 
+from .autoscale import apply_autoscaling
 from .health import run_health_check, should_run_health_check
 from .logs import rotate_process_logs
 from .process import ProcessIdentityError, managed_process, restart_process
@@ -129,9 +130,18 @@ class RestartMonitor:
 		self._stop_event = threading.Event()
 		self._lock = threading.Lock()
 		self._restart_callback: Callable[[ProcessInfo, ProcessInfo], None] | None = None
+		self._autoscale_adjustments: dict[str, float] = {}
+		self._scale_callback: Callable[[str, int, int], None] | None = None
 
 	def set_restart_callback(self, callback: Callable[[ProcessInfo, ProcessInfo], None]) -> None:
 		self._restart_callback = callback
+
+	def set_scale_callback(self, callback: Callable[[str, int, int], None]) -> None:
+		self._scale_callback = callback
+
+	def _on_scale(self, cluster: str, previous: int, desired: int) -> None:
+		if self._scale_callback:
+			self._scale_callback(cluster, previous, desired)
 
 	def start(self) -> None:
 		with self._lock:
@@ -163,6 +173,7 @@ class RestartMonitor:
 			try:
 				state = State()
 				check_and_restart_processes(state, on_restart=self._on_restart)
+				apply_autoscaling(state, self._autoscale_adjustments, on_scale=self._on_scale)
 			except Exception as e:
 				logger.error(f"Unexpected error in restart monitor loop: {e}", exc_info=True)
 			self._stop_event.wait(self._check_interval)

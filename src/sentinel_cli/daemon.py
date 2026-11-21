@@ -151,7 +151,11 @@ def _run_monitor() -> None:
 	def on_restart(old_info: ProcessInfo, new_info: ProcessInfo) -> None:
 		logger.info(f"Restarted {new_info.name} (old_pid: {old_info.pid}, new_pid: {new_info.pid})")
 
+	def on_scale(cluster: str, previous: int, desired: int) -> None:
+		logger.info(f"Autoscaled cluster '{cluster}' from {previous} to {desired} instance(s)")
+
 	monitor.set_restart_callback(on_restart)
+	monitor.set_scale_callback(on_scale)
 	monitor.start()
 	_write_daemon_pid(os.getpid())
 	logger.info(f"Daemon started (pid: {os.getpid()})")

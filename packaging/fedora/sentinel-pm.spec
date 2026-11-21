@@ -35,13 +35,14 @@ restart, and SSH-based remote management. State is kept in ~/.sentinel.
 %generate_buildrequires
 %pyproject_buildrequires -r
 echo 'python3dist(pytest)'
+echo 'python3dist(httpx)'
 
 %build
 %pyproject_wheel
 
 %install
 %pyproject_install
-%pyproject_save_files sentinel_core sentinel_cli
+%pyproject_save_files sentinel_core sentinel_cli sentinel_web
 
 %check
 %pyproject_check_import

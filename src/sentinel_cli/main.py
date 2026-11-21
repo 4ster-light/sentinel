@@ -108,6 +108,13 @@ def register_main_commands(app: typer.Typer) -> None:
 			str | None,
 			typer.Option("--scale", help="Instance range: N or MIN-MAX (for example 2-4)"),
 		] = None,
+		autoscale: Annotated[
+			list[str] | None,
+			typer.Option(
+				"--autoscale",
+				help="Scale on load within --scale: cpu:HIGH:LOW percent or mem:HIGH:LOW MB (repeatable)",
+			),
+		] = None,
 		depends_on: Annotated[
 			list[str] | None,
 			typer.Option("--depends-on", "-d", help="Start only after this process is running (repeatable)"),
@@ -161,6 +168,7 @@ def register_main_commands(app: typer.Typer) -> None:
 			startup_timeout_seconds=startup_timeout,
 			instances=instances,
 			scale=scale,
+			autoscale=autoscale or [],
 			depends_on=depends_on or [],
 			nice=nice,
 			ionice=ionice,
@@ -174,6 +182,7 @@ def register_main_commands(app: typer.Typer) -> None:
 
 		health_check = options.health_check
 		ionice_ioclass, ionice_value = options.ionice_spec()
+		autoscale_config = options.autoscale_config
 		base_name = name or command_name.split("/")[-1]
 		started_infos: list[ProcessInfo] = []
 		scale_spec = options.scale_spec
@@ -210,6 +219,7 @@ def register_main_commands(app: typer.Typer) -> None:
 					cluster_index=index if cluster_mode else None,
 					cluster_min=scale_spec.min_instances if scale_spec else None,
 					cluster_max=scale_spec.max_instances if scale_spec else None,
+					autoscale=autoscale_config,
 					priority_warnings=priority_notes,
 				)
 				started_infos.append(info)
@@ -233,6 +243,12 @@ def register_main_commands(app: typer.Typer) -> None:
 				console.print(
 					"[yellow]⚠[/] Health checks are configured but daemon is not running. "
 					"Checks will only happen when you run other sentinel commands."
+				)
+				console.print("[dim]  Run 'sentinel daemon start' for continuous monitoring.[/]")
+			if autoscale_config and not is_daemon_running():
+				console.print(
+					"[yellow]⚠[/] Autoscaling is configured but daemon is not running. "
+					"Scaling decisions only happen under the daemon."
 				)
 				console.print("[dim]  Run 'sentinel daemon start' for continuous monitoring.[/]")
 

@@ -179,6 +179,33 @@ class TestMainCommands:
 		with pytest.raises(ValueError, match="between 0 and 7"):
 			parse_ionice_spec("best-effort:99")
 
+	def test_run_command_with_autoscale(self, state: State):
+		result = runner.invoke(
+			app,
+			["run", "echo", "test", "--name", "web", "--scale", "2-4", "--autoscale", "cpu:80:40"],
+		)
+
+		assert result.exit_code == 0, result.output
+		assert "Autoscaling is configured but daemon is not running" in result.stdout
+		info = State().find_process_by_name("web-1")
+		assert info is not None
+		assert info.autoscale is not None
+		assert (info.autoscale.cpu_high, info.autoscale.cpu_low) == (80.0, 40.0)
+
+	def test_run_command_rejects_autoscale_without_scale(self, state: State):
+		result = runner.invoke(app, ["run", "echo", "test", "--name", "noscale", "--autoscale", "cpu:80:40"])
+
+		assert result.exit_code != 0
+		assert "requires --scale" in result.stderr
+
+	def test_run_command_rejects_invalid_autoscale_spec(self, state: State):
+		result = runner.invoke(
+			app, ["run", "echo", "test", "--name", "badspec", "--scale", "2-4", "--autoscale", "cpu:40"]
+		)
+
+		assert result.exit_code != 0
+		assert "invalid autoscale spec" in result.stderr
+
 	def test_list_command_empty(self):
 		"""Test list command with no processes"""
 		result = runner.invoke(app, ["list"])

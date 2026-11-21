@@ -1,0 +1,13 @@
+:root { color-scheme: light dark; }
+body { margin: 0; font: 14px/1.45 system-ui, sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 18px; margin: 0; }
+.updated { color: gray; font-size: 12px; margin: 4px 0 16px; min-height: 1em; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid rgba(128, 128, 128, 0.35); white-space: nowrap; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+tbody tr:hover { background: rgba(128, 128, 128, 0.12); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.running { color: #2e7d32; }
+.not-running { color: #c62828; }
+.empty { color: gray; }

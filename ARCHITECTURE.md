@@ -6,26 +6,29 @@ This document maps the codebase for contributors. For usage, see the
 
 ## Package layout
 
-Two packages live under `src/`:
+Three packages live under `src/`:
 
 - **`sentinel_core`** — domain logic, no CLI dependencies. Importable and
   usable as a library.
 - **`sentinel_cli`** — Typer/Rich presentation layer over `sentinel_core`.
+- **`sentinel_web`** — the dashboard web layer over `sentinel_core`: FastAPI app, page template, assets and process data.
 
 The rule of thumb: anything that decides *what happens* belongs in
 `sentinel_core`; anything that decides *how it looks or how it is phrased*
-belongs in `sentinel_cli`.
+belongs in `sentinel_cli`; the browser-facing dashboard belongs in
+`sentinel_web`.
 
 ### sentinel_core modules
 
 | Module | Responsibility |
 | ------ | --------------- |
-| `models.py` | Dataclasses persisted in `state.json` (`ProcessInfo`, `GroupInfo`, `PortInfo`, `RemoteInfo`, `HealthCheckConfig`) |
+| `models.py` | Dataclasses persisted in `state.json` (`ProcessInfo`, `GroupInfo`, `PortInfo`, `RemoteInfo`, `HealthCheckConfig`, `AutoscaleConfig`) |
 | `state_store.py` | Owns the `state.json` file: parsing, validation, atomic writes, and advisory locking |
 | `registries.py` | One registry per domain section (processes, ports, groups, remotes), each mutating the store under its lock |
 | `state.py` | `State` facade over the registries (stable API) plus module constants and `get_log_paths` |
 | `dependencies.py` | Dependency ordering for batch start/stop, with cycle and missing-dependency detection |
 | `cluster.py` | Cluster instance naming, scale ranges and resize operations |
+| `autoscale.py` | Cluster autoscaling: load thresholds, hysteresis and the daemon's resize pass |
 | `process.py` | Spawning, stopping (whole process group), restarting, priority, and batch operations |
 | `restart_monitor.py` | The restart engine: a single scan pass shared by the daemon loop and the lazy CLI check |
 | `health.py` | HTTP/TCP health probes and scheduling decisions |
@@ -37,11 +40,20 @@ belongs in `sentinel_cli`.
 | `format.py` | Human-readable uptime/memory formatting shared by CLI and metrics |
 | `remote.py` | SSH transport for remote management |
 
+### sentinel_web modules
+
+| Module | Responsibility |
+| ------ | --------------- |
+| `app.py` | FastAPI app factory: routes, pydantic response models and the static mount |
+| `data.py` | Process rows for one refresh: metrics plus group and cluster labels |
+| `templates/`, `static/` | The dashboard page template and its owned CSS/JS assets |
+
 ### sentinel_cli modules
 
 One module per command group (`main`, `group`, `cluster`, `port`, `daemon`,
 `metrics`, `remote`, `startup`), each registering a Typer sub-app in
-`__init__.py`.
+`__init__.py`. The single-command `dashboard` module registers its plain
+command there too and serves the FastAPI app from `sentinel_web`.
 `common.py` holds shared helpers such as `load_state()` (constructs the state
 and surfaces corruption warnings).
 
@@ -70,6 +82,10 @@ Two code paths share one engine (`check_and_restart_processes` in
   processes, and cleans up dead ones.
 - **Lazy mode**: read-oriented CLI commands (`list`, `status`) run one scan
   pass inline, so restarts still happen without the daemon.
+
+The daemon loop also applies cluster scaling policies after the restart pass
+(`apply_autoscaling` in `autoscale.py`): each cluster with a policy grows or
+shrinks by one instance per scan, within its recorded range.
 
 ## Process lifecycle
 

@@ -8,6 +8,7 @@ from typing import Concatenate
 from urllib.parse import quote
 
 from .models import (
+	AutoscaleConfig,
 	GroupInfo,
 	HealthCheckConfig,
 	PortInfo,
@@ -26,6 +27,7 @@ __all__ = [
 	"LOGS_DIR",
 	"STATE_DIR",
 	"STATE_FILE",
+	"AutoscaleConfig",
 	"GroupInfo",
 	"HealthCheckConfig",
 	"PortInfo",
