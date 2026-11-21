@@ -7,7 +7,7 @@ license = { file = "LICENSE" }
 keywords = ["process", "orchestrator", "CLI", "monitoring", "system administration", "development"]
 requires-python = ">=3.14"
 authors = [{ name = "4ster-light", email = "me@4ster.dev" }]
-dependencies = ["psutil>=7.2.2", "rich>=14.1", "typer>=0.21.2"]
+dependencies = ["fastapi>=0.115", "jinja2>=3.1", "psutil>=7.2.2", "rich>=14.1", "typer>=0.21.2", "uvicorn>=0.32"]
 classifiers = [
 	"Development Status :: 4 - Beta",
 	"License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
@@ -34,7 +34,7 @@ Changelog = "https://github.com/4ster-light/sentinel/releases"
 sentinel = "sentinel_cli:app"
 
 [dependency-groups]
-dev = ["packaging>=26.3", "pytest>=9.2.0", "pytest-cov>=7.1.0", "ruff>=0.17.5", "ty>=0.0.104"]
+dev = ["httpx>=0.27", "packaging>=26.3", "pytest>=9.2.0", "pytest-cov>=7.1.0", "ruff>=0.17.5", "ty>=0.0.104"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -48,6 +48,7 @@ addopts = [
 	"--cov-fail-under=85",       # Minimum coverage percentage
 	"--cov=sentinel_core",       # Measure coverage for shared domain logic
 	"--cov=sentinel_cli",        # Measure coverage for CLI logic
+	"--cov=sentinel_web",        # Measure coverage for the dashboard web layer
 	"--cov-report=term-missing", # Show missing lines in terminal report
 	"--cov-report=html",         # Generate HTML report for human reading (view in browser)
 ]
@@ -60,7 +61,7 @@ build-backend = "hatchling.build"
 skip-excluded-dirs = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sentinel_core", "src/sentinel_cli"]
+packages = ["src/sentinel_core", "src/sentinel_cli", "src/sentinel_web"]
 
 [tool.hatch.build.targets.sdist]
 include = [

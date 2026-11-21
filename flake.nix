@@ -33,12 +33,16 @@
           ];
 
           propagatedBuildInputs = [
+            py.fastapi
+            py.jinja2
             py.psutil
             py.rich
             py.typer
+            py.uvicorn
           ];
 
           nativeCheckInputs = [
+            py.httpx
             py.pytestCheckHook
             py.pytest-cov
           ];
@@ -46,6 +50,7 @@
           pythonImportsCheck = [
             "sentinel_core"
             "sentinel_cli"
+            "sentinel_web"
           ];
 
           doCheck = true;

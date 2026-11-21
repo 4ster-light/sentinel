@@ -6,15 +6,17 @@ This document maps the codebase for contributors. For usage, see the
 
 ## Package layout
 
-Two packages live under `src/`:
+Three packages live under `src/`:
 
 - **`sentinel_core`** — domain logic, no CLI dependencies. Importable and
   usable as a library.
 - **`sentinel_cli`** — Typer/Rich presentation layer over `sentinel_core`.
+- **`sentinel_web`** — the dashboard web layer over `sentinel_core`: FastAPI app, page template, assets and process data.
 
 The rule of thumb: anything that decides *what happens* belongs in
 `sentinel_core`; anything that decides *how it looks or how it is phrased*
-belongs in `sentinel_cli`.
+belongs in `sentinel_cli`; the browser-facing dashboard belongs in
+`sentinel_web`.
 
 ### sentinel_core modules
 
@@ -37,11 +39,20 @@ belongs in `sentinel_cli`.
 | `format.py` | Human-readable uptime/memory formatting shared by CLI and metrics |
 | `remote.py` | SSH transport for remote management |
 
+### sentinel_web modules
+
+| Module | Responsibility |
+| ------ | --------------- |
+| `app.py` | FastAPI app factory: routes, pydantic response models and the static mount |
+| `data.py` | Process rows for one refresh: metrics plus group and cluster labels |
+| `templates/`, `static/` | The dashboard page template and its owned CSS/JS assets |
+
 ### sentinel_cli modules
 
 One module per command group (`main`, `group`, `cluster`, `port`, `daemon`,
 `metrics`, `remote`, `startup`), each registering a Typer sub-app in
-`__init__.py`.
+`__init__.py`. The single-command `dashboard` module registers its plain
+command there too and serves the FastAPI app from `sentinel_web`.
 `common.py` holds shared helpers such as `load_state()` (constructs the state
 and surfaces corruption warnings).
 
