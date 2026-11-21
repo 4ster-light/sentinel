@@ -46,9 +46,12 @@ with `nix develop -c just -l`.
 - Name branches `<label>/<title>` with a conventional-commit label and a short
   kebab-case title, for example `feat/port-allocation`, `fix/restart-loop` or
   `docs/branch-workflow`.
-- Open pull requests against `main` and use a conventional-commit title. CI
-  runs on `pull_request` and `merge_group` (plus manual dispatch), not on every
-  push to `main`, so merging a validated PR does not duplicate the gate.
+- Open pull requests against `main` only from branches carrying complete,
+  locally validated work: a pull request is the hand-off from the automated
+  stage to the human stage. Humans review, request changes and merge; automated
+  work never merges pull requests. CI runs on `pull_request` and `merge_group`
+  (plus manual dispatch), not on every push to `main`, so merging a validated
+  PR does not duplicate the gate.
 
 ## Before submitting
 
