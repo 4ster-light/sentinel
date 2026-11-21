@@ -45,6 +45,7 @@
   - [Group Operations](#group-operations)
   - [Deleting Groups](#deleting-groups)
 - [Process Clusters](#process-clusters)
+  - [Automatic Scaling](#automatic-scaling)
 - [Port Management](#port-management)
   - [Allocating Ports](#allocating-ports)
   - [Listing Ports](#listing-ports)
@@ -80,6 +81,7 @@ A lightweight process orchestrator CLI:
 - Run processes as specific system users
 - Port allocation and management
 - Metrics export in JSON and table formats
+- Automatic cluster scaling on CPU and memory load
 - Remote process management via SSH
 - Persistent state across sessions
 
@@ -154,8 +156,8 @@ pip install git+https://github.com/4ster-light/sentinel
 | `sentinel remote`     | Manage remote hosts via SSH       |
 
 Run `sentinel run --help` to see process runtime options including `--user`,
-`--startup-timeout`, `--instances`, `--scale`, `--depends-on`, `--nice`, and
-`--ionice`.
+`--startup-timeout`, `--instances`, `--scale`, `--autoscale`, `--depends-on`,
+`--nice`, and `--ionice`.
 
 ## Process Management
 
@@ -447,9 +449,10 @@ sentinel daemon stop
 # Output: Stopped daemon (pid: 54321)
 ```
 
-When the daemon is running, it checks every 5 seconds for crashed processes and
-restarts them automatically in the background. The daemon writes its activity
-to `~/.sentinel/daemon.log` (rotated automatically).
+When the daemon is running, it checks every 5 seconds for crashed processes,
+restarts them automatically in the background, and resizes clusters that carry
+an autoscaling policy. The daemon writes its activity to
+`~/.sentinel/daemon.log` (rotated automatically).
 
 ## Process Groups
 
@@ -543,6 +546,29 @@ sentinel cluster scale web 2
 
 Scaling outside the recorded range is refused. Scaled-down instances are stopped
 and removed from state, and a restart keeps an instance in its cluster.
+
+### Automatic Scaling
+
+A cluster with a range can also resize itself from load. Each metric is
+`METRIC:HIGH:LOW`, and every metric is optional:
+
+```bash
+# Scale up when average CPU passes 80%, down below 40%
+sentinel run "python worker.py" --name web --scale 2-4 --autoscale cpu:80:40
+
+# Watch memory too (thresholds in megabytes)
+sentinel run "python worker.py" --name web --scale 2-4 --autoscale cpu:80:40 --autoscale mem:800:300
+
+# Set or remove the policy on an existing cluster
+sentinel cluster autoscale web --cpu 80:40 --mem 800:300
+sentinel cluster autoscale web --clear
+```
+
+The cluster grows by one instance when average CPU or memory crosses HIGH,
+and shrinks by one when every configured metric falls below LOW, never more
+often than every 30 seconds. The daemon evaluates the policy on its 5-second
+scan, so run `sentinel daemon start` for automatic adjustments. `cluster list`
+shows the policy of each cluster.
 
 ## Port Management
 

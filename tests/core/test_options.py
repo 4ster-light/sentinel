@@ -2,6 +2,7 @@
 
 import pytest
 
+from sentinel_core.models import AutoscaleConfig
 from sentinel_core.options import StartOptions, parse_ionice_spec
 from sentinel_core.state import HealthCheckConfig
 
@@ -85,6 +86,28 @@ class TestStartOptionsValidation:
 		options = StartOptions(cmd="sleep 10", health_tcp="127.0.0.1:9000", health_failures=0)
 		with pytest.raises(ValueError, match="health-failures"):
 			options.validate()
+
+	def test_autoscale_requires_a_scale_range(self):
+		options = StartOptions(cmd="sleep 10", autoscale=["cpu:80:40"])
+		with pytest.raises(ValueError, match="requires --scale"):
+			options.validate()
+
+	def test_autoscale_rejects_a_fixed_scale(self):
+		options = StartOptions(cmd="sleep 10", scale="2", autoscale=["cpu:80:40"])
+		with pytest.raises(ValueError, match="MIN-MAX"):
+			options.validate()
+
+	def test_invalid_autoscale_spec(self):
+		options = StartOptions(cmd="sleep 10", scale="2-4", autoscale=["cpu:40"])
+		with pytest.raises(ValueError, match="autoscale"):
+			options.validate()
+
+	def test_valid_autoscale_with_a_range(self):
+		options = StartOptions(cmd="sleep 10", scale="2-4", autoscale=["cpu:80:40", "mem:800:300"])
+		options.validate()
+		assert options.autoscale_config == AutoscaleConfig(
+			cpu_high=80.0, cpu_low=40.0, mem_high_mb=800.0, mem_low_mb=300.0
+		)
 
 
 class TestStartOptionsHealthCheck:
