@@ -39,6 +39,46 @@ class HealthCheckConfig:
 		)
 
 
+def _format_threshold(value: float) -> str:
+	return f"{value:g}"
+
+
+@dataclass
+class AutoscaleConfig:
+	"""CPU and memory thresholds that grow or shrink a cluster within its range."""
+
+	cpu_high: float | None = None
+	cpu_low: float | None = None
+	mem_high_mb: float | None = None
+	mem_low_mb: float | None = None
+
+	def to_dict(self) -> dict[str, Any]:
+		return {
+			"cpu_high": self.cpu_high,
+			"cpu_low": self.cpu_low,
+			"mem_high_mb": self.mem_high_mb,
+			"mem_low_mb": self.mem_low_mb,
+		}
+
+	@classmethod
+	def from_dict(cls, data: dict[str, Any]) -> Self:
+		return cls(
+			cpu_high=None if data.get("cpu_high") is None else float(data["cpu_high"]),
+			cpu_low=None if data.get("cpu_low") is None else float(data["cpu_low"]),
+			mem_high_mb=None if data.get("mem_high_mb") is None else float(data["mem_high_mb"]),
+			mem_low_mb=None if data.get("mem_low_mb") is None else float(data["mem_low_mb"]),
+		)
+
+	def describe(self) -> str:
+		"""Policy as flag-style text, for example cpu:80:40 mem:800:300."""
+		parts: list[str] = []
+		if self.cpu_high is not None and self.cpu_low is not None:
+			parts.append(f"cpu:{_format_threshold(self.cpu_high)}:{_format_threshold(self.cpu_low)}")
+		if self.mem_high_mb is not None and self.mem_low_mb is not None:
+			parts.append(f"mem:{_format_threshold(self.mem_high_mb)}:{_format_threshold(self.mem_low_mb)}")
+		return " ".join(parts)
+
+
 @dataclass
 class ProcessInfo:
 	id: int
@@ -58,6 +98,7 @@ class ProcessInfo:
 	cluster_index: int | None = None
 	cluster_min: int | None = None
 	cluster_max: int | None = None
+	autoscale: AutoscaleConfig | None = None
 	env_file: str | None = None
 	health_check: HealthCheckConfig | None = None
 	health_failures: int = 0
@@ -89,6 +130,7 @@ class ProcessInfo:
 			"cluster_index": self.cluster_index,
 			"cluster_min": self.cluster_min,
 			"cluster_max": self.cluster_max,
+			"autoscale": self.autoscale.to_dict() if self.autoscale else None,
 			"env_file": self.env_file,
 			"health_check": self.health_check.to_dict() if self.health_check else None,
 			"health_failures": self.health_failures,
@@ -122,6 +164,7 @@ class ProcessInfo:
 			cluster_index=data.get("cluster_index"),
 			cluster_min=data.get("cluster_min"),
 			cluster_max=data.get("cluster_max"),
+			autoscale=AutoscaleConfig.from_dict(data["autoscale"]) if data.get("autoscale") is not None else None,
 			env_file=data.get("env_file"),
 			health_check=HealthCheckConfig.from_dict(data["health_check"])
 			if data.get("health_check") is not None

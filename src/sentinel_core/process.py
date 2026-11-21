@@ -15,7 +15,7 @@ import psutil
 from .dependencies import start_order, stop_order
 from .env import build_process_environment
 from .logs import rotate_process_logs
-from .state import HealthCheckConfig, ProcessInfo, ProcessStatus, State, get_log_paths, serialized
+from .state import AutoscaleConfig, HealthCheckConfig, ProcessInfo, ProcessStatus, State, get_log_paths, serialized
 
 
 class _SpawnedChild(Protocol):
@@ -331,6 +331,7 @@ def start_process(
 	cluster_index: int | None = None,
 	cluster_min: int | None = None,
 	cluster_max: int | None = None,
+	autoscale: AutoscaleConfig | None = None,
 	process_id: int | None = None,
 	base_env: dict[str, str] | None = None,
 ) -> ProcessInfo:
@@ -450,6 +451,7 @@ def start_process(
 			cluster_index=cluster_index,
 			cluster_min=cluster_min,
 			cluster_max=cluster_max,
+			autoscale=autoscale,
 			stdout_log=str(stdout_path),
 			stderr_log=str(stderr_path),
 			env=env or {},
@@ -508,6 +510,7 @@ def restart_from_info(state: State, info: ProcessInfo) -> ProcessInfo:
 		cluster_index=info.cluster_index,
 		cluster_min=info.cluster_min,
 		cluster_max=info.cluster_max,
+		autoscale=info.autoscale,
 		restart=info.restart,
 		user=info.user,
 		env=info.env,
