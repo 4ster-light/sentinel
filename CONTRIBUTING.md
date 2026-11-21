@@ -98,11 +98,15 @@ Common labels are `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`,
 `ci`, `chore`, `style` and `revert`. Dependabot branches keep their generated
 names.
 
-Open pull requests against `main` with a conventional-commit title. CI runs the
-full gate on pull requests and merge queue entries (`merge_group`), plus manual
-`workflow_dispatch`; it intentionally does not run on every push to `main`, so
-merging a validated PR does not trigger a duplicate run. If you do push
-directly to `main`, run `just c` locally first.
+A pull request is the hand-off between two distinct stages: the automated
+stage, a purpose-driven branch carrying complete and locally validated work,
+and the human stage, where a maintainer reviews, requests changes and merges.
+Open PRs against `main` with a conventional-commit title, only from finished
+branches and never mid-task; automated work never merges them. CI runs the
+full gate on pull requests and merge queue entries (`merge_group`), plus
+manual `workflow_dispatch`; it intentionally does not run on every push to
+`main`, so merging a validated PR does not trigger a duplicate run. If you do
+push directly to `main`, run `just c` locally first.
 
 ## Before Submitting
 
