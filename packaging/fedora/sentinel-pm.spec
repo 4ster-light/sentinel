@@ -12,7 +12,7 @@
 %global archive_name sentinel-%{version}
 
 Name:           sentinel-pm
-Version:        0.2.6
+Version:        0.3.1
 Release:        1%{?dist}
 Summary:        Lightweight process orchestrator CLI
 
@@ -56,6 +56,8 @@ PYTHONPATH=%{buildroot}%{python3_sitelib} %pytest -o addopts=
 %{_bindir}/sentinel
 
 %changelog
+* Sat Nov 21 2026 4ster-light <me@4ster.dev> - 0.3.1-1
+- Update to 0.3.1: web dashboard (sentinel dashboard command, FastAPI) and cluster autoscaling on CPU and memory load.
 * Wed Nov 18 2026 4ster-light <me@4ster.dev> - 0.2.6-1
 - Update to 0.2.6; the distribution is sentinel-pm and the command stays sentinel.
 * Tue Nov 17 2026 4ster-light <me@4ster.dev> - 0.2.5-1

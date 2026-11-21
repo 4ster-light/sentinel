@@ -72,9 +72,9 @@ features for developers and DevOps.
 
 **Focus:** Advanced features for power users and DevOps. **Target:** Q3 2026
 
-- [ ] **v0.3.1**
-  - [ ] Basic Web Dashboard: Simple UI for monitoring
-  - [ ] Basic Process Scaling: Scale based on CPU/memory
+- [x] ~~**v0.3.1**~~ _**COMPLETED**_
+    - [x] Basic Web Dashboard: Simple UI for monitoring
+    - [x] Basic Process Scaling: Scale based on CPU/memory
 
 - [ ] **v0.3.2**
   - [ ] Basic Process Isolation: Docker integration

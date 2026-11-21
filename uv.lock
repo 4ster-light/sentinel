@@ -500,7 +500,7 @@ wheels = [
 
 [[package]]
 name = "sentinel-pm"
-version = "0.2.6"
+version = "0.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
