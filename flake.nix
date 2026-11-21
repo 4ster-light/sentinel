@@ -46,6 +46,7 @@
           pythonImportsCheck = [
             "sentinel_core"
             "sentinel_cli"
+            "sentinel_web"
           ];
 
           doCheck = true;

@@ -48,6 +48,7 @@ addopts = [
 	"--cov-fail-under=85",       # Minimum coverage percentage
 	"--cov=sentinel_core",       # Measure coverage for shared domain logic
 	"--cov=sentinel_cli",        # Measure coverage for CLI logic
+	"--cov=sentinel_web",        # Measure coverage for the dashboard web layer
 	"--cov-report=term-missing", # Show missing lines in terminal report
 	"--cov-report=html",         # Generate HTML report for human reading (view in browser)
 ]
@@ -60,7 +61,7 @@ build-backend = "hatchling.build"
 skip-excluded-dirs = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sentinel_core", "src/sentinel_cli"]
+packages = ["src/sentinel_core", "src/sentinel_cli", "src/sentinel_web"]
 
 [tool.hatch.build.targets.sdist]
 include = [

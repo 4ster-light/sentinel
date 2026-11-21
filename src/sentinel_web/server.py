@@ -1,13 +1,9 @@
 """HTTP endpoints serving the web dashboard: a monitoring page and process data."""
 
 from collections.abc import Callable
-from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, cast
-
-from .metrics import collect_metrics
-from .state import State
+from typing import cast
 
 RenderDashboard = Callable[[], str]
 
@@ -55,23 +51,6 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
 	def log_message(self, format: str, *args: object) -> None:
 		"""Stay quiet: the dashboard refreshes every few seconds."""
-
-
-def collect_dashboard_data(state: State) -> dict[str, Any]:
-	"""One dashboard refresh: process metrics plus group and cluster labels."""
-	infos = {info.id: info for info in state.list_processes()}
-	rows: list[dict[str, Any]] = []
-	for metric in collect_metrics(state):
-		info = infos.get(metric.id)
-		rows.append(
-			{
-				**metric.to_dict(),
-				"group": info.group if info else None,
-				"cluster": info.cluster if info else None,
-				"cluster_index": info.cluster_index if info else None,
-			}
-		)
-	return {"processes": rows, "updated_at": datetime.now().isoformat(timespec="seconds")}
 
 
 def create_dashboard_server(

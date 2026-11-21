@@ -6,15 +6,17 @@ This document maps the codebase for contributors. For usage, see the
 
 ## Package layout
 
-Two packages live under `src/`:
+Three packages live under `src/`:
 
 - **`sentinel_core`** — domain logic, no CLI dependencies. Importable and
   usable as a library.
 - **`sentinel_cli`** — Typer/Rich presentation layer over `sentinel_core`.
+- **`sentinel_web`** — the dashboard web layer: HTTP server, page markup and data assembly over `sentinel_core`.
 
 The rule of thumb: anything that decides *what happens* belongs in
 `sentinel_core`; anything that decides *how it looks or how it is phrased*
-belongs in `sentinel_cli`.
+belongs in `sentinel_cli`; the browser-facing dashboard belongs in
+`sentinel_web`.
 
 ### sentinel_core modules
 
@@ -33,18 +35,24 @@ belongs in `sentinel_cli`.
 | `env.py` | `.env` loading and environment merge precedence |
 | `metrics.py` | Metrics collection and table/JSON/Prometheus export |
 | `metrics_server.py` | HTTP endpoint serving metrics in the Prometheus text format |
-| `dashboard.py` | HTTP endpoints for the web dashboard: monitoring page and process data |
 | `options.py` | `StartOptions` — validated start parameters, shared by CLI and tests |
 | `format.py` | Human-readable uptime/memory formatting shared by CLI and metrics |
 | `remote.py` | SSH transport for remote management |
+
+### sentinel_web modules
+
+| Module | Responsibility |
+| ------ | --------------- |
+| `server.py` | Threaded HTTP server: routes the monitoring page and process data |
+| `page.py` | The self-contained dashboard page markup, refreshed by polling |
+| `data.py` | Process rows for one refresh: metrics plus group and cluster labels |
 
 ### sentinel_cli modules
 
 One module per command group (`main`, `group`, `cluster`, `port`, `daemon`,
 `metrics`, `remote`, `startup`), each registering a Typer sub-app in
 `__init__.py`. The single-command `dashboard` module registers its plain
-command there too; the page markup is presentation and lives in this package,
-while `sentinel_core` serves the page and collects the data.
+command there too; it wires the `sentinel_web` package into the CLI.
 `common.py` holds shared helpers such as `load_state()` (constructs the state
 and surfaces corruption warnings).
 

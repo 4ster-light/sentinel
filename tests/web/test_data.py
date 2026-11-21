@@ -2,10 +2,10 @@
 
 from collections.abc import Callable
 
-from sentinel_core.dashboard import collect_dashboard_data
 from sentinel_core.models import ProcessInfo
 from sentinel_core.process import stop_process
 from sentinel_core.state import State
+from sentinel_web.data import collect_dashboard_data
 
 
 class TestCollectDashboardData:

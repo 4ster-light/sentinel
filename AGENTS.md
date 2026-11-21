@@ -61,19 +61,21 @@ with `nix develop -c just -l`.
 > - Follow [conventional commits](https://gist.github.com/qoomon/5dfcdf8eec66a051ecd85625518cfd13)
 >   (`feat(scope): ...`, `fix(core): ...`, `docs: ...`).
 > - New behavior and bug fixes require tests. Coverage is measured on
->   `sentinel_core` and `sentinel_cli` and must stay at or above 85%.
+>   `sentinel_core`, `sentinel_cli` and `sentinel_web` and must stay at or above 85%.
 
 ## Project shape
 
 - `src/sentinel_core` — domain logic with no CLI dependencies, usable as a library.
 - `src/sentinel_cli` — Typer/Rich presentation layer over the core.
+- `src/sentinel_web` — dashboard web layer (server, page, data) over the core.
 - CLI entry point: `sentinel_cli:app` (installed as `sentinel`).
-- Tests mirror the source layout under `tests/` (`tests/core`, `tests/cli`).
+- Tests mirror the source layout under `tests/` (`tests/core`, `tests/cli`, `tests/web`).
 - State lives in `~/.sentinel/`; override with `SENTINEL_STATE_DIR`. Tests set
   this and other globals via the autouse `isolated_runtime` fixture in
   `tests/conftest.py`.
 - Rule of thumb: *what happens* belongs in `sentinel_core`; *how it looks or is
-  phrased* belongs in `sentinel_cli`.
+  phrased* belongs in `sentinel_cli`; the dashboard web layer belongs in
+  `sentinel_web`.
 
 ## Style constraints
 
