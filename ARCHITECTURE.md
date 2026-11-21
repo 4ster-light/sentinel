@@ -22,12 +22,13 @@ belongs in `sentinel_cli`; the browser-facing dashboard belongs in
 
 | Module | Responsibility |
 | ------ | --------------- |
-| `models.py` | Dataclasses persisted in `state.json` (`ProcessInfo`, `GroupInfo`, `PortInfo`, `RemoteInfo`, `HealthCheckConfig`) |
+| `models.py` | Dataclasses persisted in `state.json` (`ProcessInfo`, `GroupInfo`, `PortInfo`, `RemoteInfo`, `HealthCheckConfig`, `AutoscaleConfig`) |
 | `state_store.py` | Owns the `state.json` file: parsing, validation, atomic writes, and advisory locking |
 | `registries.py` | One registry per domain section (processes, ports, groups, remotes), each mutating the store under its lock |
 | `state.py` | `State` facade over the registries (stable API) plus module constants and `get_log_paths` |
 | `dependencies.py` | Dependency ordering for batch start/stop, with cycle and missing-dependency detection |
 | `cluster.py` | Cluster instance naming, scale ranges and resize operations |
+| `autoscale.py` | Cluster autoscaling: load thresholds, hysteresis and the daemon's resize pass |
 | `process.py` | Spawning, stopping (whole process group), restarting, priority, and batch operations |
 | `restart_monitor.py` | The restart engine: a single scan pass shared by the daemon loop and the lazy CLI check |
 | `health.py` | HTTP/TCP health probes and scheduling decisions |
@@ -81,6 +82,10 @@ Two code paths share one engine (`check_and_restart_processes` in
   processes, and cleans up dead ones.
 - **Lazy mode**: read-oriented CLI commands (`list`, `status`) run one scan
   pass inline, so restarts still happen without the daemon.
+
+The daemon loop also applies cluster scaling policies after the restart pass
+(`apply_autoscaling` in `autoscale.py`): each cluster with a policy grows or
+shrinks by one instance per scan, within its recorded range.
 
 ## Process lifecycle
 
