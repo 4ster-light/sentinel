@@ -205,9 +205,10 @@ sentinel run "python worker.py" --name worker --restart --health-tcp 127.0.0.1:9
 
 `--depends-on` is repeatable and records the dependency on the process so
 `group start`, `stopall`, `startall`, and `restartall` order their work by it:
-dependencies start first and stop last. Starting a process whose dependency is
-unknown or not running is refused, and dependency cycles are reported before
-anything is started.
+dependencies start first and stop last. Each dependency is confirmed running
+before its dependents start. Starting a process whose dependency is unknown or
+not running is refused, and dependency cycles are reported before anything is
+started.
 
 When you use `--restart` without the daemon running, you will see a warning:
 
