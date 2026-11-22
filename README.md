@@ -160,7 +160,7 @@ pip install git+https://github.com/4ster-light/sentinel
 
 Run `sentinel run --help` to see process runtime options including `--user`,
 `--startup-timeout`, `--instances`, `--scale`, `--autoscale`, `--depends-on`,
-`--nice`, and `--ionice`.
+`--nice`, `--ionice`, and `--docker-image`.
 
 ## Process Management
 
@@ -218,6 +218,38 @@ Warning: Restart flag set but daemon is not running. Restarts will only happen
 when you run other sentinel commands.
   Run 'sentinel daemon start' for continuous monitoring.
 ```
+
+### Docker Process Isolation
+
+Run a process inside a container with `--docker-image`:
+
+```bash
+# Nginx in a container with a published port
+sentinel run "nginx -g 'daemon off;'" --name web --restart --docker-image nginx:alpine --docker-ports 8080:80
+
+# Postgres with a bound volume, explicitly on podman
+sentinel run "postgres" --name db --docker-image postgres:17 --docker-volumes pgdata:/var/lib/postgresql/data --docker-engine podman
+```
+
+How it works:
+
+- The command is wrapped in an `<engine> run --rm` line and stored as the
+  process command, so the whole lifecycle keeps working. Restarts respawn the
+  container, logs land in the standard sentinel log files, health checks watch
+  the published ports, and cluster instances get one container each, named
+  `sentinel-<name>-<index>`.
+- Without `--name`, the process name defaults to the image's short name.
+- The engine is picked automatically: `docker` first, then `podman`.
+  `--docker-engine` overrides the choice, and the resolved engine is recorded
+  with the process so `stop` uses the same binary.
+- `stop` runs `<engine> stop -t 10 <container>` and waits for the container to
+  exit. The signal path stays the fallback.
+- A single command is prefixed with `exec`, so it becomes PID 1 and receives
+  the stop signal directly. A compound command keeps the shell as PID 1.
+- Metrics report the wrapper process, not the container's own usage.
+- `--docker-image` cannot be combined with `--user`, `--nice`, `--ionice` or
+  `--cwd`. Those settings do not reach the container.
+- Images must contain a shell, because the command runs through `sh -c`.
 
 ### Startup Script Generation
 

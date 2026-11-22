@@ -13,9 +13,19 @@ from typing import Any, Protocol, cast
 import psutil
 
 from .dependencies import start_order, stop_order
+from .docker import STOP_GRACE_SECONDS, build_stop_command, resolve_engine
 from .env import build_process_environment
 from .logs import rotate_process_logs
-from .state import AutoscaleConfig, HealthCheckConfig, ProcessInfo, ProcessStatus, State, get_log_paths, serialized
+from .state import (
+	AutoscaleConfig,
+	DockerConfig,
+	HealthCheckConfig,
+	ProcessInfo,
+	ProcessStatus,
+	State,
+	get_log_paths,
+	serialized,
+)
 
 
 class _SpawnedChild(Protocol):
@@ -99,6 +109,8 @@ _CMDLINE_RETRY_SECONDS = 0.1
 _CMDLINE_POLL_SECONDS = 0.01
 _START_SETTLE_TIMEOUT_SECONDS = 2.0
 _START_SETTLE_POLL_SECONDS = 0.02
+_CONTAINER_STOP_WAIT_SECONDS = 10.0
+_CONTAINER_STOP_POLL_SECONDS = 0.05
 
 
 def _cmdline_after_exec(proc: psutil.Process) -> list[str]:
@@ -360,6 +372,7 @@ def start_process(
 	cluster_min: int | None = None,
 	cluster_max: int | None = None,
 	autoscale: AutoscaleConfig | None = None,
+	docker: DockerConfig | None = None,
 	process_id: int | None = None,
 	base_env: dict[str, str] | None = None,
 ) -> ProcessInfo:
@@ -484,6 +497,7 @@ def start_process(
 			stderr_log=str(stderr_path),
 			env=env or {},
 			env_file=env_file,
+			docker=docker,
 			health_check=health_check,
 			startup_timeout_seconds=startup_timeout_seconds,
 			nice=nice,
@@ -506,6 +520,34 @@ def _signal_process_group(pid: int, sig: int) -> None:
 		os.killpg(pid, sig)
 
 
+def _stop_container(info: ProcessInfo, force: bool = False) -> None:
+	"""Stop the container behind *info*, then wait for the run wrapper to exit.
+
+	The engine stop command blocks until the container stops, so the wrapper
+	normally exits right after it returns. The signal path stays the fallback
+	when the engine command fails or the wrapper survives it.
+	"""
+	assert info.docker is not None
+	try:
+		engine = info.docker.engine if info.docker.engine is not None else resolve_engine(None)
+	except ValueError:
+		engine = None
+	if engine is not None:
+		with contextlib.suppress(OSError, subprocess.SubprocessError):
+			subprocess.run(
+				build_stop_command(engine, info.name, force=force),
+				capture_output=True,
+				check=False,
+				timeout=STOP_GRACE_SECONDS + 5,
+			)
+	deadline = time.monotonic() + _CONTAINER_STOP_WAIT_SECONDS
+	while time.monotonic() < deadline:
+		if managed_process(info) is None:
+			return
+		time.sleep(_CONTAINER_STOP_POLL_SECONDS)
+	_terminate_pid_if_alive(info.pid, force=True)
+
+
 @serialized
 def stop_process(state: State, id_or_name: int | str, force: bool = False) -> ProcessInfo:
 	info = state.find_process(id_or_name)
@@ -517,7 +559,10 @@ def stop_process(state: State, id_or_name: int | str, force: bool = False) -> Pr
 			and info.pid > 0
 			and (managed_process(info, include_zombie=True) is not None or not psutil.pid_exists(info.pid))
 		):
-			_terminate_pid_if_alive(info.pid, force=force)
+			if info.docker is not None:
+				_stop_container(info, force=force)
+			else:
+				_terminate_pid_if_alive(info.pid, force=force)
 	except (OSError, psutil.Error) as e:
 		raise ValueError(f"Failed to stop process '{info.name}': {e}") from e
 	info.stopped = True
@@ -549,6 +594,7 @@ def restart_from_info(state: State, info: ProcessInfo) -> ProcessInfo:
 		nice=info.nice,
 		ionice_ioclass=info.ionice_ioclass,
 		ionice_value=info.ionice_value,
+		docker=info.docker,
 	)
 
 

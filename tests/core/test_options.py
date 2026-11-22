@@ -2,7 +2,7 @@
 
 import pytest
 
-from sentinel_core.models import AutoscaleConfig
+from sentinel_core.models import AutoscaleConfig, DockerConfig
 from sentinel_core.options import StartOptions, parse_ionice_spec
 from sentinel_core.state import HealthCheckConfig
 
@@ -140,3 +140,57 @@ class TestStartOptionsHealthCheck:
 		assert StartOptions(cmd="x").ionice_spec() == (None, None)
 		assert StartOptions(cmd="x", ionice="idle").ionice_spec() == ("idle", None)
 		assert StartOptions(cmd="x", ionice="best-effort:2").ionice_spec() == ("best_effort", 2)
+
+
+class TestDockerOptions:
+	def test_docker_image_alone_is_valid(self):
+		options = StartOptions(cmd="sleep 30", docker_image="alpine")
+
+		options.validate()
+
+	def test_blank_docker_image_is_rejected(self):
+		options = StartOptions(cmd="sleep 30", docker_image="   ")
+
+		with pytest.raises(ValueError, match="--docker-image requires an image name"):
+			options.validate()
+
+	def test_docker_ports_and_volumes_require_an_image(self):
+		for options in (
+			StartOptions(cmd="sleep 30", docker_ports=["8080:80"]),
+			StartOptions(cmd="sleep 30", docker_volumes=["data:/data"]),
+		):
+			with pytest.raises(ValueError, match="require --docker-image"):
+				options.validate()
+
+	def test_docker_image_rejects_host_only_flags(self):
+		for options in (
+			StartOptions(cmd="sleep 30", docker_image="alpine", user="root"),
+			StartOptions(cmd="sleep 30", docker_image="alpine", nice=5),
+			StartOptions(cmd="sleep 30", docker_image="alpine", ionice="idle"),
+			StartOptions(cmd="sleep 30", docker_image="alpine", cwd="/tmp"),
+		):
+			with pytest.raises(ValueError, match="cannot be combined"):
+				options.validate()
+
+	def test_docker_engine_must_be_known(self):
+		options = StartOptions(cmd="sleep 30", docker_image="alpine", docker_engine="containerd")
+
+		with pytest.raises(ValueError, match="--docker-engine must be docker or podman"):
+			options.validate()
+
+	def test_docker_config_carries_the_raw_engine_choice(self):
+		options = StartOptions(
+			cmd="sleep 30",
+			docker_image=" alpine:latest ",
+			docker_ports=["8080:80"],
+			docker_volumes=["data:/data"],
+			docker_engine="podman",
+		)
+		options.validate()
+
+		assert options.docker_config == DockerConfig(
+			image="alpine:latest", ports=["8080:80"], volumes=["data:/data"], engine="podman"
+		)
+
+	def test_docker_config_is_none_without_an_image(self):
+		assert StartOptions(cmd="sleep 30").docker_config is None
