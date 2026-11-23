@@ -46,6 +46,13 @@ Feature and release work starts with GitHub issues:
 - One issue per feature, plus a tracking issue for the release.
 - Each issue records scope, design decisions and acceptance criteria.
 - The pull request description carries `Closes #N` for its issue.
+- Each issue carries one work branch, created and linked at issue creation
+  (`gh issue develop <n> --base main --name <branch>`), and one branch hands
+  off one pull request. Sub-branches may merge into the issue branch during
+  development; the hand-off stays one pull request per issue.
+- The release tracking issue's branch carries the release pull request, which
+  must not close the tracking issue: it closes by hand once every release
+  channel is verified.
 
 ## Branching
 
