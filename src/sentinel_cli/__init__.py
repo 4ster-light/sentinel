@@ -11,6 +11,7 @@ from .metrics import metrics_app
 from .port import port_app
 from .remote import remote_app
 from .startup import startup_app
+from .up import up as up_command
 
 app = typer.Typer(
 	name="sentinel",
@@ -20,6 +21,7 @@ app = typer.Typer(
 
 register_main_commands(app)
 app.command(name="dashboard")(dashboard_command)
+app.command(name="up")(up_command)
 app.add_typer(port_app, name="port")
 app.add_typer(cluster_app, name="cluster")
 app.add_typer(group_app, name="group")

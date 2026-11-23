@@ -36,6 +36,7 @@
             py.fastapi
             py.jinja2
             py.psutil
+            py.pyyaml
             py.rich
             py.typer
             py.uvicorn
