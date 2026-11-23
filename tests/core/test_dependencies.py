@@ -123,7 +123,7 @@ class TestBatchOrdering:
 		assert failed == []
 		assert [info.name for info in successful] == ["db", "app"]
 		# A dependency is confirmed running before its dependents start.
-		assert psutil.Process(successful[0].pid).cmdline(), "db was not running when app started"
+		wait_for(lambda: psutil.Process(successful[0].pid).cmdline())
 		wait_for(lambda: db_checked.exists() and app_marker.exists())
 		batch_stop_processes(State(), successful)
 
