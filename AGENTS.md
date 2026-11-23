@@ -39,6 +39,14 @@ with `nix develop -c just -l`.
 | `just b` / `just build`    | `nix build`                                                  |
 | `just s` / `just serve`    | Serve the HTML coverage report at :8000                      |
 
+## Issue pre-stage
+
+Feature and release work starts with GitHub issues:
+
+- One issue per feature, plus a tracking issue for the release.
+- Each issue records scope, design decisions and acceptance criteria.
+- The pull request description carries `Closes #N` for its issue.
+
 ## Branching
 
 - Never commit directly to `main` except for minor, inconsequential changes;
@@ -65,6 +73,7 @@ with `nix develop -c just -l`.
 >   (`feat(scope): ...`, `fix(core): ...`, `docs: ...`).
 > - New behavior and bug fixes require tests. Coverage is measured on
 >   `sentinel_core`, `sentinel_cli` and `sentinel_web` and must stay at or above 85%.
+> - Follow TDD: write the failing test first, then the implementation.
 
 ## Project shape
 
@@ -88,3 +97,6 @@ with `nix develop -c just -l`.
 - Avoid unnecessary docstrings and trailing comments; prefer self-documenting
   code with concise explanations only where the intent is non-obvious.
 - Catch specific exceptions; never use a bare `except`.
+- Write documentation, issues and release notes in Simplified Technical English
+  (STE): short plain sentences, no em dashes, adversative comparisons or other
+  AI-typical markers.

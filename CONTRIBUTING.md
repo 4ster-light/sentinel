@@ -53,8 +53,9 @@ report.
 
 ### Code Quality Checks
 
-This project follows a _TDD (Test-Driven Development)_ workflow. Tests are the
-source of truth for code correctness and expected behaviour. Therefore for a
+This project follows a _TDD (Test-Driven Development)_ workflow: write the
+failing test first, then the implementation. Tests are the source of truth for
+code correctness and expected behaviour. Therefore for a
 build to be considered valid, all tests must pass, and these must have a minimum
 coverage threshold of 85% (this is hardcoded in the pytest flags found in
 `pyproject.toml` so tests will fail otherwise, so will do builds since they
@@ -79,6 +80,14 @@ just lint
 ```bash
 just c
 ```
+
+## Issue Pre-stage
+
+Feature and release work starts with GitHub issues:
+
+- One issue per feature, plus a tracking issue for the release.
+- Each issue records scope, design decisions and acceptance criteria.
+- The pull request description carries `Closes #N` for its issue.
 
 ## Branching & Pull Requests
 
