@@ -122,6 +122,48 @@ def wait_for() -> Callable[[Callable[[], object]], None]:
 	return wait
 
 
+FAKE_ENGINE_SCRIPT = """#!/bin/sh
+last=""
+for arg in "$@"; do last="$arg"; done
+case "$1" in
+	run)
+		name=""
+		shift
+		while [ $# -gt 0 ]; do
+			case "$1" in
+				--name) name="$2" ;;
+			esac
+			shift
+		done
+		mkdir -p "$FAKE_ENGINE_STATE"
+		echo $$ > "$FAKE_ENGINE_STATE/$name.pid"
+		exec sh -c "$last"
+		;;
+	stop|kill)
+		pid_file="$FAKE_ENGINE_STATE/$last.pid"
+		if [ -f "$pid_file" ]; then
+			kill "$(cat "$pid_file")" 2>/dev/null
+			rm -f "$pid_file"
+		fi
+		;;
+esac
+"""
+
+
+@pytest.fixture
+def fake_engine(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+	"""A hermetic container engine: run execs the wrapped command, stop and kill end it."""
+	engine_bin = tmp_path / "engine-bin"
+	engine_bin.mkdir()
+	script = engine_bin / "docker"
+	script.write_text(FAKE_ENGINE_SCRIPT)
+	script.chmod(0o700)
+	state_dir = tmp_path / "engine-state"
+	monkeypatch.setenv("FAKE_ENGINE_STATE", str(state_dir))
+	monkeypatch.setenv("PATH", f"{engine_bin}{os.pathsep}{os.environ.get('PATH', '')}")
+	return state_dir
+
+
 def pytest_configure() -> None:
 	# Rich caches color support when the CLI modules are imported during collection.
 	os.environ.pop("FORCE_COLOR", None)

@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from .cluster import ScaleSpec
-from .state import AutoscaleConfig, HealthCheckConfig
+from .state import AutoscaleConfig, DockerConfig, HealthCheckConfig
 
 
 def parse_ionice_spec(raw: str | None) -> tuple[str | None, int | None]:
@@ -94,6 +94,10 @@ class StartOptions:
 	depends_on: list[str] = field(default_factory=list)
 	nice: int | None = None
 	ionice: str | None = None
+	docker_image: str | None = None
+	docker_ports: list[str] = field(default_factory=list)
+	docker_volumes: list[str] = field(default_factory=list)
+	docker_engine: str | None = None
 
 	def validate(self) -> None:
 		"""Raise ValueError describing the first invalid option."""
@@ -132,6 +136,22 @@ class StartOptions:
 			raise ValueError("--health-timeout must be greater than 0")
 		if self.health_failures < 1:
 			raise ValueError("--health-failures must be at least 1")
+		if self.docker_image is not None:
+			if not self.docker_image.strip():
+				raise ValueError("--docker-image requires an image name")
+			host_only = (
+				("--user", self.user),
+				("--nice", self.nice),
+				("--ionice", self.ionice),
+				("--cwd", self.cwd),
+			)
+			for flag, value in host_only:
+				if value is not None:
+					raise ValueError(f"--docker-image cannot be combined with {flag}")
+		elif self.docker_ports or self.docker_volumes:
+			raise ValueError("--docker-ports and --docker-volumes require --docker-image")
+		if self.docker_engine is not None and self.docker_engine not in ("docker", "podman"):
+			raise ValueError("--docker-engine must be docker or podman")
 
 	@property
 	def scale_spec(self) -> ScaleSpec | None:
@@ -142,6 +162,18 @@ class StartOptions:
 	def autoscale_config(self) -> AutoscaleConfig | None:
 		"""Parsed scaling policy, or None when no autoscale specs were given."""
 		return parse_autoscale_specs(self.autoscale) if self.autoscale else None
+
+	@property
+	def docker_config(self) -> DockerConfig | None:
+		"""Container backing for the process, or None when it runs on the host."""
+		if self.docker_image is None:
+			return None
+		return DockerConfig(
+			image=self.docker_image.strip(),
+			ports=list(self.docker_ports),
+			volumes=list(self.docker_volumes),
+			engine=self.docker_engine,
+		)
 
 	@property
 	def health_check(self) -> HealthCheckConfig | None:

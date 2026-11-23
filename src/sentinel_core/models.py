@@ -80,6 +80,33 @@ class AutoscaleConfig:
 
 
 @dataclass
+class DockerConfig:
+	"""Container backing for a process: image, published ports, bind volumes and the engine."""
+
+	image: str
+	ports: list[str] = field(default_factory=list)
+	volumes: list[str] = field(default_factory=list)
+	engine: str | None = None
+
+	def to_dict(self) -> dict[str, Any]:
+		return {
+			"image": self.image,
+			"ports": list(self.ports),
+			"volumes": list(self.volumes),
+			"engine": self.engine,
+		}
+
+	@classmethod
+	def from_dict(cls, data: dict[str, Any]) -> Self:
+		return cls(
+			image=data["image"],
+			ports=list(data.get("ports") or []),
+			volumes=list(data.get("volumes") or []),
+			engine=data.get("engine"),
+		)
+
+
+@dataclass
 class ProcessInfo:
 	id: int
 	pid: int
@@ -100,6 +127,7 @@ class ProcessInfo:
 	cluster_max: int | None = None
 	autoscale: AutoscaleConfig | None = None
 	env_file: str | None = None
+	docker: DockerConfig | None = None
 	health_check: HealthCheckConfig | None = None
 	health_failures: int = 0
 	health_last_checked_at: str | None = None
@@ -132,6 +160,7 @@ class ProcessInfo:
 			"cluster_max": self.cluster_max,
 			"autoscale": self.autoscale.to_dict() if self.autoscale else None,
 			"env_file": self.env_file,
+			"docker": self.docker.to_dict() if self.docker else None,
 			"health_check": self.health_check.to_dict() if self.health_check else None,
 			"health_failures": self.health_failures,
 			"health_last_checked_at": self.health_last_checked_at,
@@ -166,6 +195,7 @@ class ProcessInfo:
 			cluster_max=data.get("cluster_max"),
 			autoscale=AutoscaleConfig.from_dict(data["autoscale"]) if data.get("autoscale") is not None else None,
 			env_file=data.get("env_file"),
+			docker=DockerConfig.from_dict(data["docker"]) if data.get("docker") is not None else None,
 			health_check=HealthCheckConfig.from_dict(data["health_check"])
 			if data.get("health_check") is not None
 			else None,

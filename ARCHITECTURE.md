@@ -22,13 +22,14 @@ belongs in `sentinel_cli`; the browser-facing dashboard belongs in
 
 | Module | Responsibility |
 | ------ | --------------- |
-| `models.py` | Dataclasses persisted in `state.json` (`ProcessInfo`, `GroupInfo`, `PortInfo`, `RemoteInfo`, `HealthCheckConfig`, `AutoscaleConfig`) |
+| `models.py` | Dataclasses persisted in `state.json` (`ProcessInfo`, `GroupInfo`, `PortInfo`, `RemoteInfo`, `HealthCheckConfig`, `AutoscaleConfig`, `DockerConfig`) |
 | `state_store.py` | Owns the `state.json` file: parsing, validation, atomic writes, and advisory locking |
 | `registries.py` | One registry per domain section (processes, ports, groups, remotes), each mutating the store under its lock |
 | `state.py` | `State` facade over the registries (stable API) plus module constants and `get_log_paths` |
 | `dependencies.py` | Dependency ordering for batch start/stop, with cycle and missing-dependency detection |
 | `cluster.py` | Cluster instance naming, scale ranges and resize operations |
 | `autoscale.py` | Cluster autoscaling: load thresholds, hysteresis and the daemon's resize pass |
+| `docker.py` | Container engine resolution and the run-line and stop-command builders for docker-backed processes |
 | `process.py` | Spawning, stopping (whole process group), restarting, priority, and batch operations |
 | `restart_monitor.py` | The restart engine: a single scan pass shared by the daemon loop and the lazy CLI check |
 | `health.py` | HTTP/TCP health probes and scheduling decisions |
@@ -92,9 +93,10 @@ shrinks by one instance per scan, within its recorded range.
 Processes are spawned with `shell=True` and `start_new_session=True`, which
 makes each managed process the leader of its own process group. `stop`
 signals the entire group so children of compound commands
-(`cmd1 && cmd2`, background jobs) die with the leader. Exit codes: `0`
-success, `1` handled failure; `sentinel remote` passes the remote exit code
-through.
+(`cmd1 && cmd2`, background jobs) die with the leader. Docker-backed processes
+stop through their engine's `stop` command first; the signal path stays the
+fallback. Exit codes: `0` success, `1` handled failure; `sentinel remote`
+passes the remote exit code through.
 
 ## Adding a command
 

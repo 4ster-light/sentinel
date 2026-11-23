@@ -119,4 +119,5 @@ def _start_instance(state: State, template: ProcessInfo, name: str, index: int) 
 		cluster_min=template.cluster_min,
 		cluster_max=template.cluster_max,
 		autoscale=template.autoscale,
+		docker=template.docker,
 	)

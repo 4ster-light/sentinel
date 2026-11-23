@@ -9,6 +9,7 @@ from urllib.parse import quote
 
 from .models import (
 	AutoscaleConfig,
+	DockerConfig,
 	GroupInfo,
 	HealthCheckConfig,
 	PortInfo,
@@ -28,6 +29,7 @@ __all__ = [
 	"STATE_DIR",
 	"STATE_FILE",
 	"AutoscaleConfig",
+	"DockerConfig",
 	"GroupInfo",
 	"HealthCheckConfig",
 	"PortInfo",

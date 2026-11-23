@@ -10,6 +10,7 @@ from rich.table import Table
 
 from sentinel_core.cluster import ScaleSpec, instance_name
 from sentinel_core.dependencies import DependencyError
+from sentinel_core.docker import build_run_line, resolve_engine
 from sentinel_core.format import format_memory_mb, format_uptime_seconds, uptime_from_started_at
 from sentinel_core.logs import clear_logs, show_logs
 from sentinel_core.options import StartOptions
@@ -25,7 +26,7 @@ from sentinel_core.process import (
 	stop_process,
 )
 from sentinel_core.restart_monitor import check_and_restart_processes
-from sentinel_core.state import ProcessInfo, State
+from sentinel_core.state import DockerConfig, ProcessInfo, State
 
 from .common import console as error_console
 from .common import load_state
@@ -130,6 +131,22 @@ def register_main_commands(app: typer.Typer) -> None:
 				help="I/O scheduling class: idle, best-effort[:0-7], or realtime[:0-7]",
 			),
 		] = None,
+		docker_image: Annotated[
+			str | None,
+			typer.Option("--docker-image", help="Run the command inside this container image"),
+		] = None,
+		docker_ports: Annotated[
+			list[str] | None,
+			typer.Option("--docker-ports", help="Publish a container port, for example 8080:80 (repeatable)"),
+		] = None,
+		docker_volumes: Annotated[
+			list[str] | None,
+			typer.Option("--docker-volumes", help="Bind a container volume, for example data:/data (repeatable)"),
+		] = None,
+		docker_engine: Annotated[
+			str | None,
+			typer.Option("--docker-engine", help="Container engine to use: docker or podman"),
+		] = None,
 	) -> None:
 		"""Start a background process"""
 		state = load_state()
@@ -172,6 +189,10 @@ def register_main_commands(app: typer.Typer) -> None:
 			depends_on=depends_on or [],
 			nice=nice,
 			ionice=ionice,
+			docker_image=docker_image,
+			docker_ports=docker_ports or [],
+			docker_volumes=docker_volumes or [],
+			docker_engine=docker_engine,
 		)
 
 		try:
@@ -183,7 +204,10 @@ def register_main_commands(app: typer.Typer) -> None:
 		health_check = options.health_check
 		ionice_ioclass, ionice_value = options.ionice_spec()
 		autoscale_config = options.autoscale_config
+		docker_config = options.docker_config
 		base_name = name or command_name.split("/")[-1]
+		if docker_config is not None and name is None:
+			base_name = docker_config.image.split("/")[-1].split(":")[0]
 		started_infos: list[ProcessInfo] = []
 		scale_spec = options.scale_spec
 		if scale_spec is None and options.instances > 1:
@@ -199,10 +223,28 @@ def register_main_commands(app: typer.Typer) -> None:
 		try:
 			for index in range(1, instance_count + 1):
 				instance_label = instance_name(base_name, index) if cluster_mode else base_name
+				instance_cmd = cmd
+				instance_docker = docker_config
+				if docker_config is not None:
+					docker_engine = resolve_engine(docker_config.engine)
+					instance_docker = DockerConfig(
+						image=docker_config.image,
+						ports=list(docker_config.ports),
+						volumes=list(docker_config.volumes),
+						engine=docker_engine,
+					)
+					instance_cmd = build_run_line(
+						docker_engine,
+						instance_label,
+						docker_config.image,
+						cmd,
+						ports=docker_config.ports,
+						volumes=docker_config.volumes,
+					)
 				priority_notes: list[str] = []
 				info = start_process(
 					state,
-					cmd,
+					instance_cmd,
 					name=instance_label,
 					restart=options.restart,
 					user=options.user,
@@ -220,6 +262,7 @@ def register_main_commands(app: typer.Typer) -> None:
 					cluster_min=scale_spec.min_instances if scale_spec else None,
 					cluster_max=scale_spec.max_instances if scale_spec else None,
 					autoscale=autoscale_config,
+					docker=instance_docker,
 					priority_warnings=priority_notes,
 				)
 				started_infos.append(info)
@@ -360,6 +403,8 @@ def register_main_commands(app: typer.Typer) -> None:
 		console.print(f"  User:      {escape(info.user) if info.user else 'default'}")
 		console.print(f"  Group:     {escape(info.group) if info.group else 'none'}")
 		console.print(f"  Depends:   {escape(', '.join(info.depends_on)) if info.depends_on else 'none'}")
+		docker_label = f"{escape(info.docker.image)} ({info.docker.engine})" if info.docker is not None else "none"
+		console.print(f"  Docker:    {docker_label}")
 		console.print(f"  CWD:       {escape(info.cwd)}")
 		console.print(f"  Command:   {escape(info.cmd)}")
 		console.print(f"  Stdout:    {escape(info.stdout_log)}")
