@@ -149,6 +149,7 @@ pip install git+https://github.com/4ster-light/sentinel
 | `sentinel stopall`    | Stop all managed processes        |
 | `sentinel startall`   | Start all stopped processes       |
 | `sentinel restartall` | Restart all managed processes     |
+| `sentinel up`         | Start a stack from a config file  |
 | `sentinel daemon`     | Manage the restart monitor daemon |
 | `sentinel group`      | Manage process groups             |
 | `sentinel cluster`    | Manage process clusters           |
@@ -250,6 +251,90 @@ How it works:
 - `--docker-image` cannot be combined with `--user`, `--nice`, `--ionice` or
   `--cwd`. Those settings do not reach the container.
 - Images must contain a shell, because the command runs through `sh -c`.
+
+### Configuration File
+
+`sentinel up` starts every process from one configuration file. It looks
+for `sentinel.toml`, then `sentinel.yaml`, then `sentinel.yml` in the
+current directory. Pass `--config FILE` to name a file directly.
+
+Every process lives under `[processes.<name>]` in TOML or under
+`processes.<name>` in YAML. The keys mirror the `run` flags: `restart`,
+`user`, `group`, `env_file`, `cwd`, `health_http`, `health_tcp`,
+`health_interval`, `health_timeout`, `health_failures`, `startup_timeout`,
+`instances`, `scale`, `autoscale`, `depends_on`, `nice`, `ionice`, and a
+`docker` table. `cmd` is required. A `name` key is rejected because the
+table key already names the process.
+
+TOML example:
+
+```toml
+[processes.db]
+cmd = "postgres -D /srv/db"
+restart = true
+
+[processes.web]
+cmd = "python app.py"
+env_file = ".env"
+cwd = "/srv/app"
+health_http = "http://localhost:8000/health"
+depends_on = ["db"]
+group = "api"
+
+[processes.box]
+cmd = "nginx -g 'daemon off;'"
+docker = { image = "nginx:alpine", ports = ["8080:80"] }
+```
+
+YAML example:
+
+```yaml
+processes:
+  db:
+    cmd: postgres -D /srv/db
+    restart: true
+  web:
+    cmd: python app.py
+    env_file: .env
+    cwd: /srv/app
+    health_http: http://localhost:8000/health
+    depends_on:
+      - db
+    group: api
+  box:
+    cmd: nginx -g 'daemon off;'
+    docker:
+      image: nginx:alpine
+      ports:
+        - 8080:80
+```
+
+The `docker` table accepts `image`, `ports`, `volumes` and `engine`. The
+rules match the `run` flags: `image` is required, `user`, `nice`, `ionice`
+and `cwd` cannot be combined with a container, and the engine is picked
+automatically unless `engine` names one.
+
+`up` validates the whole file before it starts anything. Errors name the
+file, the process and the key.
+
+The per-process rules:
+
+- A process that is not recorded is registered and started.
+- A process that already runs with the same command is left alone and
+  reported as already running.
+- A recorded process that stopped starts again with its recorded settings.
+- A recorded process with a different command is skipped with a warning
+  that names the recorded command.
+- Groups named in the file are created when they do not exist.
+- `scale` and `instances` start numbered instances. `scale` starts the
+  range minimum.
+- `depends_on` orders the start. A dependency may name another file
+  process or a recorded process. A cluster cannot be a dependency, because
+  the batch starts whole instances.
+
+The command prints created groups, started processes, processes that
+already run, and conflicting definitions. It exits non-zero when a start
+fails or a file process is not running at the end.
 
 ### Startup Script Generation
 

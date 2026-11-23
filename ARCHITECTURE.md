@@ -38,6 +38,7 @@ belongs in `sentinel_cli`; the browser-facing dashboard belongs in
 | `metrics.py` | Metrics collection and table/JSON/Prometheus export |
 | `metrics_server.py` | HTTP endpoint serving metrics in the Prometheus text format |
 | `options.py` | `StartOptions` — validated start parameters, shared by CLI and tests |
+| `config.py` | Configuration file discovery, strict parsing into `StartOptions`, and the `up` reconciliation |
 | `format.py` | Human-readable uptime/memory formatting shared by CLI and metrics |
 | `remote.py` | SSH transport for remote management |
 
@@ -53,8 +54,9 @@ belongs in `sentinel_cli`; the browser-facing dashboard belongs in
 
 One module per command group (`main`, `group`, `cluster`, `port`, `daemon`,
 `metrics`, `remote`, `startup`), each registering a Typer sub-app in
-`__init__.py`. The single-command `dashboard` module registers its plain
-command there too and serves the FastAPI app from `sentinel_web`.
+`__init__.py`. The single-command `dashboard` and `up` modules register
+their plain commands there too. `dashboard` serves the FastAPI app from
+`sentinel_web`.
 `common.py` holds shared helpers such as `load_state()` (constructs the state
 and surfaces corruption warnings).
 
