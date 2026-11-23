@@ -97,6 +97,8 @@ def _same_directory(actual: str, expected: str) -> bool:
 _EXEC_SETTLE_SECONDS = 1.0
 _CMDLINE_RETRY_SECONDS = 0.1
 _CMDLINE_POLL_SECONDS = 0.01
+_START_SETTLE_TIMEOUT_SECONDS = 2.0
+_START_SETTLE_POLL_SECONDS = 0.02
 
 
 def _cmdline_after_exec(proc: psutil.Process) -> list[str]:
@@ -271,6 +273,32 @@ def _wait_startup_or_fail(proc: _SpawnedChild, startup_timeout_seconds: float) -
 		if time.monotonic() >= deadline:
 			return
 		time.sleep(0.05)
+
+
+def _confirm_started(info: ProcessInfo, timeout_seconds: float = _START_SETTLE_TIMEOUT_SECONDS) -> None:
+	"""Confirm a freshly started process settled into its program.
+
+	A child shows an empty command line between fork and exec, so batch
+	operations wait for argv to appear before starting the next process: a
+	dependent starts only after its dependency is running. Raise ValueError when
+	the process exits first or never settles within the timeout.
+	"""
+	if info.create_time is None:
+		raise ValueError(f"Process '{info.name}' exited during startup")
+	deadline = time.monotonic() + timeout_seconds
+	while True:
+		proc = managed_process(info)
+		if proc is None:
+			raise ValueError(f"Process '{info.name}' exited during startup")
+		try:
+			arguments = proc.cmdline()
+		except psutil.NoSuchProcess:
+			raise ValueError(f"Process '{info.name}' exited during startup") from None
+		if arguments:
+			return
+		if time.monotonic() >= deadline:
+			raise ValueError(f"Process '{info.name}' did not start within {timeout_seconds:g} seconds")
+		time.sleep(_START_SETTLE_POLL_SECONDS)
 
 
 def _running_process_names(state: State) -> set[str]:
@@ -599,7 +627,10 @@ def batch_start_processes(
 	successful: list[ProcessInfo] = []
 	failed: list[tuple[ProcessInfo, str]] = []
 
-	for info in start_order(processes, available=_running_process_names(state)):
+	ordered = start_order(processes, available=_running_process_names(state))
+	# A dependency is confirmed running before its dependents start.
+	dependencies = {dependency for info in ordered for dependency in info.depends_on}
+	for info in ordered:
 		# Failures are recorded against the process rather than aborting the batch.
 		try:
 			tracked = state.get_process(info.id)
@@ -608,7 +639,13 @@ def batch_start_processes(
 				if managed_process(info) is not None:
 					continue
 				stop_process(state, info.id)
+			problems = running_dependency_problems(state, info.depends_on)
+			if problems:
+				failed.append((info, "; ".join(problems)))
+				continue
 			new_info = restart_from_info(state, info)
+			if new_info.name in dependencies:
+				_confirm_started(new_info)
 			successful.append(new_info)
 		except Exception as e:  # noqa: BLE001
 			failed.append((info, str(e)))
@@ -642,10 +679,19 @@ def batch_restart_processes(
 	successful: list[ProcessInfo] = []
 	failed: list[tuple[ProcessInfo, str]] = []
 
-	for info in start_order(processes, strict=False):
+	ordered = start_order(processes, strict=False)
+	# A dependency is confirmed running before its dependents restart.
+	dependencies = {dependency for info in ordered for dependency in info.depends_on}
+	for info in ordered:
 		# Failures are recorded against the process rather than aborting the batch.
 		try:
+			problems = running_dependency_problems(state, info.depends_on)
+			if problems:
+				failed.append((info, "; ".join(problems)))
+				continue
 			restarted_info = restart_process(state, info.id)
+			if restarted_info.name in dependencies:
+				_confirm_started(restarted_info)
 			successful.append(restarted_info)
 		except Exception as e:  # noqa: BLE001
 			failed.append((info, str(e)))

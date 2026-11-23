@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import psutil
 import pytest
 from typer.testing import CliRunner
 
@@ -91,12 +92,11 @@ class TestRunDependencies:
 class TestGroupDependencyOrder:
 	def test_group_start_starts_dependencies_first(self, state: State, tmp_path: Path, wait_for):
 		app_marker = tmp_path / "app.started"
-		db_marker = tmp_path / "db.started"
 		db_checked = tmp_path / "db.checked"
 		state.create_group("stack")
 		db = start_process(
 			state,
-			f"sh -c 'test ! -f {app_marker} && touch {db_marker}; touch {db_checked}; sleep 30'",
+			f"sh -c 'touch {db_checked}; sleep 30'",
 			name="db",
 			group="stack",
 		)
@@ -109,14 +109,17 @@ class TestGroupDependencyOrder:
 		)
 		result = runner.invoke(app, ["group", "stop", "stack"])
 		assert result.exit_code == 0, result.output
-		for marker in (app_marker, db_marker, db_checked):
+		for marker in (app_marker, db_checked):
 			marker.unlink(missing_ok=True)
 
 		result = runner.invoke(app, ["group", "start", "stack"])
 
 		assert result.exit_code == 0, result.output
 		wait_for(lambda: db_checked.exists() and app_marker.exists())
-		assert db_marker.exists(), "app started before its dependency db"
+		restarted_db = State().find_process_by_name("db")
+		assert restarted_db is not None
+		# A dependency is confirmed running before its dependents start.
+		assert psutil.Process(restarted_db.pid).cmdline(), "db was not running when app started"
 		assert app_info.depends_on == ["db"]
 		stop_process(State(), db.id)
 		stop_process(State(), app_info.id)

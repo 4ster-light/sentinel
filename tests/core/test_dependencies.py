@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import psutil
 import pytest
 
 from sentinel_core.dependencies import DependencyError, start_order, stop_order
@@ -104,12 +105,8 @@ class TestBatchOrdering:
 
 	def test_batch_start_starts_dependencies_first(self, state: State, tmp_path: Path, wait_for, spawn_process):
 		app_marker = tmp_path / "app.started"
-		db_marker = tmp_path / "db.started"
 		db_checked = tmp_path / "db.checked"
-		db = spawn_process(
-			f"sh -c 'test ! -f {app_marker} && touch {db_marker}; touch {db_checked}; sleep 30'",
-			name="db",
-		)
+		db = spawn_process(f"sh -c 'touch {db_checked}; sleep 30'", name="db")
 		app = start_process(
 			state,
 			f"sh -c 'touch {app_marker}; sleep 30'",
@@ -118,16 +115,34 @@ class TestBatchOrdering:
 		)
 		stop_process(state, "db")
 		stop_process(state, "app")
-		for marker in (app_marker, db_marker, db_checked):
+		for marker in (app_marker, db_checked):
 			marker.unlink(missing_ok=True)
 
 		successful, failed = batch_start_processes(State(), [app, db])
 
 		assert failed == []
 		assert [info.name for info in successful] == ["db", "app"]
+		# A dependency is confirmed running before its dependents start.
+		assert psutil.Process(successful[0].pid).cmdline(), "db was not running when app started"
 		wait_for(lambda: db_checked.exists() and app_marker.exists())
-		assert db_marker.exists(), "app started before its dependency db"
-		batch_stop_processes(State(), [db, app])
+		batch_stop_processes(State(), successful)
+
+	def test_batch_start_refuses_dependent_when_dependency_fails(self, state: State):
+		db = start_process(state, "sleep 30", name="db")
+		app = start_process(state, "sleep 30", name="app", depends_on=["db"])
+		stop_process(state, "db")
+		stop_process(state, "app")
+		broken = state.get_process(db.id)
+		assert broken is not None
+		broken.cwd = "/nonexistent/directory/that/does/not/exist"
+		state.add_process(broken)
+
+		successful, failed = batch_start_processes(State(), [db, app])
+
+		assert successful == []
+		assert [info.name for info, _ in failed] == ["db", "app"]
+		assert "Failed to start" in failed[0][1]
+		assert "Dependency 'db' is not running" in failed[1][1]
 
 	def test_batch_start_rejects_a_stopped_dependency(self, state: State, spawn_process):
 		spawn_process("sleep 30", name="db")
@@ -155,3 +170,18 @@ class TestBatchOrdering:
 
 		assert failed == []
 		assert [info.name for info in successful] == ["db", "app"]
+
+	def test_batch_restart_refuses_dependent_when_dependency_fails(self, state: State, spawn_process):
+		db = spawn_process("sleep 30", name="db")
+		app = start_process(state, "sleep 30", name="app", depends_on=["db"])
+		broken = state.get_process(db.id)
+		assert broken is not None
+		broken.cwd = "/nonexistent/directory/that/does/not/exist"
+		state.add_process(broken)
+
+		successful, failed = batch_restart_processes(State(), [app, db])
+
+		assert successful == []
+		assert [info.name for info, _ in failed] == ["db", "app"]
+		assert "Failed to start" in failed[0][1]
+		assert "Dependency 'db' is not running" in failed[1][1]
