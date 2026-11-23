@@ -76,9 +76,9 @@ features for developers and DevOps.
     - [x] Basic Web Dashboard: Simple UI for monitoring
     - [x] Basic Process Scaling: Scale based on CPU/memory
 
-- [ ] **v0.3.2**
-  - [ ] Basic Process Isolation: Docker integration
-  - [ ] Basic Configuration File: YAML/TOML support
+- [x] ~~**v0.3.2**~~ _**COMPLETED**_
+    - [x] Basic Process Isolation: Docker integration
+    - [x] Basic Configuration File: YAML/TOML support
 
 - [ ] **v0.3.3**
   - [ ] Advanced Web Dashboard: Real-time updates and control
