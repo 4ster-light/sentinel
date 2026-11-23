@@ -171,14 +171,14 @@ class TestDockerLifecycle:
 		assert info.docker == DockerConfig(image="alpine", ports=["8080:80"], engine="docker")
 		assert managed_process(info) is not None
 
-	def test_stop_stops_the_container(self, state: State, fake_engine):
+	def test_stop_stops_the_container(self, state: State, fake_engine, wait_for):
 		line = build_run_line("docker", "web", "alpine", "sleep 30")
 		start_process(state, line, name="web", docker=DockerConfig(image="alpine", engine="docker"))
 
 		stopped = stop_process(state, "web")
 
 		assert stopped.stopped
-		assert not psutil.pid_exists(stopped.pid)
+		wait_for(lambda: not psutil.pid_exists(stopped.pid))
 
 	def test_restart_respawns_the_container(self, state: State, fake_engine):
 		line = build_run_line("docker", "web", "alpine", "sleep 30")
