@@ -46,6 +46,7 @@
             py.httpx
             py.pytestCheckHook
             py.pytest-cov
+            py.pytest-xdist
           ];
 
           pythonImportsCheck = [

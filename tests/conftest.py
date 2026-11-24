@@ -122,6 +122,23 @@ def wait_for() -> Callable[[Callable[[], object]], None]:
 	return wait
 
 
+@pytest.fixture
+def pid_is_gone() -> Callable[[int], bool]:
+	"""A pid counts as gone once the kernel has no entry for it or it only waits to be reaped as a zombie."""
+
+	import psutil
+
+	def gone(pid: int) -> bool:
+		if not psutil.pid_exists(pid):
+			return True
+		try:
+			return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+		except psutil.NoSuchProcess:
+			return True
+
+	return gone
+
+
 FAKE_ENGINE_SCRIPT = """#!/bin/sh
 last=""
 for arg in "$@"; do last="$arg"; done

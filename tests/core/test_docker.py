@@ -5,7 +5,6 @@ import os
 import shlex
 import signal
 
-import psutil
 import pytest
 
 from sentinel_core.docker import build_run_line, build_stop_command, container_name, resolve_engine
@@ -171,18 +170,21 @@ class TestDockerLifecycle:
 		assert info.docker == DockerConfig(image="alpine", ports=["8080:80"], engine="docker")
 		assert managed_process(info) is not None
 
-	def test_stop_stops_the_container(self, state: State, fake_engine, wait_for):
+	def test_stop_stops_the_container(self, state: State, fake_engine, wait_for, pid_is_gone):
 		line = build_run_line("docker", "web", "alpine", "sleep 30")
 		start_process(state, line, name="web", docker=DockerConfig(image="alpine", engine="docker"))
+		# The fake engine publishes the wrapper pid only after its script settles; stopping before that is a no-op.
+		wait_for(lambda: (fake_engine / f"{container_name('web')}.pid").exists())
 
 		stopped = stop_process(state, "web")
 
 		assert stopped.stopped
-		wait_for(lambda: not psutil.pid_exists(stopped.pid))
+		wait_for(lambda: pid_is_gone(stopped.pid))
 
-	def test_restart_respawns_the_container(self, state: State, fake_engine):
+	def test_restart_respawns_the_container(self, state: State, fake_engine, wait_for):
 		line = build_run_line("docker", "web", "alpine", "sleep 30")
 		info = start_process(state, line, name="web", docker=DockerConfig(image="alpine", engine="docker"))
+		wait_for(lambda: (fake_engine / f"{container_name('web')}.pid").exists())
 
 		restarted = restart_process(state, "web")
 
