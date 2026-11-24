@@ -834,7 +834,7 @@ This is equivalent to `sentinel metrics export` without options.
 
 ## Web Dashboard
 
-Sentinel serves a self-contained monitoring page with no external assets:
+Sentinel serves a self-contained live page with no external assets:
 
 ```bash
 # Serve at http://127.0.0.1:7331/
@@ -845,15 +845,41 @@ sentinel dashboard --host 0.0.0.0 --port 8080
 ```
 
 The page lists every managed process with its status, CPU, memory, uptime,
-group, and cluster, and refreshes itself every five seconds. It is read-only:
-use the CLI to act on what you see. `Ctrl+C` stops the server. With
-`sentinel daemon start` running, crashed processes restart in the background
-while you watch.
-
-The same data is available as JSON for scripting:
+group, and cluster. It updates itself through a Server-Sent Events stream:
+the server samples the process state once per tick and feeds every open tab
+from one pass, and the page reconnects by itself after a drop. The same
+data is available as JSON for scripting:
 
 ```bash
 curl http://127.0.0.1:7331/api/processes
+```
+
+`Ctrl+C` stops the server. With `sentinel daemon start` running, crashed
+processes restart in the background while you watch.
+
+### Control actions
+
+Each row carries buttons: `Stop`, `Restart`, and `Start` act on the process,
+and `Scale up` and `Scale down` change its cluster size. Each action calls
+the same core functions as the CLI. The page reports the outcome in a
+status line.
+
+### Control token
+
+On the default loopback bind the actions work without extra setup. Binding
+beyond loopback requires a control token, and the server refuses to start
+without one:
+
+```bash
+sentinel dashboard --host 0.0.0.0 --control-token <secret>
+```
+
+Control requests must carry the token in the `X-Control-Token` header. The
+page asks for the token when an action is refused and sends it with every
+later action:
+
+```bash
+curl -X POST -H "X-Control-Token: <secret>" http://<host>:7331/api/processes/1/stop
 ```
 
 ## Remote Management
