@@ -680,16 +680,25 @@ sentinel run "python worker.py" --name web --scale 2-4 --autoscale cpu:80:40
 # Watch memory too (thresholds in megabytes)
 sentinel run "python worker.py" --name web --scale 2-4 --autoscale cpu:80:40 --autoscale mem:800:300
 
+# Scale on a number the process writes to a file
+sentinel run "python worker.py" --name web --scale 2-4 --autoscale metric:/run/app/depth:80:40
+
 # Set or remove the policy on an existing cluster
 sentinel cluster autoscale web --cpu 80:40 --mem 800:300
+sentinel cluster autoscale web --metric /run/app/depth:80:40 --cooldown 15 --step 2
 sentinel cluster autoscale web --clear
 ```
 
-The cluster grows by one instance when average CPU or memory crosses HIGH,
-and shrinks by one when every configured metric falls below LOW, never more
-often than every 30 seconds. The daemon evaluates the policy on its 5-second
-scan, so run `sentinel daemon start` for automatic adjustments. `cluster list`
-shows the policy of each cluster.
+The cluster grows while any configured metric crosses HIGH, and shrinks only
+when every configured metric falls below LOW. A custom metric names a file the
+process updates with its current value. A missing, unreadable, unparsable or
+stale file causes no action. A file older than 60 seconds counts as stale.
+Each policy carries its own cooldown and step. The defaults keep a 30 second
+cooldown and one instance per adjustment. The run flags `--autoscale-cooldown`
+and `--autoscale-step` and the `cluster autoscale` flags `--cooldown` and
+`--step` tune them. The daemon evaluates the policy on its 5-second scan, so
+run `sentinel daemon start` for automatic adjustments. `cluster list` shows
+the policy of each cluster.
 
 ## Port Management
 

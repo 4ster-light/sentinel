@@ -43,17 +43,36 @@ def parse_ionice_spec(raw: str | None) -> tuple[str | None, int | None]:
 def parse_autoscale_specs(specs: Sequence[str]) -> AutoscaleConfig:
 	"""Parse repeatable METRIC:HIGH:LOW specs into a scaling policy.
 
-	CPU thresholds are percentages; memory thresholds are megabytes. Each
-	metric may be given once, and the thresholds must satisfy 0 < LOW < HIGH.
+	CPU thresholds are percentages; memory thresholds are megabytes; a metric
+	names the file a process writes its current value to. Each metric may be
+	given once, and the thresholds must satisfy 0 < LOW < HIGH.
 	"""
 	cpu_high: float | None = None
 	cpu_low: float | None = None
 	mem_high_mb: float | None = None
 	mem_low_mb: float | None = None
+	metric_path: str | None = None
+	metric_high: float | None = None
+	metric_low: float | None = None
 	for raw in specs:
 		metric, separator, rest = raw.strip().partition(":")
-		if not separator or metric not in ("cpu", "mem"):
-			raise ValueError(f"invalid autoscale spec {raw!r}; use cpu:HIGH:LOW or mem:HIGH:LOW")
+		if not separator or metric not in ("cpu", "mem", "metric"):
+			raise ValueError(f"invalid autoscale spec {raw!r}; use cpu:HIGH:LOW, mem:HIGH:LOW or metric:PATH:HIGH:LOW")
+		if metric == "metric":
+			parts = rest.rsplit(":", 2)
+			if len(parts) != 3 or not parts[0].strip():
+				raise ValueError(f"invalid autoscale spec {raw!r}; use metric:PATH:HIGH:LOW")
+			path, raw_high, raw_low = (part.strip() for part in parts)
+			try:
+				high, low = float(raw_high), float(raw_low)
+			except ValueError:
+				raise ValueError(f"invalid autoscale spec {raw!r}; use metric:PATH:HIGH:LOW") from None
+			if not all(map(math.isfinite, (high, low))) or low <= 0 or low >= high:
+				raise ValueError(f"autoscale thresholds in {raw!r} must satisfy 0 < LOW < HIGH")
+			if metric_path is not None:
+				raise ValueError("--autoscale metric may only be given once")
+			metric_path, metric_high, metric_low = path, high, low
+			continue
 		try:
 			high, low = [float(part) for part in rest.split(":")]
 		except ValueError:
@@ -68,7 +87,15 @@ def parse_autoscale_specs(specs: Sequence[str]) -> AutoscaleConfig:
 			if mem_high_mb is not None:
 				raise ValueError("--autoscale mem may only be given once")
 			mem_high_mb, mem_low_mb = high, low
-	return AutoscaleConfig(cpu_high=cpu_high, cpu_low=cpu_low, mem_high_mb=mem_high_mb, mem_low_mb=mem_low_mb)
+	return AutoscaleConfig(
+		cpu_high=cpu_high,
+		cpu_low=cpu_low,
+		mem_high_mb=mem_high_mb,
+		mem_low_mb=mem_low_mb,
+		metric_path=metric_path,
+		metric_high=metric_high,
+		metric_low=metric_low,
+	)
 
 
 @dataclass
@@ -91,6 +118,8 @@ class StartOptions:
 	instances: int = 1
 	scale: str | None = None
 	autoscale: list[str] = field(default_factory=list)
+	autoscale_cooldown: float | None = None
+	autoscale_step: int | None = None
 	depends_on: list[str] = field(default_factory=list)
 	nice: int | None = None
 	ionice: str | None = None
@@ -118,6 +147,16 @@ class StartOptions:
 				raise ValueError("--autoscale requires --scale with a range, for example --scale 2-4")
 			if spec.min_instances == spec.max_instances:
 				raise ValueError("--autoscale needs a MIN-MAX range with room to adjust, for example --scale 2-4")
+		if self.autoscale_cooldown is not None:
+			if not self.autoscale:
+				raise ValueError("--autoscale-cooldown requires --autoscale")
+			if self.autoscale_cooldown <= 0:
+				raise ValueError("--autoscale-cooldown must be greater than 0")
+		if self.autoscale_step is not None:
+			if not self.autoscale:
+				raise ValueError("--autoscale-step requires --autoscale")
+			if self.autoscale_step < 1:
+				raise ValueError("--autoscale-step must be at least 1")
 		if any(not dependency.strip() for dependency in self.depends_on):
 			raise ValueError("--depends-on requires a process name")
 		if self.name is not None and self.name in self.depends_on:
@@ -161,7 +200,14 @@ class StartOptions:
 	@property
 	def autoscale_config(self) -> AutoscaleConfig | None:
 		"""Parsed scaling policy, or None when no autoscale specs were given."""
-		return parse_autoscale_specs(self.autoscale) if self.autoscale else None
+		if not self.autoscale:
+			return None
+		config = parse_autoscale_specs(self.autoscale)
+		if self.autoscale_cooldown is not None:
+			config.cooldown_seconds = self.autoscale_cooldown
+		if self.autoscale_step is not None:
+			config.step = self.autoscale_step
+		return config
 
 	@property
 	def docker_config(self) -> DockerConfig | None:

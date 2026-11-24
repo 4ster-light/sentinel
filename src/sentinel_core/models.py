@@ -45,12 +45,17 @@ def _format_threshold(value: float) -> str:
 
 @dataclass
 class AutoscaleConfig:
-	"""CPU and memory thresholds that grow or shrink a cluster within its range."""
+	"""CPU, memory and file thresholds that grow or shrink a cluster within its range."""
 
 	cpu_high: float | None = None
 	cpu_low: float | None = None
 	mem_high_mb: float | None = None
 	mem_low_mb: float | None = None
+	cooldown_seconds: float = 30.0
+	step: int = 1
+	metric_path: str | None = None
+	metric_high: float | None = None
+	metric_low: float | None = None
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
@@ -58,6 +63,11 @@ class AutoscaleConfig:
 			"cpu_low": self.cpu_low,
 			"mem_high_mb": self.mem_high_mb,
 			"mem_low_mb": self.mem_low_mb,
+			"cooldown_seconds": self.cooldown_seconds,
+			"step": self.step,
+			"metric_path": self.metric_path,
+			"metric_high": self.metric_high,
+			"metric_low": self.metric_low,
 		}
 
 	@classmethod
@@ -67,15 +77,28 @@ class AutoscaleConfig:
 			cpu_low=None if data.get("cpu_low") is None else float(data["cpu_low"]),
 			mem_high_mb=None if data.get("mem_high_mb") is None else float(data["mem_high_mb"]),
 			mem_low_mb=None if data.get("mem_low_mb") is None else float(data["mem_low_mb"]),
+			cooldown_seconds=float(data.get("cooldown_seconds", 30.0)),
+			step=int(data.get("step", 1)),
+			metric_path=data.get("metric_path"),
+			metric_high=None if data.get("metric_high") is None else float(data["metric_high"]),
+			metric_low=None if data.get("metric_low") is None else float(data["metric_low"]),
 		)
 
 	def describe(self) -> str:
-		"""Policy as flag-style text, for example cpu:80:40 mem:800:300."""
+		"""Policy as flag-style text, for example cpu:80:40 mem:800:300 metric:/run/app:80:40."""
 		parts: list[str] = []
 		if self.cpu_high is not None and self.cpu_low is not None:
 			parts.append(f"cpu:{_format_threshold(self.cpu_high)}:{_format_threshold(self.cpu_low)}")
 		if self.mem_high_mb is not None and self.mem_low_mb is not None:
 			parts.append(f"mem:{_format_threshold(self.mem_high_mb)}:{_format_threshold(self.mem_low_mb)}")
+		if self.metric_path is not None and self.metric_high is not None and self.metric_low is not None:
+			parts.append(
+				f"metric:{self.metric_path}:{_format_threshold(self.metric_high)}:{_format_threshold(self.metric_low)}"
+			)
+		if self.cooldown_seconds != 30.0:
+			parts.append(f"cooldown:{_format_threshold(self.cooldown_seconds)}")
+		if self.step != 1:
+			parts.append(f"step:{self.step}")
 		return " ".join(parts)
 
 

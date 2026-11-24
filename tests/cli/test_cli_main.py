@@ -206,6 +206,41 @@ class TestMainCommands:
 		assert result.exit_code != 0
 		assert "invalid autoscale spec" in result.stderr
 
+	def test_run_command_with_autoscale_tuning(self, state: State):
+		result = runner.invoke(
+			app,
+			[
+				"run",
+				"echo",
+				"test",
+				"--name",
+				"tuned",
+				"--scale",
+				"2-4",
+				"--autoscale",
+				"cpu:80:40",
+				"--autoscale-cooldown",
+				"15",
+				"--autoscale-step",
+				"2",
+			],
+		)
+
+		assert result.exit_code == 0, result.output
+		info = State().find_process_by_name("tuned-1")
+		assert info is not None
+		assert info.autoscale is not None
+		assert (info.autoscale.cooldown_seconds, info.autoscale.step) == (15.0, 2)
+
+	def test_run_command_rejects_tuning_without_autoscale(self, state: State):
+		result = runner.invoke(
+			app,
+			["run", "echo", "test", "--name", "notuned", "--scale", "2-4", "--autoscale-cooldown", "15"],
+		)
+
+		assert result.exit_code != 0
+		assert "--autoscale-cooldown" in result.stderr
+
 	def test_list_command_empty(self):
 		"""Test list command with no processes"""
 		result = runner.invoke(app, ["list"])
