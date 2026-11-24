@@ -89,9 +89,12 @@ def cluster_autoscale(
 	name: Annotated[str, typer.Argument(help="Cluster name")],
 	cpu: Annotated[str | None, typer.Option("--cpu", help="CPU thresholds HIGH:LOW in percent")] = None,
 	mem: Annotated[str | None, typer.Option("--mem", help="Memory thresholds HIGH:LOW in MB")] = None,
+	metric: Annotated[str | None, typer.Option("--metric", help="Metric file thresholds PATH:HIGH:LOW")] = None,
+	cooldown: Annotated[float | None, typer.Option("--cooldown", help="Seconds between adjustments")] = None,
+	step: Annotated[int | None, typer.Option("--step", help="Instances moved per adjustment")] = None,
 	clear: Annotated[bool, typer.Option("--clear", help="Remove the scaling policy")] = False,
 ) -> None:
-	"""Set or clear the CPU/memory scaling policy of a cluster"""
+	"""Set or clear the scaling policy of a cluster"""
 	state = load_state()
 	members = cluster_members(state, name)
 	if not members:
@@ -99,8 +102,8 @@ def cluster_autoscale(
 		raise typer.Exit(1)
 
 	if clear:
-		if cpu or mem:
-			console.print("[red]✗[/] --clear cannot be combined with --cpu or --mem")
+		if cpu or mem or metric or cooldown is not None or step is not None:
+			console.print("[red]✗[/] --clear cannot be combined with --cpu, --mem, --metric, --cooldown or --step")
 			raise typer.Exit(1)
 		for member in members:
 			if member.autoscale is not None:
@@ -109,8 +112,15 @@ def cluster_autoscale(
 		console.print(f"[green]✓[/] Cleared autoscaling for [bold]{escape(name)}[/]")
 		return
 
-	if not cpu and not mem:
-		console.print("[red]✗[/] Provide --cpu HIGH:LOW or --mem HIGH:LOW, or --clear")
+	if not cpu and not mem and not metric:
+		console.print("[red]✗[/] Provide --cpu HIGH:LOW, --mem HIGH:LOW or --metric PATH:HIGH:LOW, or --clear")
+		raise typer.Exit(1)
+
+	if cooldown is not None and cooldown <= 0:
+		console.print("[red]✗[/] --cooldown must be greater than 0")
+		raise typer.Exit(1)
+	if step is not None and step < 1:
+		console.print("[red]✗[/] --step must be at least 1")
 		raise typer.Exit(1)
 
 	specs: list[str] = []
@@ -118,6 +128,8 @@ def cluster_autoscale(
 		specs.append(f"cpu:{cpu}")
 	if mem:
 		specs.append(f"mem:{mem}")
+	if metric:
+		specs.append(f"metric:{metric}")
 	try:
 		config = parse_autoscale_specs(specs)
 		spec = cluster_spec(members)
@@ -126,6 +138,11 @@ def cluster_autoscale(
 	except ValueError as error:
 		console.print(f"[red]✗[/] {escape(str(error))}")
 		raise typer.Exit(1) from None
+
+	if cooldown is not None:
+		config.cooldown_seconds = cooldown
+	if step is not None:
+		config.step = step
 
 	for member in members:
 		member.autoscale = config

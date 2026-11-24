@@ -1,6 +1,8 @@
 """Tests for CPU/memory-driven cluster autoscaling"""
 
+import os
 import time
+from pathlib import Path
 
 import pytest
 
@@ -28,6 +30,13 @@ class TestParseAutoscaleSpecs:
 	def test_empty_specs_produce_no_policy(self) -> None:
 		assert parse_autoscale_specs([]) == AutoscaleConfig()
 
+	def test_parses_a_custom_metric_spec(self) -> None:
+		config = parse_autoscale_specs(["metric:/var/run/app/depth:80:40"])
+
+		assert config.metric_path == "/var/run/app/depth"
+		assert (config.metric_high, config.metric_low) == (80.0, 40.0)
+		assert config.describe() == "metric:/var/run/app/depth:80:40"
+
 	def test_describe_renders_the_policy(self) -> None:
 		config = parse_autoscale_specs(["cpu:80:40", "mem:800:300"])
 
@@ -42,6 +51,10 @@ class TestParseAutoscaleSpecs:
 			["cpu:80:40", "cpu:90:50"],
 			["mem:800:300", "mem:900:400"],
 			["disk:80:40"],
+			["metric"],
+			["metric:80:40"],
+			["metric:/depth:40:80"],
+			["metric:/depth:80:40", "metric:/other:90:50"],
 			["cpu:40:80"],
 			["cpu:80:80"],
 			["cpu:80:0"],
@@ -90,6 +103,41 @@ class TestAutoscaleDecision:
 		config = AutoscaleConfig(cpu_high=80, cpu_low=40)
 
 		assert autoscale_decision(config, 10, 900, ScaleSpec(2, 4), 3) == 2
+
+	def test_step_grows_by_the_policy_step(self) -> None:
+		config = AutoscaleConfig(cpu_high=80, cpu_low=40, step=2)
+
+		assert autoscale_decision(config, 90, 10, ScaleSpec(2, 6), 2, avg_metric=None) == 4
+
+	def test_step_shrinks_by_the_policy_step(self) -> None:
+		config = AutoscaleConfig(cpu_high=80, cpu_low=40, step=2)
+
+		assert autoscale_decision(config, 10, 0, ScaleSpec(2, 6), 5, avg_metric=None) == 3
+
+	def test_step_growth_clamps_to_the_maximum(self) -> None:
+		config = AutoscaleConfig(cpu_high=80, cpu_low=40, step=2)
+
+		assert autoscale_decision(config, 90, 10, ScaleSpec(2, 6), 5, avg_metric=None) == 6
+
+	def test_step_shrink_clamps_to_the_minimum(self) -> None:
+		config = AutoscaleConfig(cpu_high=80, cpu_low=40, step=2)
+
+		assert autoscale_decision(config, 10, 0, ScaleSpec(2, 6), 3, avg_metric=None) == 2
+
+	def test_a_hot_metric_grows_the_cluster(self) -> None:
+		config = AutoscaleConfig(metric_high=80, metric_low=40)
+
+		assert autoscale_decision(config, 10, 0, ScaleSpec(2, 6), 2, avg_metric=90) == 3
+
+	def test_a_cool_metric_allows_shrinking(self) -> None:
+		config = AutoscaleConfig(cpu_high=80, cpu_low=40, metric_high=80, metric_low=40)
+
+		assert autoscale_decision(config, 10, 0, ScaleSpec(2, 6), 4, avg_metric=10) == 3
+
+	def test_a_metric_between_thresholds_blocks_shrinking(self) -> None:
+		config = AutoscaleConfig(cpu_high=80, cpu_low=40, metric_high=80, metric_low=40)
+
+		assert autoscale_decision(config, 10, 0, ScaleSpec(2, 6), 4, avg_metric=60) is None
 
 
 class TestApplyAutoscaling:
@@ -147,6 +195,93 @@ class TestApplyAutoscaling:
 		last_adjusted = {"web": time.monotonic()}
 
 		adjustments = apply_autoscaling(State(), last_adjusted)
+
+		assert adjustments == []
+		assert len(cluster_members(State(), "web")) == 2
+
+	def test_a_short_policy_cooldown_allows_recent_adjustments(self, state: State) -> None:
+		self._start_cluster(state, 2, AutoscaleConfig(cpu_high=80, cpu_low=40, cooldown_seconds=15))
+		last_adjusted = {"web": time.monotonic() - 20}
+
+		adjustments = apply_autoscaling(State(), last_adjusted)
+
+		assert adjustments == [("web", 2, 1)]
+
+	def test_the_default_cooldown_still_blocks(self, state: State) -> None:
+		self._start_cluster(state, 2, AutoscaleConfig(cpu_high=80, cpu_low=40))
+		last_adjusted = {"web": time.monotonic() - DEFAULT_COOLDOWN_SECONDS + 5}
+
+		adjustments = apply_autoscaling(State(), last_adjusted)
+
+		assert adjustments == []
+		assert len(cluster_members(State(), "web")) == 2
+
+	def test_a_hot_metric_file_grows_the_cluster(self, state: State, tmp_path: Path) -> None:
+		metric_file = tmp_path / "depth"
+		metric_file.write_text("90\n")
+		self._start_cluster(state, 2, AutoscaleConfig(metric_path=str(metric_file), metric_high=80, metric_low=40))
+
+		adjustments = apply_autoscaling(State(), {})
+
+		assert adjustments == [("web", 2, 3)]
+
+	def test_a_cool_metric_file_shrinks_the_cluster(self, state: State, tmp_path: Path) -> None:
+		metric_file = tmp_path / "depth"
+		metric_file.write_text("10\n")
+		self._start_cluster(state, 2, AutoscaleConfig(metric_path=str(metric_file), metric_high=80, metric_low=40))
+
+		adjustments = apply_autoscaling(State(), {})
+
+		assert adjustments == [("web", 2, 1)]
+
+	def test_a_missing_metric_file_causes_no_action(self, state: State, tmp_path: Path) -> None:
+		self._start_cluster(
+			state,
+			2,
+			AutoscaleConfig(
+				cpu_high=80, cpu_low=40, metric_path=str(tmp_path / "absent"), metric_high=80, metric_low=40
+			),
+		)
+
+		adjustments = apply_autoscaling(State(), {})
+
+		assert adjustments == []
+		assert len(cluster_members(State(), "web")) == 2
+
+	def test_an_unreadable_metric_file_causes_no_action(self, state: State, tmp_path: Path) -> None:
+		self._start_cluster(
+			state,
+			2,
+			AutoscaleConfig(cpu_high=80, cpu_low=40, metric_path=str(tmp_path), metric_high=80, metric_low=40),
+		)
+
+		adjustments = apply_autoscaling(State(), {})
+
+		assert adjustments == []
+		assert len(cluster_members(State(), "web")) == 2
+
+	def test_a_stale_metric_file_causes_no_action(self, state: State, tmp_path: Path) -> None:
+		metric_file = tmp_path / "depth"
+		metric_file.write_text("90\n")
+		old = time.time() - 3600
+		os.utime(metric_file, (old, old))
+		self._start_cluster(state, 2, AutoscaleConfig(metric_path=str(metric_file), metric_high=80, metric_low=40))
+
+		adjustments = apply_autoscaling(State(), {})
+
+		assert adjustments == []
+		assert len(cluster_members(State(), "web")) == 2
+
+	def test_an_unparsable_metric_file_causes_no_action(self, state: State, tmp_path: Path) -> None:
+		metric_file = tmp_path / "depth"
+		metric_file.write_text("not-a-number")
+		self._start_cluster(
+			state,
+			2,
+			AutoscaleConfig(cpu_high=80, cpu_low=40, metric_path=str(metric_file), metric_high=80, metric_low=40),
+		)
+
+		adjustments = apply_autoscaling(State(), {})
 
 		assert adjustments == []
 		assert len(cluster_members(State(), "web")) == 2

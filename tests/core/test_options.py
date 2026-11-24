@@ -109,6 +109,48 @@ class TestStartOptionsValidation:
 			cpu_high=80.0, cpu_low=40.0, mem_high_mb=800.0, mem_low_mb=300.0
 		)
 
+	def test_autoscale_tuning_requires_autoscale(self):
+		options = StartOptions(cmd="sleep 10", scale="2-4", autoscale_cooldown=15)
+		with pytest.raises(ValueError, match="autoscale-cooldown"):
+			options.validate()
+
+	def test_autoscale_step_requires_autoscale(self):
+		options = StartOptions(cmd="sleep 10", scale="2-4", autoscale_step=2)
+		with pytest.raises(ValueError, match="autoscale-step"):
+			options.validate()
+
+	def test_invalid_autoscale_cooldown(self):
+		options = StartOptions(cmd="sleep 10", scale="2-4", autoscale=["cpu:80:40"], autoscale_cooldown=0)
+		with pytest.raises(ValueError, match="autoscale-cooldown"):
+			options.validate()
+
+	def test_invalid_autoscale_step(self):
+		options = StartOptions(cmd="sleep 10", scale="2-4", autoscale=["cpu:80:40"], autoscale_step=0)
+		with pytest.raises(ValueError, match="autoscale-step"):
+			options.validate()
+
+	def test_autoscale_config_applies_the_tuning(self):
+		options = StartOptions(
+			cmd="sleep 10", scale="2-4", autoscale=["cpu:80:40"], autoscale_cooldown=15, autoscale_step=2
+		)
+		options.validate()
+
+		config = options.autoscale_config
+
+		assert config is not None
+		assert config.cooldown_seconds == 15.0
+		assert config.step == 2
+
+	def test_autoscale_config_keeps_the_defaults_without_tuning(self):
+		options = StartOptions(cmd="sleep 10", scale="2-4", autoscale=["cpu:80:40"])
+		options.validate()
+
+		config = options.autoscale_config
+
+		assert config is not None
+		assert config.cooldown_seconds == 30.0
+		assert config.step == 1
+
 
 class TestStartOptionsHealthCheck:
 	def test_no_health_check(self):

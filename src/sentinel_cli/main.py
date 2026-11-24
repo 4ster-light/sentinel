@@ -116,6 +116,14 @@ def register_main_commands(app: typer.Typer) -> None:
 				help="Scale on load within --scale: cpu:HIGH:LOW percent or mem:HIGH:LOW MB (repeatable)",
 			),
 		] = None,
+		autoscale_cooldown: Annotated[
+			float | None,
+			typer.Option("--autoscale-cooldown", help="Seconds between autoscale adjustments"),
+		] = None,
+		autoscale_step: Annotated[
+			int | None,
+			typer.Option("--autoscale-step", help="Instances moved per autoscale adjustment"),
+		] = None,
 		depends_on: Annotated[
 			list[str] | None,
 			typer.Option("--depends-on", "-d", help="Start only after this process is running (repeatable)"),
@@ -186,6 +194,8 @@ def register_main_commands(app: typer.Typer) -> None:
 			instances=instances,
 			scale=scale,
 			autoscale=autoscale or [],
+			autoscale_cooldown=autoscale_cooldown,
+			autoscale_step=autoscale_step,
 			depends_on=depends_on or [],
 			nice=nice,
 			ionice=ionice,

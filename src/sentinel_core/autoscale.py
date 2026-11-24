@@ -3,6 +3,7 @@
 import logging
 import time
 from collections.abc import Callable
+from pathlib import Path
 
 from .cluster import ScaleSpec, cluster_members, cluster_spec, scale_cluster
 from .models import AutoscaleConfig, ProcessInfo
@@ -12,6 +13,7 @@ from .state import State, serialized
 logger = logging.getLogger(__name__)
 
 DEFAULT_COOLDOWN_SECONDS = 30.0
+DEFAULT_METRIC_STALE_SECONDS = 60.0
 
 
 def _is_running(member: ProcessInfo) -> bool:
@@ -28,27 +30,44 @@ def _average_load(members: list[ProcessInfo]) -> tuple[float, float]:
 	return cpu, memory
 
 
+def read_metric_value(config: AutoscaleConfig) -> float | None:
+	"""The custom metric value, or None while the file is missing, unreadable, unparsable or stale."""
+	if config.metric_path is None:
+		return None
+	path = Path(config.metric_path)
+	try:
+		if time.time() - path.stat().st_mtime > DEFAULT_METRIC_STALE_SECONDS:
+			return None
+		return float(path.read_text(encoding="utf-8").strip())
+	except OSError, ValueError:
+		return None
+
+
 def autoscale_decision(
 	config: AutoscaleConfig,
 	avg_cpu: float,
 	avg_memory_mb: float,
 	spec: ScaleSpec,
 	current: int,
+	avg_metric: float | None = None,
 ) -> int | None:
 	"""Instance count the cluster should run, or None when it should stay.
 
 	Grow while any configured metric is above its high threshold; shrink only
 	when every configured metric is below its low threshold, so a hot metric
-	blocks scale-down instead of flapping the cluster size.
+	blocks scale-down instead of flapping the cluster size. The policy step
+	moves that many instances at once, clamped to the recorded range.
 	"""
 	cpu_hot = config.cpu_high is not None and avg_cpu > config.cpu_high
 	mem_hot = config.mem_high_mb is not None and avg_memory_mb > config.mem_high_mb
+	metric_hot = config.metric_high is not None and avg_metric is not None and avg_metric > config.metric_high
 	cpu_cool = config.cpu_low is None or avg_cpu < config.cpu_low
 	mem_cool = config.mem_low_mb is None or avg_memory_mb < config.mem_low_mb
-	if (cpu_hot or mem_hot) and current < spec.max_instances:
-		return current + 1
-	if cpu_cool and mem_cool and current > spec.min_instances:
-		return current - 1
+	metric_cool = config.metric_low is None or (avg_metric is not None and avg_metric < config.metric_low)
+	if (cpu_hot or mem_hot or metric_hot) and current < spec.max_instances:
+		return min(current + config.step, spec.max_instances)
+	if cpu_cool and mem_cool and metric_cool and current > spec.min_instances:
+		return max(current - config.step, spec.min_instances)
 	return None
 
 
@@ -56,16 +75,17 @@ def autoscale_decision(
 def apply_autoscaling(
 	state: State,
 	last_adjusted: dict[str, float],
-	cooldown_seconds: float = DEFAULT_COOLDOWN_SECONDS,
 	on_scale: Callable[[str, int, int], None] | None = None,
 ) -> list[tuple[str, int, int]]:
 	"""Resize every cluster that carries a scaling policy to match its load.
 
-	Each cluster adjusts by one instance per pass at most, and never more often
-	than *cooldown_seconds*; *last_adjusted* maps cluster names to monotonic
-	timestamps and is updated in place. The restart pass that revives or
-	removes dead instances runs before this one, so members are alive when
-	sampled. Returns (cluster, previous, desired) triples.
+	Each cluster adjusts by its policy step per pass at most, and never more
+	often than its policy cooldown; *last_adjusted* maps cluster names to
+	monotonic timestamps and is updated in place. A cluster with a custom
+	metric file is left alone while the file is missing, unreadable, stale
+	or unparsable. The restart pass that revives or removes dead instances
+	runs before this one, so members are alive when sampled. Returns
+	(cluster, previous, desired) triples.
 	"""
 	now = time.monotonic()
 	adjustments: list[tuple[str, int, int]] = []
@@ -79,10 +99,13 @@ def apply_autoscaling(
 		running = [member for member in members if _is_running(member)]
 		if not running:
 			continue
-		if now - last_adjusted.get(cluster, 0.0) < cooldown_seconds:
+		if now - last_adjusted.get(cluster, 0.0) < config.cooldown_seconds:
+			continue
+		avg_metric = read_metric_value(config)
+		if config.metric_path is not None and avg_metric is None:
 			continue
 		avg_cpu, avg_memory_mb = _average_load(running)
-		desired = autoscale_decision(config, avg_cpu, avg_memory_mb, spec, current=len(members))
+		desired = autoscale_decision(config, avg_cpu, avg_memory_mb, spec, current=len(members), avg_metric=avg_metric)
 		if desired is None:
 			continue
 		try:
