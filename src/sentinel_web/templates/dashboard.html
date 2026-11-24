@@ -1,27 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sentinel dashboard</title>
-<link rel="stylesheet" href="/static/dashboard.css">
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Sentinel dashboard</title>
+	<link rel="stylesheet" href="/static/dashboard.css">
 </head>
 <body>
-<main>
-	<h1>Sentinel</h1>
-	<div class="updated" id="updated"></div>
-	<table>
-		<thead>
-			<tr>
-				<th class="num">ID</th><th>Name</th><th class="num">PID</th><th>Status</th>
-				<th class="num">CPU</th><th class="num">Memory</th><th class="num">Uptime</th>
-				<th>Group</th><th>Cluster</th>
-			</tr>
-		</thead>
-		<tbody id="rows"></tbody>
-	</table>
-	<p class="empty" id="empty" hidden>No processes are being managed yet.</p>
-</main>
-<script src="/static/dashboard.js"></script>
+	<main>
+		<h1>Sentinel</h1>
+		<div class="updated" id="updated"></div>
+		<div class="status" id="action-status"></div>
+		<div class="token-row" id="token-row" hidden>
+			<input type="password" id="token" placeholder="Control token" autocomplete="off">
+		</div>
+		<table>
+			<thead>
+				<tr>
+					<th class="num">ID</th><th>Name</th><th class="num">PID</th><th>Status</th>
+					<th class="num">CPU</th><th class="num">Memory</th><th class="num">Uptime</th>
+					<th>Group</th><th>Cluster</th><th>Actions</th>
+				</tr>
+			</thead>
+			<tbody id="rows"></tbody>
+		</table>
+		<p class="empty" id="empty" hidden>No processes are being managed yet.</p>
+	</main>
+	<script src="/static/dashboard.js"></script>
 </body>
 </html>

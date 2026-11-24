@@ -11,3 +11,10 @@ tbody tr:hover { background: rgba(128, 128, 128, 0.12); }
 .running { color: #2e7d32; }
 .not-running { color: #c62828; }
 .empty { color: gray; }
+.status { color: gray; font-size: 12px; margin: 0 0 12px; min-height: 1em; }
+.status.ok { color: #2e7d32; }
+.status.error { color: #c62828; }
+.token-row { margin: 0 0 12px; }
+.token-row input { font: inherit; padding: 2px 8px; }
+button.action { font: inherit; font-size: 12px; margin: 0 4px 0 0; padding: 1px 8px; cursor: pointer; }
+button.action:disabled { opacity: 0.4; cursor: default; }

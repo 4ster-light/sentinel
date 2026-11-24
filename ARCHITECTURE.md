@@ -11,7 +11,7 @@ Three packages live under `src/`:
 - **`sentinel_core`** — domain logic, no CLI dependencies. Importable and
   usable as a library.
 - **`sentinel_cli`** — Typer/Rich presentation layer over `sentinel_core`.
-- **`sentinel_web`** — the dashboard web layer over `sentinel_core`: FastAPI app, page template, assets and process data.
+- **`sentinel_web`** — the dashboard web layer over `sentinel_core`: FastAPI app, live event stream, control endpoints, page template, assets and process data.
 
 The rule of thumb: anything that decides *what happens* belongs in
 `sentinel_core`; anything that decides *how it looks or how it is phrased*
@@ -46,8 +46,9 @@ belongs in `sentinel_cli`; the browser-facing dashboard belongs in
 
 | Module | Responsibility |
 | ------ | --------------- |
-| `app.py` | FastAPI app factory: routes, pydantic response models and the static mount |
+| `app.py` | FastAPI app factory: the page, the event stream, the control endpoints and the static mount |
 | `data.py` | Process rows for one refresh: metrics plus group and cluster labels |
+| `events.py` | Server-sent events: one sample pass per tick feeds every connected tab |
 | `templates/`, `static/` | The dashboard page template and its owned CSS/JS assets |
 
 ### sentinel_cli modules
