@@ -12,7 +12,7 @@
 %global archive_name sentinel-%{version}
 
 Name:           sentinel-pm
-Version:        0.3.2
+Version:        0.3.3
 Release:        1%{?dist}
 Summary:        Lightweight process orchestrator CLI
 
@@ -56,6 +56,8 @@ PYTHONPATH=%{buildroot}%{python3_sitelib} %pytest -o addopts=
 %{_bindir}/sentinel
 
 %changelog
+* Wed Nov 25 2026 4ster-light <me@4ster.dev> - 0.3.3-1
+- Update to 0.3.3: dashboard live updates and control actions, plus custom scaling policies with per-policy cooldown and step.
 * Mon Nov 23 2026 4ster-light <me@4ster.dev> - 0.3.2-1
 - Update to 0.3.2: Docker process isolation and the configuration file with sentinel up; PyYAML joins the runtime dependencies.
 * Sat Nov 21 2026 4ster-light <me@4ster.dev> - 0.3.1-1

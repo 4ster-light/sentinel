@@ -80,9 +80,9 @@ features for developers and DevOps.
     - [x] Basic Process Isolation: Docker integration
     - [x] Basic Configuration File: YAML/TOML support
 
-- [ ] **v0.3.3**
-  - [ ] Advanced Web Dashboard: Real-time updates and control
-  - [ ] Advanced Process Scaling: Custom scaling policies
+- [x] ~~**v0.3.3**~~ _**COMPLETED**_
+    - [x] Advanced Web Dashboard: Real-time updates and control
+    - [x] Advanced Process Scaling: Custom scaling policies
 
 - [ ] **v0.3.4**
   - [ ] Advanced Process Isolation: cgroups and resource limits
