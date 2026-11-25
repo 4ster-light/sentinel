@@ -47,6 +47,7 @@
             py.pytestCheckHook
             py.pytest-cov
             py.pytest-xdist
+            py.pytest-timeout
           ];
 
           pythonImportsCheck = [
