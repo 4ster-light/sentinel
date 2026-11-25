@@ -3,6 +3,7 @@
 import logging
 import os
 import stat
+import threading
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -162,6 +163,13 @@ def _fake_signals(monkeypatch: pytest.MonkeyPatch) -> dict[int, Callable[..., No
 	return handlers
 
 
+def _run_bounded(action: Callable[[], None], timeout: float = 5.0) -> None:
+	thread = threading.Thread(target=action, daemon=True)
+	thread.start()
+	thread.join(timeout)
+	assert not thread.is_alive(), "the call did not finish within the deadline"
+
+
 class TestRunMonitor:
 	def test_runs_one_tick_and_cleans_up(
 		self, temp_state_dir: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
@@ -178,7 +186,7 @@ class TestRunMonitor:
 			assert len(slept) == 1, "the monitor loop must stop after the handler fires"
 			handlers[daemon.signal.SIGTERM](daemon.signal.SIGTERM, None)
 
-		daemon._run_monitor(sleep=fake_sleep)
+		_run_bounded(lambda: daemon._run_monitor(sleep=fake_sleep))
 
 		monitor = FakeMonitor.instances[0]
 		assert monitor.check_interval == 5.0
@@ -206,7 +214,7 @@ class TestRunMonitor:
 		def fake_sleep(seconds: float) -> None:
 			handlers[daemon.signal.SIGINT](daemon.signal.SIGINT, None)
 
-		daemon._run_monitor(sleep=fake_sleep)
+		_run_bounded(lambda: daemon._run_monitor(sleep=fake_sleep))
 		assert daemon.DAEMON_PID_FILE.read_text() == str(os.getpid() + 1)
 
 
