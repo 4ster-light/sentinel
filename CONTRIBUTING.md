@@ -40,6 +40,9 @@ just t
 Tests are configured in `pyproject.toml` with a minimum coverage threshold of
 85%. An HTML coverage report is automatically generated after each test run.
 
+The suite runs in parallel through pytest-xdist, one worker per logical CPU.
+Use `-n0` for a single-process run while debugging.
+
 #### View coverage report
 
 After running tests, view the coverage report in your browser:

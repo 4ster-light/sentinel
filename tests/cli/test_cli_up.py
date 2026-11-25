@@ -111,7 +111,7 @@ class TestUp:
 		result = runner.invoke(app, ["up", "--config", str(tmp_path / "nope.toml")])
 
 		assert result.exit_code == 1
-		assert "does not exist" in result.stderr
+		assert "does not exist" in " ".join(result.stderr.split())
 
 	def test_reads_a_yaml_file(self, state: State, tmp_path):
 		config = write_stack(tmp_path, "stack.yaml", "processes:\n  db:\n    cmd: sleep 300\n")

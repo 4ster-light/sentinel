@@ -34,7 +34,15 @@ Changelog = "https://github.com/4ster-light/sentinel/releases"
 sentinel = "sentinel_cli:app"
 
 [dependency-groups]
-dev = ["httpx>=0.27", "packaging>=26.3", "pytest>=9.2.0", "pytest-cov>=7.1.0", "ruff>=0.17.5", "ty>=0.0.104"]
+dev = [
+    "httpx>=0.27",
+    "packaging>=26.3",
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "pytest-xdist[psutil]>=3.8.0",
+    "ruff>=0.17.5",
+    "ty>=0.0.104",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -42,6 +50,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
+	"-n=logical",                # Use a number of workers equal to the available CPU threads
 	"--strict-markers",          # Ensure all markers are registered
 	"--strict-config",           # Ensure all config options are valid
 	"-ra",                       # Show extra test summary info for skipped, failed, etc.
@@ -51,6 +60,10 @@ addopts = [
 	"--cov=sentinel_web",        # Measure coverage for the dashboard web layer
 	"--cov-report=term-missing", # Show missing lines in terminal report
 	"--cov-report=html",         # Generate HTML report for human reading (view in browser)
+]
+filterwarnings = [
+	# fastapi's TestClient import warns about the httpx-based starlette shim; httpx2 is not packaged for the nix sandbox yet.
+	"ignore:Using `httpx` with `starlette.testclient`:starlette.exceptions.StarletteDeprecationWarning",
 ]
 
 [build-system]

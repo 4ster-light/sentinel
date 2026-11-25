@@ -5,12 +5,11 @@ import os
 import signal
 import subprocess
 
-import psutil
 import pytest
 
 from sentinel_core.docker import build_run_line, container_name, resolve_engine
 from sentinel_core.models import DockerConfig
-from sentinel_core.process import managed_process, start_process, stop_process
+from sentinel_core.process import start_process, stop_process
 from sentinel_core.state import State
 
 INTEGRATION_IMAGE = "alpine:latest"
@@ -52,19 +51,30 @@ def kill_leftover_containers(state: State, real_engine: str):
 				os.killpg(info.pid, signal.SIGKILL)
 
 
+def _container_is_up(engine: str, name: str) -> bool:
+	result = subprocess.run(
+		[engine, "ps", "--filter", f"name=^{name}$", "--format", "{{.Names}}"],
+		capture_output=True,
+		text=True,
+		check=False,
+		timeout=30,
+	)
+	return result.returncode == 0 and name in result.stdout.split()
+
+
 class TestRealContainerLifecycle:
-	def test_run_and_stop_a_real_container(self, state: State, real_engine: str, wait_for):
+	def test_run_and_stop_a_real_container(self, state: State, real_engine: str, wait_for, pid_is_gone):
 		line = build_run_line(real_engine, "docker-it", INTEGRATION_IMAGE, "sleep 30")
-		info = start_process(
+		start_process(
 			state,
 			line,
 			name="docker-it",
 			docker=DockerConfig(image=INTEGRATION_IMAGE, engine=real_engine),
 		)
 
-		wait_for(lambda: managed_process(info) is not None)
+		wait_for(lambda: _container_is_up(real_engine, container_name("docker-it")))
 
 		stopped = stop_process(state, "docker-it")
 
 		assert stopped.stopped
-		assert not psutil.pid_exists(stopped.pid)
+		assert pid_is_gone(stopped.pid)
