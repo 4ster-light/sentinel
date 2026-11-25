@@ -14,7 +14,7 @@
 Name:           sentinel-pm
 Version:        0.3.3
 Release:        1%{?dist}
-Summary:        Lightweight process orchestrator CLI
+Summary:        A lightweight, language-agnostic, process orchestrator with advanced features for developers and DevOps
 
 License:        GPL-3.0-or-later
 URL:            %{forgeurl}
