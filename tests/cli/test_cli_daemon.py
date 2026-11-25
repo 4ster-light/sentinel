@@ -5,6 +5,7 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 import sentinel_cli.daemon as daemon
@@ -80,8 +81,11 @@ class TestDaemonCommands:
 		daemon.DAEMON_PID_FILE.unlink(missing_ok=True)
 		assert daemon.is_daemon_running() is False
 
-	def test_daemon_start_and_stop(self, temp_state_dir: Path) -> None:
+	def test_daemon_start_and_stop(self, temp_state_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 		"""Test daemon start and stop lifecycle"""
+		# The daemon child inherits the cwd. Use the tree root, where the tool
+		# configuration lives, so a mutation-testing child can load its config.
+		monkeypatch.chdir(Path(daemon.__file__).resolve().parents[2])
 		daemon.DAEMON_PID_FILE.unlink(missing_ok=True)
 
 		result = runner.invoke(app, ["daemon", "start"])

@@ -75,13 +75,6 @@ source_paths = ["src/"]
 # KeyError. The forkserver runner keeps test processes off the main process.
 process_isolation = "forkserver"
 pytest_add_cli_args = ["-o", "addopts="]
-pytest_add_cli_args_test_selection = [
-	# The daemon start test pushes the mutants paths and the stats env into its
-	# child process, and mutmut's config load then fails from the per-test cwd.
-	# Issue #52 removes this deselect.
-	"--deselect",
-	"tests/cli/test_cli_daemon.py::TestDaemonCommands::test_daemon_start_and_stop",
-]
 
 [build-system]
 requires = ["hatchling"]
