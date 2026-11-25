@@ -24,6 +24,11 @@ test-all:
 test *ARGS:
     uv run pytest --no-cov "$@"
 
+# Run mutation testing; pass a mutant name pattern to restrict the run
+[positional-arguments]
+mutants *ARGS:
+    uv run mutmut run "$@"
+
 # Lint code with ruff and type check with ty
 lint:
     uv run ruff check
