@@ -18,6 +18,8 @@ coverage.xml
 *.coverage
 htmlcov/
 
+# Mutation testing
+mutants/
 # Nix
 result
 

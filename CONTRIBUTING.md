@@ -54,6 +54,42 @@ just s
 Then open <http://localhost:8000> in your browser to view the HTML coverage
 report.
 
+### Mutation testing
+
+Mutation testing changes the source on purpose. For each change, the run
+checks that a test fails. The result shows if the tests detect changed
+behaviour. A coverage number cannot show this.
+
+Run a full pass before a release candidate:
+
+```bash
+just mutants
+```
+
+Pass a mutant name pattern to restrict the run:
+
+```bash
+just mutants 'sentinel_core.config.*'
+```
+
+A full pass takes about 25 minutes. A restricted run reuses the cache in
+`mutants/`.
+
+`just mutants` calls `uv run mutmut`, so the run uses the locked project
+environment. mutmut is a dev dependency, not a flake package. The nix package
+runs under a nix python without the project dependencies, and the tests cannot
+import.
+
+The `[tool.mutmut]` section resets the pytest options for the run inside
+mutmut. The suite addopts carry parallel and coverage flags that mutmut cannot
+use.
+The forkserver isolation keeps test child processes away from the main mutmut
+process. The default fork runner reaps any child of the main process and aborts
+with a KeyError when a test leaves a child behind.
+
+A survivor is not always a test gap. A change that cannot alter behaviour is an
+equivalent mutant. Mark it with `# pragma: no mutate` and a short reason.
+
 ### Code Quality Checks
 
 This project follows a _TDD (Test-Driven Development)_ workflow: write the

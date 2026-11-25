@@ -109,16 +109,17 @@
           UV_PROJECT_ENVIRONMENT = ".venv";
 
           shellHook = ''
-            if [ ! -d .venv ]; then
+            if [ ! -d $UV_PROJECT_ENVIRONMENT ]; then
               echo "→ Creating project venv..."
               uv venv
             fi
+            source .venv/bin/activate
 
-            echo ""
-            echo "${pyproject.project.name} nix dev shell — $(python --version)"
-            echo ""
-            echo "See all available commands:  just -l"
-            echo ""
+            echo
+            echo "${pyproject.project.name} nix dev shell"
+            echo "  -> $(python --version)"
+            echo "  -> See all available commands: just -l"
+            echo
           '';
         };
       }
