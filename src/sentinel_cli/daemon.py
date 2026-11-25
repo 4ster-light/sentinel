@@ -8,7 +8,7 @@ import signal
 import subprocess
 import sys
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -133,8 +133,11 @@ def _daemon_main_loop() -> None:
 		_run_monitor()
 
 
-def _run_monitor() -> None:
-	"""Main loop for the daemon process (runs in background)."""
+def _run_monitor(*, sleep: Callable[[float], None] = time.sleep) -> None:
+	"""Main loop for the daemon process (runs in background).
+
+	The ``sleep`` hook lets a test drive one tick and stop the loop.
+	"""
 	_configure_daemon_logging()
 
 	should_exit = False
@@ -162,7 +165,7 @@ def _run_monitor() -> None:
 
 	try:
 		while not should_exit:
-			time.sleep(1)
+			sleep(1)
 	finally:
 		monitor.stop()
 		if DAEMON_PID_FILE.exists() and DAEMON_PID_FILE.read_text().strip() == str(os.getpid()):
