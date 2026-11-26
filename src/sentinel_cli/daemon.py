@@ -8,7 +8,7 @@ import signal
 import subprocess
 import sys
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -41,7 +41,10 @@ def _daemon_subprocess_env() -> dict[str, str]:
 	dependencies. Propagating the current interpreter's importable path
 	entries keeps the daemon importable.
 	"""
-	env = {**os.environ, "SENTINEL_STATE_DIR": str(STATE_DIR)}
+	# A daemon started from a test process is not the unit under test; keep the
+	# mutation-testing markers out of the child.
+	env = {name: value for name, value in os.environ.items() if not name.startswith(("MUTANT_", "MUTMUT_"))}
+	env["SENTINEL_STATE_DIR"] = str(STATE_DIR)
 	extra_paths = [p for p in sys.path if p and Path(p).is_dir() and p not in (os.getcwd(), "")]
 	if extra_paths:
 		existing = env.get("PYTHONPATH", "")
@@ -75,12 +78,12 @@ def _get_daemon_pid() -> int | None:
 
 
 def _is_daemon_process(pid: int) -> bool:
-	"""Guard against PID reuse: verify the pid actually runs the sentinel daemon."""
+	"""Guard against PID reuse: verify the pid runs the sentinel daemon module."""
 	try:
 		cmdline = psutil.Process(pid).cmdline()
 	except psutil.Error:
 		return False
-	return any("sentinel_cli.daemon" in part for part in cmdline)
+	return "sentinel_cli.daemon" in cmdline
 
 
 def _write_daemon_pid(pid: int) -> None:
@@ -133,8 +136,11 @@ def _daemon_main_loop() -> None:
 		_run_monitor()
 
 
-def _run_monitor() -> None:
-	"""Main loop for the daemon process (runs in background)."""
+def _run_monitor(*, sleep: Callable[[float], None] = time.sleep) -> None:
+	"""Main loop for the daemon process (runs in background).
+
+	The ``sleep`` hook lets a test drive one tick and stop the loop.
+	"""
 	_configure_daemon_logging()
 
 	should_exit = False
@@ -162,7 +168,7 @@ def _run_monitor() -> None:
 
 	try:
 		while not should_exit:
-			time.sleep(1)
+			sleep(1)
 	finally:
 		monitor.stop()
 		if DAEMON_PID_FILE.exists() and DAEMON_PID_FILE.read_text().strip() == str(os.getpid()):

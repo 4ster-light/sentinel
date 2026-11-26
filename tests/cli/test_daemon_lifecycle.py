@@ -13,6 +13,12 @@ from sentinel_core.restart_monitor import RestartMonitor
 runner = CliRunner()
 
 
+def _daemon_diagnostics(temp_state_dir: Path) -> str:
+	log = temp_state_dir / ".sentinel" / "daemon.log"
+	content = log.read_text() if log.exists() else "<no log>"
+	return f"pid file: {daemon.DAEMON_PID_FILE.exists()}\nlog:\n{content[-2000:]}"
+
+
 def test_daemon_rotation_keeps_stderr_in_the_current_log(temp_state_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 	import logging
 	from unittest.mock import Mock
@@ -57,7 +63,7 @@ def test_regression_concurrent_daemon_start_has_one_monitor(temp_state_dir: Path
 		assert sum("Started daemon" in result.stdout for result in results) == 1
 		assert sum("already running" in result.stdout for result in results) == 1
 		pid = daemon._get_daemon_pid()
-		assert pid is not None
+		assert pid is not None, _daemon_diagnostics(temp_state_dir)
 		result = runner.invoke(app, ["daemon", "stop"])
 		assert result.exit_code == 0
 		assert not psutil.pid_exists(pid) or psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
