@@ -15,7 +15,7 @@ from .up import up as up_command
 
 app = typer.Typer(
 	name="sentinel",
-	help="A lightweight process orchestrator CLI",
+	help="A lightweight, language-agnostic, process orchestrator with advanced features for developers and DevOps",
 	no_args_is_help=True,
 )
 

@@ -1,5 +1,5 @@
 {
-  description = "Sentinel - Lightweight process orchestrator cli";
+  description = "Sentinel - A lightweight, language-agnostic, process orchestrator with advanced features for developers and DevOps";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
