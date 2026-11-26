@@ -42,6 +42,7 @@ dev = [
     "pytest-xdist[psutil]>=3.8.0",
     "ruff>=0.17.5",
     "ty>=0.0.104",
+    "mutmut==3.8.1",
 ]
 
 [tool.pytest.ini_options]
@@ -64,6 +65,22 @@ addopts = [
 filterwarnings = [
 	# fastapi's TestClient import warns about the httpx-based starlette shim; httpx2 is not packaged for the nix sandbox yet.
 	"ignore:Using `httpx` with `starlette.testclient`:starlette.exceptions.StarletteDeprecationWarning",
+]
+
+[tool.mutmut]
+# mutmut drives pytest itself, so reset the parallel and coverage addopts for its runs.
+source_paths = ["src/"]
+# The fork runner calls os.wait() in the main process and reaps any child it did
+# not fork. A stray child from the clean test run then aborts the run with
+# KeyError. The forkserver runner keeps test processes off the main process.
+process_isolation = "forkserver"
+pytest_add_cli_args = ["-o", "addopts="]
+pytest_add_cli_args_test_selection = [
+	# The daemon start test pushes the mutants paths and the stats env into its
+	# child process, and mutmut's config load then fails from the per-test cwd.
+	# Issue #52 removes this deselect.
+	"--deselect",
+	"tests/cli/test_cli_daemon.py::TestDaemonCommands::test_daemon_start_and_stop",
 ]
 
 [build-system]
