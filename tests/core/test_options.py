@@ -3,7 +3,7 @@
 import pytest
 
 from sentinel_core.models import AutoscaleConfig, DockerConfig
-from sentinel_core.options import StartOptions, parse_ionice_spec
+from sentinel_core.options import StartOptions, parse_autoscale_specs, parse_ionice_spec
 from sentinel_core.state import HealthCheckConfig
 
 
@@ -236,3 +236,36 @@ class TestDockerOptions:
 
 	def test_docker_config_is_none_without_an_image(self):
 		assert StartOptions(cmd="sleep 30").docker_config is None
+
+
+class TestAutoscaleSpecs:
+	def test_parses_cpu_and_memory_together(self) -> None:
+		assert parse_autoscale_specs(["cpu:80:40", "mem:800:300"]) == AutoscaleConfig(
+			cpu_high=80.0, cpu_low=40.0, mem_high_mb=800.0, mem_low_mb=300.0
+		)
+
+	def test_parses_a_metric_file_spec(self) -> None:
+		assert parse_autoscale_specs(["metric:/run/sentinel/queue:120:30"]) == AutoscaleConfig(
+			metric_path="/run/sentinel/queue", metric_high=120.0, metric_low=30.0
+		)
+
+	@pytest.mark.parametrize("spec", ["cpu:80:40", "mem:80:40", "metric:/x:8:2"])
+	def test_rejects_a_duplicate_metric(self, spec: str) -> None:
+		with pytest.raises(ValueError, match="only be given once"):
+			parse_autoscale_specs([spec, spec])
+
+	@pytest.mark.parametrize("spec", ["cpu:40:40", "cpu:40:0", "cpu:-1:2", "metric:/x:1:2", "metric::1:2", "cpu:inf:2"])
+	def test_rejects_invalid_thresholds(self, spec: str) -> None:
+		with pytest.raises(ValueError, match="autoscale"):
+			parse_autoscale_specs([spec])
+
+
+class TestNiceBounds:
+	@pytest.mark.parametrize("nice", [-20, 0, 19])
+	def test_accepts_the_documented_range(self, nice: int) -> None:
+		StartOptions(cmd="sleep 10", nice=nice).validate()
+
+	@pytest.mark.parametrize("nice", [-21, 20])
+	def test_rejects_outside_the_documented_range(self, nice: int) -> None:
+		with pytest.raises(ValueError, match="nice"):
+			StartOptions(cmd="sleep 10", nice=nice).validate()
