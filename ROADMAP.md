@@ -1,7 +1,7 @@
 # Sentinel Roadmap
 
-**Goal:** A lightweight, language-agnostic process orchestrator with advanced
-features for developers and DevOps.
+**Goal:** A lightweight, language-agnostic, process orchestrator with advanced
+features for developers and DevOps
 
 ---
 
@@ -73,16 +73,16 @@ features for developers and DevOps.
 **Focus:** Advanced features for power users and DevOps. **Target:** Q3 2026
 
 - [x] ~~**v0.3.1**~~ _**COMPLETED**_
-    - [x] Basic Web Dashboard: Simple UI for monitoring
-    - [x] Basic Process Scaling: Scale based on CPU/memory
+  - [x] Basic Web Dashboard: Simple UI for monitoring
+  - [x] Basic Process Scaling: Scale based on CPU/memory
 
 - [x] ~~**v0.3.2**~~ _**COMPLETED**_
-    - [x] Basic Process Isolation: Docker integration
-    - [x] Basic Configuration File: YAML/TOML support
+  - [x] Basic Process Isolation: Docker integration
+  - [x] Basic Configuration File: YAML/TOML support
 
 - [x] ~~**v0.3.3**~~ _**COMPLETED**_
-    - [x] Advanced Web Dashboard: Real-time updates and control
-    - [x] Advanced Process Scaling: Custom scaling policies
+  - [x] Advanced Web Dashboard: Real-time updates and control
+  - [x] Advanced Process Scaling: Custom scaling policies
 
 - [ ] **v0.3.4**
   - [ ] Advanced Process Isolation: cgroups and resource limits
@@ -90,7 +90,16 @@ features for developers and DevOps.
 
 ---
 
-## Stability and Production-Readiness (v1.0)
+## Cleanup phase
+
+- Trim of possible dead code or minor feature simplification
+- Test hardening and review of behaviour
+- Polish any corner of the workflow
+- Fix up and improvement of user facing documentation
+
+---
+
+## Stability and Production-Readiness (v1.0.0)
 
 **Focus:** Stability, testing, and documentation. **Target:** Q4 2026
 
@@ -113,8 +122,7 @@ features for developers and DevOps.
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for
-guidelines.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 
 ## Feedback
 
