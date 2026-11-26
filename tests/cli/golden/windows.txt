@@ -1,0 +1,41 @@
+#Requires -RunAsAdministrator
+# Installs sentinel-demo as a Windows service through NSSM; pass -Uninstall to remove it.
+param(
+	[string]$NssmPath = "nssm.exe",
+	[switch]$Uninstall
+)
+
+$ErrorActionPreference = "Stop"
+
+$ServiceName = 'sentinel-demo'
+$DisplayName = 'Sentinel process: demo'
+$Application = '/usr/bin/python'
+$Arguments = '/srv/app/app.py'
+$WorkingDirectory = '/srv/app'
+
+if (-not (Get-Command $NssmPath -ErrorAction SilentlyContinue)) {
+	throw "NSSM was not found; install it or pass -NssmPath"
+}
+
+if ($Uninstall) {
+	& $NssmPath stop $ServiceName 2>$null
+	& $NssmPath remove $ServiceName confirm
+	Write-Host "Removed $ServiceName"
+	exit 0
+}
+
+& $NssmPath install $ServiceName
+& $NssmPath set $ServiceName Application $Application
+& $NssmPath set $ServiceName AppParameters $Arguments
+& $NssmPath set $ServiceName AppDirectory $WorkingDirectory
+& $NssmPath set $ServiceName DisplayName $DisplayName
+& $NssmPath set $ServiceName Start SERVICE_AUTO_START
+
+$Credential = Get-Credential -UserName 'svc' -Message 'Account for the service'
+& $NssmPath set $ServiceName ObjectName $Credential.UserName $Credential.GetNetworkCredential().Password
+
+& $NssmPath set $ServiceName AppExit Default Restart
+& $NssmPath set $ServiceName AppRestartDelay 5000
+
+& $NssmPath start $ServiceName
+Write-Host "Installed $ServiceName"
