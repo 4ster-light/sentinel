@@ -83,6 +83,10 @@ pytest_add_cli_args_test_selection = [
 	# Issue #52 removes this deselect.
 	"--deselect",
 	"tests/cli/test_cli_daemon.py::TestDaemonCommands::test_daemon_start_and_stop",
+	# The real-container test needs a live engine. The docker builders are
+	# covered by unit tests, and the engine start is slow under mutation runs.
+	"--deselect",
+	"tests/core/test_docker_integration.py::TestRealContainerLifecycle::test_run_and_stop_a_real_container",
 ]
 
 [build-system]
