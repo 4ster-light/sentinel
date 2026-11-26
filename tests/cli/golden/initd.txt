@@ -1,0 +1,78 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          demo
+# Required-Start:    $local_fs $network $remote_fs
+# Required-Stop:     $local_fs $network $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Sentinel process: demo
+# Description:       Starts and stops demo under SysV init.
+### END INIT INFO
+
+NAME=demo
+COMMAND='/usr/bin/python /srv/app/app.py'
+RUNAS=svc
+WORKDIR=/srv/app
+PIDFILE=/run/demo.pid
+LOGFILE=/var/log/demo.log
+
+is_running() {
+	[ -f "$PIDFILE" ] || return 1
+	pid=$(cat "$PIDFILE" 2>/dev/null) || return 1
+	[ -n "$pid" ] || return 1
+	kill -0 "$pid" 2>/dev/null
+}
+
+start() {
+	if is_running; then
+		echo "$NAME is already running (pid $(cat "$PIDFILE"))"
+		return 0
+	fi
+	if [ -n "$WORKDIR" ]; then
+		cd "$WORKDIR"
+	fi
+	if [ -n "$RUNAS" ]; then
+		setsid su -s /bin/sh -c "$COMMAND" "$RUNAS" >>"$LOGFILE" 2>&1 &
+	else
+		setsid sh -c "$COMMAND" >>"$LOGFILE" 2>&1 &
+	fi
+	echo $! >"$PIDFILE"
+	echo "$NAME started (pid $(cat "$PIDFILE"))"
+}
+
+stop() {
+	if ! is_running; then
+		echo "$NAME is not running"
+		rm -f "$PIDFILE"
+		return 0
+	fi
+	pid=$(cat "$PIDFILE")
+	kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+	i=0
+	while kill -0 "$pid" 2>/dev/null && [ "$i" -lt 30 ]; do
+		sleep 1
+		i=$((i + 1))
+	done
+	if kill -0 "$pid" 2>/dev/null; then
+		kill -KILL "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
+	fi
+	rm -f "$PIDFILE"
+	echo "$NAME stopped"
+}
+
+status() {
+	if is_running; then
+		echo "$NAME is running (pid $(cat "$PIDFILE"))"
+		return 0
+	fi
+	echo "$NAME is not running"
+	return 3
+}
+
+case "${1:-}" in
+	start) start ;;
+	stop) stop ;;
+	restart) stop; start ;;
+	status) status ;;
+	*) echo "Usage: $0 {start|stop|restart|status}" >&2; exit 1 ;;
+esac
