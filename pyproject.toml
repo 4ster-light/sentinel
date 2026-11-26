@@ -39,6 +39,7 @@ dev = [
     "packaging>=26.3",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
+    "pytest-timeout>=2.4",
     "pytest-xdist[psutil]>=3.8.0",
     "ruff>=0.17.5",
     "ty>=0.0.104",
@@ -61,6 +62,7 @@ addopts = [
 	"--cov=sentinel_web",        # Measure coverage for the dashboard web layer
 	"--cov-report=term-missing", # Show missing lines in terminal report
 	"--cov-report=html",         # Generate HTML report for human reading (view in browser)
+	"--timeout=60",              # Fail a test that runs longer than a minute
 ]
 filterwarnings = [
 	# fastapi's TestClient import warns about the httpx-based starlette shim; httpx2 is not packaged for the nix sandbox yet.
@@ -74,7 +76,14 @@ source_paths = ["src/"]
 # not fork. A stray child from the clean test run then aborts the run with
 # KeyError. The forkserver runner keeps test processes off the main process.
 process_isolation = "forkserver"
-pytest_add_cli_args = ["-o", "addopts="]
+pytest_add_cli_args = ["-o", "addopts=", "--timeout=15"]
+pytest_add_cli_args_test_selection = [
+	# The daemon start test pushes the mutants paths and the stats env into its
+	# child process, and mutmut's config load then fails from the per-test cwd.
+	# Issue #52 removes this deselect.
+	"--deselect",
+	"tests/cli/test_cli_daemon.py::TestDaemonCommands::test_daemon_start_and_stop",
+]
 
 [build-system]
 requires = ["hatchling"]

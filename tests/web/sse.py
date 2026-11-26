@@ -74,5 +74,8 @@ def read_events(
 		with contextlib.suppress(_EnoughEvents):
 			await app(scope, receive, send)
 
-	asyncio.run(drive())
+	try:
+		asyncio.run(asyncio.wait_for(drive(), timeout=5))
+	except TimeoutError:
+		raise AssertionError("the event stream did not produce the requested events in time") from None
 	return start, events

@@ -184,3 +184,9 @@ def fake_engine(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 def pytest_configure() -> None:
 	# Rich caches color support when the CLI modules are imported during collection.
 	os.environ.pop("FORCE_COLOR", None)
+	# mutmut resolves its configuration from the current directory on first use.
+	# Load it before a test changes the directory.
+	if os.environ.get("MUTANT_UNDER_TEST"):
+		from mutmut.configuration import config
+
+		config()

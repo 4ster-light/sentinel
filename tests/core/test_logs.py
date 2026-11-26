@@ -1,4 +1,8 @@
+import threading
+from collections.abc import Callable
 from pathlib import Path
+
+import pytest
 
 from sentinel_core.logs import clear_logs, rotate_log_file, rotate_process_logs, tail_file
 
@@ -93,9 +97,18 @@ class TestClearLogs:
 		assert not stderr_log.exists()
 
 
+def _run_bounded(action: Callable[[], None], timeout: float = 5.0) -> None:
+	thread = threading.Thread(target=action, daemon=True)
+	thread.start()
+	thread.join(timeout)
+	assert not thread.is_alive(), "the call did not finish within the deadline"
+
+
 class TestShowLogs:
-	def test_show_logs_both_streams(self, temp_logs_dir: Path, capsys):
+	def test_show_logs_both_streams(self, temp_logs_dir: Path, capsys, monkeypatch: pytest.MonkeyPatch):
 		from sentinel_core.logs import show_logs
+
+		monkeypatch.setattr("sentinel_core.logs._follow_logs", lambda *args, **kwargs: None)
 
 		stdout_log = temp_logs_dir / "test.stdout.log"
 		stderr_log = temp_logs_dir / "test.stderr.log"
@@ -115,8 +128,10 @@ class TestShowLogs:
 		assert "stderr line 1" in output
 		assert "stderr line 2" in output
 
-	def test_show_logs_stdout_only(self, temp_logs_dir: Path, capsys):
+	def test_show_logs_stdout_only(self, temp_logs_dir: Path, capsys, monkeypatch: pytest.MonkeyPatch):
 		from sentinel_core.logs import show_logs
+
+		monkeypatch.setattr("sentinel_core.logs._follow_logs", lambda *args, **kwargs: None)
 
 		stdout_log = temp_logs_dir / "test.stdout.log"
 		stderr_log = temp_logs_dir / "test.stderr.log"
@@ -132,8 +147,10 @@ class TestShowLogs:
 		assert "stdout line 1" in output
 		assert "stderr line 1" not in output
 
-	def test_show_logs_stderr_only(self, temp_logs_dir, capsys):
+	def test_show_logs_stderr_only(self, temp_logs_dir, capsys, monkeypatch: pytest.MonkeyPatch):
 		from sentinel_core.logs import show_logs
+
+		monkeypatch.setattr("sentinel_core.logs._follow_logs", lambda *args, **kwargs: None)
 
 		stdout_log = temp_logs_dir / "test.stdout.log"
 		stderr_log = temp_logs_dir / "test.stderr.log"
@@ -149,8 +166,10 @@ class TestShowLogs:
 		assert "stdout line 1" not in output
 		assert "stderr line 1" in output
 
-	def test_show_logs_nonexistent(self, temp_logs_dir, capsys):
+	def test_show_logs_nonexistent(self, temp_logs_dir, capsys, monkeypatch: pytest.MonkeyPatch):
 		from sentinel_core.logs import show_logs
+
+		monkeypatch.setattr("sentinel_core.logs._follow_logs", lambda *args, **kwargs: None)
 
 		stdout_log = temp_logs_dir / "nonexistent.stdout.log"
 		stderr_log = temp_logs_dir / "nonexistent.stderr.log"
@@ -182,7 +201,7 @@ class TestFollowLogs:
 
 		monkeypatch.setattr("sentinel_core.logs.time.sleep", append_during_follow)
 
-		_follow_logs(stdout_log, stderr_log, stream="both")
+		_run_bounded(lambda: _follow_logs(stdout_log, stderr_log, stream="both"))
 
 		captured = capsys.readouterr()
 		assert "new line" in captured.out
