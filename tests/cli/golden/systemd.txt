@@ -1,0 +1,13 @@
+[Unit]
+Description=Sentinel process: demo
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/app
+User=svc
+ExecStart=/usr/bin/env /usr/bin/python /srv/app/app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

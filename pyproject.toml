@@ -72,6 +72,8 @@ filterwarnings = [
 [tool.mutmut]
 # mutmut drives pytest itself, so reset the parallel and coverage addopts for its runs.
 source_paths = ["src/"]
+# The template tests read golden files; copy them into the work tree.
+also_copy = ["tests/cli/golden"]
 # The fork runner calls os.wait() in the main process and reaps any child it did
 # not fork. A stray child from the clean test run then aborts the run with
 # KeyError. The forkserver runner keeps test processes off the main process.
@@ -81,6 +83,10 @@ pytest_add_cli_args_test_selection = [
 	# The daemon start test pushes the mutants paths and the stats env into its
 	# child process, and mutmut's config load then fails from the per-test cwd.
 	# Issue #52 removes this deselect.
+	# The real-container test needs a live engine. The docker builders are
+	# covered by unit tests, and the engine start is slow under mutation runs.
+	"--deselect",
+	"tests/core/test_docker_integration.py::TestRealContainerLifecycle::test_run_and_stop_a_real_container",
 	"--deselect",
 	"tests/cli/test_cli_daemon.py::TestDaemonCommands::test_daemon_start_and_stop",
 	# The real-container test needs a live engine. The docker builders are

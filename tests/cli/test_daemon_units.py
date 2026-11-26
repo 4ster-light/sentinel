@@ -45,7 +45,7 @@ class TestDaemonSubprocessEnv:
 		assert env["SENTINEL_TEST_MARKER"] == "1"
 
 	def test_drops_mutation_testing_markers(self, temp_state_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-		monkeypatch.setenv("MUTANT_UNDER_TEST", "stats")
+		monkeypatch.setenv("MUTANT_UNDER_TEST", "other.module.mutant")
 		monkeypatch.setenv("MUTMUT_DEPENDENCY_DEPTH", "2")
 		env = daemon._daemon_subprocess_env()
 		assert "MUTANT_UNDER_TEST" not in env
