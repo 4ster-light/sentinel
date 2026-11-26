@@ -5,6 +5,7 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 import sentinel_cli.daemon as daemon
@@ -16,23 +17,29 @@ runner = CliRunner()
 class TestDaemonMain:
 	def test_main_dispatches_monitor_arg(self, temp_state_dir: Path, monkeypatch) -> None:
 		"""Module entry point runs the background loop when given the monitor arg"""
-		called: list[bool] = []
-		monkeypatch.setattr(daemon, "_daemon_main_loop", lambda: called.append(True))
+		monitor_called: list[bool] = []
+		app_called: list[bool] = []
+		monkeypatch.setattr(daemon, "_daemon_main_loop", lambda: monitor_called.append(True))
+		monkeypatch.setattr(daemon, "daemon_app", lambda: app_called.append(True))
 		monkeypatch.setattr(sys, "argv", ["sentinel_cli.daemon", "monitor"])
 
 		daemon.main()
 
-		assert called == [True]
+		assert monitor_called == [True]
+		assert app_called == []
 
 	def test_main_runs_cli_app_without_monitor_arg(self, temp_state_dir: Path, monkeypatch) -> None:
 		"""Module entry point falls back to the CLI app for other invocations"""
-		called: list[bool] = []
-		monkeypatch.setattr(daemon, "daemon_app", lambda: called.append(True))
+		monitor_called: list[bool] = []
+		app_called: list[bool] = []
+		monkeypatch.setattr(daemon, "_daemon_main_loop", lambda: monitor_called.append(True))
+		monkeypatch.setattr(daemon, "daemon_app", lambda: app_called.append(True))
 		monkeypatch.setattr(sys, "argv", ["sentinel_cli.daemon"])
 
 		daemon.main()
 
-		assert called == [True]
+		assert app_called == [True]
+		assert monitor_called == []
 
 
 class TestDaemonCommands:
@@ -80,8 +87,11 @@ class TestDaemonCommands:
 		daemon.DAEMON_PID_FILE.unlink(missing_ok=True)
 		assert daemon.is_daemon_running() is False
 
-	def test_daemon_start_and_stop(self, temp_state_dir: Path) -> None:
+	def test_daemon_start_and_stop(self, temp_state_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 		"""Test daemon start and stop lifecycle"""
+		# The daemon child inherits the cwd. Use the tree root, where the tool
+		# configuration lives, so a mutation-testing child can load its config.
+		monkeypatch.chdir(Path(daemon.__file__).resolve().parents[2])
 		daemon.DAEMON_PID_FILE.unlink(missing_ok=True)
 
 		result = runner.invoke(app, ["daemon", "start"])

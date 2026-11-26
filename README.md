@@ -71,7 +71,8 @@
 
 ## Features
 
-A lightweight process orchestrator CLI:
+A lightweight, language-agnostic, process orchestrator with advanced
+features for developers and DevOps:
 
 - Start and manage background processes with automatic logging
 - Real-time CPU, memory, and uptime monitoring
