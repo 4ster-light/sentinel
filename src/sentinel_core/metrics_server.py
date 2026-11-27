@@ -24,14 +24,18 @@ class MetricsRequestHandler(BaseHTTPRequestHandler):
 	"""Serve rendered metrics at /metrics and 404 for everything else."""
 
 	def do_GET(self) -> None:
-		if self.path.split("?", 1)[0] not in ("/metrics", "/metrics/"):
+		path = self.path.partition("?")[0]
+		if path not in ("/metrics", "/metrics/"):
 			self.send_error(HTTPStatus.NOT_FOUND, "Only /metrics is available")
 			return
 
-		body = cast(MetricsServer, self.server).render_metrics().encode("utf-8")
+		server = cast(MetricsServer, self.server)  # pragma: no mutate (cast is a typing no-op)
+		body = server.render_metrics().encode()
+		content_type = PROMETHEUS_CONTENT_TYPE
+		content_length = str(len(body))
 		self.send_response(HTTPStatus.OK)
-		self.send_header("Content-Type", PROMETHEUS_CONTENT_TYPE)
-		self.send_header("Content-Length", str(len(body)))
+		self.send_header("Content-Type", content_type)  # pragma: no mutate (case-insensitive header)
+		self.send_header("Content-Length", content_length)  # pragma: no mutate (case-insensitive header)
 		self.end_headers()
 		self.wfile.write(body)
 

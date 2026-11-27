@@ -60,6 +60,7 @@ class TestRunRemoteCommand:
 		result = remote.run_remote_command(RemoteInfo(host="host"), ["true"], timeout=5)
 
 		assert result.returncode == 124
+		assert result.stdout == ""
 		assert result.stderr == "SSH connection to host timed out after 5s"
 
 	def test_sentinel_wrapper_prefixes_argv(self, monkeypatch: pytest.MonkeyPatch) -> None:

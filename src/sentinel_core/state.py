@@ -169,7 +169,7 @@ class State:
 
 def get_log_paths(name: str, logs_dir: Path | None = None) -> tuple[Path, Path]:
 	base = logs_dir if logs_dir is not None else LOGS_DIR
-	safe_name = quote(name, safe="")
+	safe_name = quote(name, safe="")  # pragma: no mutate ("X" is always safe in urllib quoting)
 	stdout = base / f"{safe_name}.stdout.log"
 	stderr = base / f"{safe_name}.stderr.log"
 	return stdout, stderr

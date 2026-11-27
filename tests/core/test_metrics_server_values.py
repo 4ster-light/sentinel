@@ -56,7 +56,10 @@ class TestMetricsServer:
 		assert body == BODY.encode("utf-8")
 
 	def test_rejects_other_paths(self, server: MetricsServer) -> None:
-		assert request(server, "/health")[0] == 404
+		status, _, body = request(server, "/health")
+
+		assert status == 404
+		assert b"<p>Message: Only /metrics is available.</p>" in body
 
 	def test_is_threaded_and_daemonic(self, server: MetricsServer) -> None:
 		assert server.daemon_threads is True
