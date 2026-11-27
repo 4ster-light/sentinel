@@ -2,6 +2,10 @@
 
 from collections.abc import Callable
 
+import pytest
+
+import sentinel_web.data as dashboard_data
+from sentinel_core.metrics import ProcessMetrics
 from sentinel_core.models import ProcessInfo
 from sentinel_core.process import stop_process
 from sentinel_core.state import State
@@ -41,3 +45,33 @@ class TestCollectDashboardData:
 		(row,) = data["processes"]
 		assert row["running"] is False
 		assert row["status"] == "stopped"
+
+
+class TestDashboardRowLabels:
+	def test_rows_carry_the_group(self, state: State, spawn_process: Callable[..., ProcessInfo]) -> None:
+		state.create_group("staff")
+		info = spawn_process("sleep 30", name="grouped")
+		state.add_process_to_group("staff", info.id)
+
+		(row,) = collect_dashboard_data(state)["processes"]
+
+		assert row["group"] == "staff"
+
+	def test_rows_without_a_record_become_empty_labels(self, state: State, monkeypatch: pytest.MonkeyPatch) -> None:
+		orphan = ProcessMetrics(
+			id=99,
+			name="orphan",
+			pid=1,
+			status="running",
+			running=True,
+			cpu_percent=0.0,
+			memory_mb=0.0,
+			uptime_seconds=0.0,
+		)
+		monkeypatch.setattr(dashboard_data, "collect_metrics", lambda _: [orphan])
+
+		(row,) = collect_dashboard_data(state)["processes"]
+
+		assert row["group"] is None
+		assert row["cluster"] is None
+		assert row["cluster_index"] is None
