@@ -100,7 +100,7 @@ class StateStore:
 			return empty_state_data()
 
 	def _parse(self) -> dict[str, Any]:
-		raw = json.loads(self.state_file.read_text(encoding="utf-8"))
+		raw = json.loads(self.state_file.read_text(encoding="utf-8"))  # pragma: no mutate (UTF-8 is the encoded form)
 		data = empty_state_data() | raw
 		_validate_data(data)
 		return data

@@ -1,10 +1,13 @@
 """Tests for StateStore and registry injection"""
 
+import logging
+import re
 import threading
 from pathlib import Path
 
 import pytest
 
+import sentinel_core.state_store as state_store
 from sentinel_core.models import ProcessInfo
 from sentinel_core.state import State
 from sentinel_core.state_store import StateStore, empty_state_data
@@ -287,3 +290,96 @@ class TestEncoding:
 		reloaded.load()
 
 		assert reloaded.data["groups"]["café"]["env"] == {"Ñ": "✓"}
+
+
+class TestStoreDetails:
+	def test_creates_state_and_log_dirs_with_the_private_mode(self, tmp_path: Path) -> None:
+		state_dir = tmp_path / "a" / "b"
+		store = StateStore(state_dir)
+
+		store.load()
+		store.load()
+
+		assert state_dir.stat().st_mode & 0o777 == 0o700
+		assert (state_dir / "logs").stat().st_mode & 0o777 == 0o700
+
+	def test_starts_from_empty_data(self, tmp_path: Path) -> None:
+		store = StateStore(tmp_path)
+
+		assert store.data == empty_state_data()
+		assert store.warnings == []
+
+	def test_saves_a_fresh_store(self, tmp_path: Path) -> None:
+		store = StateStore(tmp_path)
+		store.load()
+		store.data["next_id"] = 2
+
+		store.save()
+
+		again = StateStore(tmp_path)
+		again.load()
+		assert again.data["next_id"] == 2
+
+	def test_uses_a_temp_file_in_the_state_dir(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+		store = StateStore(tmp_path)
+		store.load()
+		seen: dict[str, object] = {}
+		real = state_store.tempfile.mkstemp
+
+		def fake(dir: str | None = None, prefix: str | None = None, suffix: str | None = None) -> tuple[int, str]:
+			seen.update({"dir": dir, "prefix": prefix, "suffix": suffix})
+			return real(dir=dir, prefix=prefix, suffix=suffix)
+
+		monkeypatch.setattr(state_store.tempfile, "mkstemp", fake)
+
+		store.save()
+
+		assert seen == {"dir": store.state_dir, "prefix": ".state.json.", "suffix": ".tmp"}
+
+	def test_refuses_to_overwrite_a_changed_file(self, tmp_path: Path) -> None:
+		store = StateStore(tmp_path)
+		store.load()
+		store.data["next_id"] = 2
+		(tmp_path / "state.json").write_text('{"next_id": 5}')
+
+		with pytest.raises(ValueError, match="State changed on disk; reload it before saving"):
+			store.save()
+
+	def test_names_the_corrupt_backup_with_a_timestamp(self, tmp_path: Path) -> None:
+		(tmp_path / "state.json").write_text("{bad")
+		store = StateStore(tmp_path)
+
+		store.load()
+
+		backup = store.warnings[0].rsplit(" original backed up to ", 1)[1]
+		assert re.fullmatch(r".*/state\.json\.corrupt-\d{8}T\d{6}", backup)
+
+	def test_warns_with_the_error_type_and_path(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+		state_file = tmp_path / "state.json"
+		state_file.write_text("{bad")
+		store = StateStore(tmp_path)
+		caplog.set_level(logging.DEBUG)
+
+		store.load()
+
+		message = store.warnings[0]
+		assert message.startswith(f"state file {state_file} is corrupt (JSONDecodeError: ")
+		assert caplog.records[-1].message == message
+
+	def test_logs_a_failed_backup(
+		self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+	) -> None:
+		(tmp_path / "state.json").write_text("{bad")
+		store = StateStore(tmp_path)
+		caplog.set_level(logging.DEBUG)
+
+		def fail(self: Path, target: object) -> None:
+			raise OSError("no")
+
+		monkeypatch.setattr(Path, "replace", fail)
+
+		store.load()
+
+		assert "original backed up" not in store.warnings[0]
+		errors = [record for record in caplog.records if record.levelno == logging.ERROR]
+		assert errors[-1].message == f"Failed to back up corrupt state file {tmp_path / 'state.json'}: no"
