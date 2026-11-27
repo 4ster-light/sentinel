@@ -52,14 +52,14 @@ def test_nonzero_exit_raises_the_code(monkeypatch: pytest.MonkeyPatch) -> None:
 	assert excinfo.value.exit_code == 3
 
 
-def terminal_pair(monkeypatch: pytest.MonkeyPatch) -> tuple[StringIO, StringIO]:
+def terminal_pair(monkeypatch: pytest.MonkeyPatch, width: int = 80) -> tuple[StringIO, StringIO]:
 	out = StringIO()
 	err = StringIO()
 	monkeypatch.setattr(
-		remote, "console", Console(file=out, width=80, height=24, force_terminal=True, color_system="standard")
+		remote, "console", Console(file=out, width=width, height=24, force_terminal=True, color_system="standard")
 	)
 	monkeypatch.setattr(
-		remote, "error_console", Console(file=err, width=80, height=24, force_terminal=True, color_system="standard")
+		remote, "error_console", Console(file=err, width=width, height=24, force_terminal=True, color_system="standard")
 	)
 	return out, err
 
@@ -94,3 +94,12 @@ def test_stderr_is_not_highlighted(monkeypatch: pytest.MonkeyPatch) -> None:
 	value = err.getvalue()
 	assert "\x1b[1;36m" not in value
 	assert strip_ansi(value) == "value 42\n"
+
+
+def test_stderr_does_not_wrap_long_lines(monkeypatch: pytest.MonkeyPatch) -> None:
+	_, err = terminal_pair(monkeypatch, width=20)
+	line = "x" * 50 + "\n"
+
+	remote._print_remote_result(RemoteResult(returncode=0, stdout="", stderr=line))
+
+	assert strip_ansi(err.getvalue()) == line
