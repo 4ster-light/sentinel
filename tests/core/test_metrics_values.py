@@ -221,3 +221,51 @@ class TestCollectMetrics:
 		assert result[0].running is False
 		assert result[0].status == "exited"
 		assert result[0].uptime_seconds == 0
+
+
+def render_table(metrics_list: list[metrics.ProcessMetrics]) -> str:
+	out = StringIO()
+	metrics.export_to_stdout(metrics_list, Console(file=out, width=60, height=24))
+	return out.getvalue()
+
+
+class TestExportToStdoutTable:
+	def test_renders_the_exact_table_for_a_running_process(self) -> None:
+		metric = metrics.ProcessMetrics(
+			id=1,
+			name="api",
+			pid=4242,
+			status="running",
+			running=True,
+			cpu_percent=12.5,
+			memory_mb=300.0,
+			uptime_seconds=90.0,
+		)
+
+		assert render_table([metric]) == (
+			"┏━━━━┳━━━━━━┳━━━━━━┳━━━━━━━━━┳━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓\n"
+			"┃ ID ┃ NAME ┃  PID ┃ STATUS  ┃   CPU ┃     MEM ┃ UPTIME ┃\n"
+			"┡━━━━╇━━━━━━╇━━━━━━╇━━━━━━━━━╇━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩\n"
+			"│  1 │ api  │ 4242 │ running │ 12.5% │ 300.0MB │ 1m 30s │\n"
+			"└────┴──────┴──────┴─────────┴───────┴─────────┴────────┘\n"
+		)
+
+	def test_renders_the_exact_table_for_a_stopped_process(self) -> None:
+		metric = metrics.ProcessMetrics(
+			id=2,
+			name="a<b>&c",
+			pid=7,
+			status="exited",
+			running=False,
+			cpu_percent=0.0,
+			memory_mb=1.5,
+			uptime_seconds=0.0,
+		)
+
+		assert render_table([metric]) == (
+			"┏━━━━┳━━━━━━━━┳━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━━┓\n"
+			"┃ ID ┃ NAME   ┃ PID ┃ STATUS ┃  CPU ┃   MEM ┃ UPTIME ┃\n"
+			"┡━━━━╇━━━━━━━━╇━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━━┩\n"
+			"│  2 │ a<b>&c │   7 │ exited │ 0.0% │ 1.5MB │     0s │\n"
+			"└────┴────────┴─────┴────────┴──────┴───────┴────────┘\n"
+		)
