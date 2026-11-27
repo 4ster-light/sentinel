@@ -290,3 +290,21 @@ class TestDaemonSubprocessEnvEdges:
 		monkeypatch.setenv("PYTHONPATH", "")
 		env = daemon._daemon_subprocess_env()
 		assert env["PYTHONPATH"] == str(site)
+
+
+class TestDaemonPidSignal:
+	def test_checks_the_process_without_signalling_it(
+		self, temp_state_dir: Path, monkeypatch: pytest.MonkeyPatch
+	) -> None:
+		import subprocess
+
+		child = subprocess.Popen(["sleep", "30"])
+		try:
+			daemon.DAEMON_PID_FILE.write_text(str(child.pid))
+			monkeypatch.setattr(daemon, "_is_daemon_process", lambda pid: True)
+
+			assert daemon._get_daemon_pid() == child.pid
+			assert child.poll() is None
+		finally:
+			child.kill()
+			child.wait()
