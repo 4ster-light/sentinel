@@ -85,7 +85,8 @@ class TestDaemonCommands:
 
 			assert daemon._get_daemon_pid() is None
 			assert not daemon.DAEMON_PID_FILE.exists()
-			assert child.poll() is None
+			with pytest.raises(subprocess.TimeoutExpired):
+				child.wait(timeout=0.2)
 		finally:
 			child.kill()
 			child.wait()

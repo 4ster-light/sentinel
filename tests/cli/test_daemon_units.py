@@ -273,7 +273,8 @@ class TestGetDaemonPid:
 			monkeypatch.setattr(daemon, "_is_daemon_process", lambda pid: True)
 
 			assert daemon._get_daemon_pid() == child.pid
-			assert child.poll() is None
+			with pytest.raises(subprocess.TimeoutExpired):
+				child.wait(timeout=0.2)
 		finally:
 			child.kill()
 			child.wait()
