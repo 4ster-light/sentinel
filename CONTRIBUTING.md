@@ -60,7 +60,9 @@ Mutation testing changes the source on purpose. For each change, the run
 checks that a test fails. The result shows if the tests detect changed
 behaviour. A coverage number cannot show this.
 
-Run a full pass before a release candidate:
+Run a full pass before a release candidate. The `Mutation` workflow does this
+from the Actions tab (`workflow_dispatch`). Run the same pass by hand during
+development:
 
 ```bash
 just mutants
@@ -209,14 +211,16 @@ Releases are cut from `main` with a signed tag; the tag drives every channel.
    `packaging/fedora/sentinel-pm.spec`, and add a spec changelog entry.
 3. Run `just release-check` (tag, project version and spec must agree) and
    `just c`.
-4. Commit as `chore(release): vX.Y.Z`, then create the annotated tag with an
+4. Run the `Mutation` workflow from the Actions tab (`workflow_dispatch`) and
+   record the score. It is the last hardening step before the tag.
+5. Commit as `chore(release): vX.Y.Z`, then create the annotated tag with an
    explicit message so no editor is needed:
    `git -c core.editor=true tag -a vX.Y.Z -m "vX.Y.Z: summary"`, and push it
    with `git push origin vX.Y.Z`.
-5. The `Release` workflow runs the gate, publishes to TestPyPI and PyPI
+6. The `Release` workflow runs the gate, publishes to TestPyPI and PyPI
    through OIDC trusted publishing, and creates the GitHub release with the
    sdist and wheel attached.
-6. Rebuild the COPR package from the tag:
+7. Rebuild the COPR package from the tag:
 
    ```bash
    cd packaging/fedora

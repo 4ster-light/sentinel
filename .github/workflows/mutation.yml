@@ -1,0 +1,50 @@
+name: Mutation
+
+# The last hardening step before a release candidate gets a tag. Run it by
+# hand. No push and no pull request starts it.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  full-pass:
+    name: Full mutation pass
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: cachix/install-nix-action@v32.0.0
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Run the full pass
+        run: nix develop -c just mutants
+
+      - name: Report the score
+        if: always()
+        run: |
+          nix develop -c uv run mutmut results --all true > mutants/results.txt
+          nix develop -c uv run mutmut results > mutants/survivors.txt || true
+          {
+            echo "## Mutation score"
+            echo ""
+            echo "| Status | Mutants |"
+            echo "|--------|---------|"
+            awk -F': ' '{status[$NF]++} END {for (name in status) printf "| %s | %d |\n", name, status[name]}' mutants/results.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: mutation-results
+          path: |
+            mutants/results.txt
+            mutants/survivors.txt
+            mutants/mutmut-stats.json
