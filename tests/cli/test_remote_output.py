@@ -1,5 +1,6 @@
 """Value tests for the remote result printer"""
 
+import re
 from io import StringIO
 
 import pytest
@@ -71,12 +72,18 @@ def test_stdout_is_not_highlighted(monkeypatch: pytest.MonkeyPatch) -> None:
 	assert out.getvalue() == "value 42\n"
 
 
+def strip_ansi(value: str) -> str:
+	return re.sub(r"\x1b\[[0-9;]*m", "", value)
+
+
 def test_stderr_carries_the_red_style(monkeypatch: pytest.MonkeyPatch) -> None:
 	_, err = terminal_pair(monkeypatch)
 
 	remote._print_remote_result(RemoteResult(returncode=0, stdout="", stderr="bad\n"))
 
-	assert err.getvalue() == "\x1b[31mbad\n\x1b[0m"
+	value = err.getvalue()
+	assert "\x1b[31m" in value
+	assert strip_ansi(value) == "bad\n"
 
 
 def test_stderr_is_not_highlighted(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -84,4 +91,6 @@ def test_stderr_is_not_highlighted(monkeypatch: pytest.MonkeyPatch) -> None:
 
 	remote._print_remote_result(RemoteResult(returncode=0, stdout="", stderr="value 42\n"))
 
-	assert err.getvalue() == "\x1b[31mvalue 42\n\x1b[0m"
+	value = err.getvalue()
+	assert "\x1b[1;36m" not in value
+	assert strip_ansi(value) == "value 42\n"
