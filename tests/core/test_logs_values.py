@@ -287,3 +287,243 @@ class TestFollowLogs:
 		text = follow(monkeypatch, stdout, tmp_path / "err.log", [lambda: append_to(stdout, "x" * 70000)])
 
 		assert text == "out: " + "x" * 70000 + "\n\nStopped following logs.\n"
+
+
+class TestFingerprintAt:
+	def test_returns_empty_at_the_start(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		path.write_bytes(b"abcdef")
+
+		with path.open("rb") as log:
+			assert logs._fingerprint_at(log, 0) == b""
+			assert logs._fingerprint_at(log, -1) == b""
+
+	def test_returns_the_bytes_before_the_offset(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		path.write_bytes(b"abcdef")
+
+		with path.open("rb") as log:
+			assert logs._fingerprint_at(log, 5) == b"abcde"
+
+	def test_caps_at_32_bytes(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		data = b"0123456789" * 10
+		path.write_bytes(data)
+
+		with path.open("rb") as log:
+			assert logs._fingerprint_at(log, 100) == data[-32:]
+
+
+class TestRotationDefaults:
+	def test_rotates_when_no_backup_exists(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		path.write_text("abcd")
+
+		assert logs.rotate_log_file(path, max_bytes=1) is True
+		assert (tmp_path / "x.log.1").read_text() == "abcd"
+		assert not (tmp_path / "x.log.2").exists()
+
+	def test_keeps_the_latest_backups_only(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		path.write_text("new")
+		for index in range(1, 5):
+			(tmp_path / f"x.log.{index}").write_text(f"old-{index}")
+
+		logs.rotate_log_file(path, max_bytes=1, backups=3)
+
+		assert (tmp_path / "x.log.1").read_text() == "new"
+		assert (tmp_path / "x.log.2").read_text() == "old-1"
+		assert (tmp_path / "x.log.3").read_text() == "old-2"
+		assert (tmp_path / "x.log.4").read_text() == "old-4"
+
+
+class TestLogLimits:
+	def test_rejects_a_non_positive_max_with_the_exact_message(self, tmp_path: Path) -> None:
+		with pytest.raises(ValueError, match="max_bytes must be greater than 0") as error:
+			logs.rotate_log_file(tmp_path / "x.log", max_bytes=0)
+
+		assert str(error.value) == "max_bytes must be greater than 0"
+
+	def test_rejects_a_low_backup_count_with_the_exact_message(self, tmp_path: Path) -> None:
+		with pytest.raises(ValueError, match="backups must be at least 1") as error:
+			logs.rotate_log_file(tmp_path / "x.log", backups=0)
+
+		assert str(error.value) == "backups must be at least 1"
+
+	def test_one_backup_is_enough(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		path.write_text("abcd")
+
+		assert logs.rotate_log_file(path, max_bytes=1, backups=1) is True
+		assert (tmp_path / "x.log.1").read_text() == "abcd"
+
+	def test_forwards_the_backup_count(self, tmp_path: Path) -> None:
+		stdout = tmp_path / "out.log"
+		stderr = tmp_path / "err.log"
+		stdout.write_text("o")
+		stderr.write_text("e")
+		(tmp_path / "out.log.2").write_text("old")
+		(tmp_path / "err.log.2").write_text("old")
+
+		logs.rotate_process_logs(str(stdout), str(stderr), max_bytes=1, backups=2)
+
+		assert not (tmp_path / "out.log.3").exists()
+		assert not (tmp_path / "err.log.3").exists()
+		assert (tmp_path / "out.log.1").read_text() == "o"
+		assert (tmp_path / "err.log.1").read_text() == "e"
+
+
+class TestTailLimits:
+	def test_default_keeps_fifty_lines(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		path.write_text("".join(f"{number}\n" for number in range(60)))
+
+		lines = logs.tail_file(path)
+
+		assert len(lines) == 50
+		assert lines[0] == "10"
+		assert lines[-1] == "59"
+
+	def test_one_line_is_allowed(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		path.write_text("a\nb\n")
+
+		assert logs.tail_file(path, lines=1) == ["b"]
+
+	def test_strips_line_endings_only(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		path.write_text("a  \n")
+
+		assert logs.tail_file(path, lines=1) == ["a  "]
+
+	def test_keeps_a_trailing_x(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		path.write_text("aX\n")
+
+		assert logs.tail_file(path, lines=1) == ["aX"]
+
+
+class TestShowLimits:
+	def test_default_keeps_fifty_lines(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+		stdout = tmp_path / "out.log"
+		stdout.write_text("".join(f"{number}\n" for number in range(60)))
+		out = StringIO()
+		monkeypatch.setattr(logs, "console", Console(file=out, width=200, height=24))
+
+		logs.show_logs(str(stdout), str(tmp_path / "err.log"), stream="stdout")
+
+		body = out.getvalue().splitlines()[1:]
+		assert len(body) == 50
+		assert body[0] == "10"
+		assert body[-1] == "59"
+
+	def test_zero_lines_prints_the_header_only(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+		stdout = tmp_path / "out.log"
+		stdout.write_text("a\n")
+		out = StringIO()
+		monkeypatch.setattr(logs, "console", Console(file=out, width=200, height=24))
+
+		logs.show_logs(str(stdout), str(tmp_path / "err.log"), lines=0, stream="stdout")
+
+		assert out.getvalue() == f"═══ stdout ({stdout}) ═══\n"
+
+	def test_one_line_prints_the_last_line(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+		stdout = tmp_path / "out.log"
+		stdout.write_text("a\nb\n")
+		out = StringIO()
+		monkeypatch.setattr(logs, "console", Console(file=out, width=200, height=24))
+
+		logs.show_logs(str(stdout), str(tmp_path / "err.log"), lines=1, stream="stdout")
+
+		assert out.getvalue() == f"═══ stdout ({stdout}) ═══\nb\n"
+
+	def test_rejects_an_unknown_stream_with_the_exact_message(self, tmp_path: Path) -> None:
+		with pytest.raises(ValueError, match="stream must be stdout, stderr, or both") as error:
+			logs.show_logs(str(tmp_path / "out.log"), str(tmp_path / "err.log"), stream="other")
+
+		assert str(error.value) == "stream must be stdout, stderr, or both"
+
+	def test_rejects_a_negative_count_with_the_exact_message(self, tmp_path: Path) -> None:
+		with pytest.raises(ValueError, match="lines must be non-negative") as error:
+			logs.show_logs(str(tmp_path / "out.log"), str(tmp_path / "err.log"), lines=-1)
+
+		assert str(error.value) == "lines must be non-negative"
+
+
+class TestFingerprintBounds:
+	def test_reads_one_byte(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		path.write_bytes(b"abcdef")
+
+		with path.open("rb") as log:
+			assert logs._fingerprint_at(log, 1) == b"a"
+
+	def test_reads_exactly_32_bytes_before_a_long_offset(self, tmp_path: Path) -> None:
+		path = tmp_path / "x.log"
+		data = bytes(range(200))
+		path.write_bytes(data)
+
+		with path.open("rb") as log:
+			assert logs._fingerprint_at(log, 100) == data[68:100]
+
+
+class TestFollowEdges:
+	def test_keeps_following_after_a_replacement(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+		stdout = tmp_path / "out.log"
+		stdout.write_text("")
+		replacement = tmp_path / "new.log"
+		replacement.write_text("new\n")
+
+		def swap() -> None:
+			replacement.replace(stdout)
+
+		actions = [swap, lambda: append_to(stdout, "more\n")]
+
+		text = follow(monkeypatch, stdout, tmp_path / "err.log", actions)
+
+		assert text == "out: new\nout: more\n\nStopped following logs.\n"
+
+	def test_notices_an_in_place_rewrite(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+		stdout = tmp_path / "out.log"
+		stdout.write_text("")
+
+		def rewrite() -> None:
+			stdout.write_text("xyz\n")
+
+		actions = [lambda: append_to(stdout, "abc\n"), rewrite]
+
+		text = follow(monkeypatch, stdout, tmp_path / "err.log", actions)
+
+		assert text == "out: abc\nout: xyz\n\nStopped following logs.\n"
+
+	def test_reads_a_stream_created_after_the_start(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+		stdout = tmp_path / "out.log"
+		stdout.write_text("")
+		stderr = tmp_path / "err.log"
+
+		def create() -> None:
+			stderr.write_text("e\n")
+
+		text = follow(monkeypatch, stdout, stderr, [create])
+
+		assert text == "err: e\n\nStopped following logs.\n"
+
+	def test_keeps_a_pending_buffer_of_exactly_the_limit(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+		stdout = tmp_path / "out.log"
+		stdout.write_text("")
+
+		text = follow(monkeypatch, stdout, tmp_path / "err.log", [lambda: append_to(stdout, "x" * 65536)])
+
+		assert text == "\nStopped following logs.\n"
+
+	def test_replaces_invalid_bytes_when_flushing(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+		stdout = tmp_path / "out.log"
+		stdout.write_text("")
+
+		def junk() -> None:
+			with stdout.open("ab") as stream:
+				stream.write(b"\xff" * 70000)
+
+		text = follow(monkeypatch, stdout, tmp_path / "err.log", [junk])
+
+		assert text == "out: " + "\ufffd" * 70000 + "\n\nStopped following logs.\n"
