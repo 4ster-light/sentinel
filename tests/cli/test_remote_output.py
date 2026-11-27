@@ -1,5 +1,6 @@
 """Value tests for the remote result printer"""
 
+import re
 from io import StringIO
 
 import pytest
@@ -49,3 +50,56 @@ def test_nonzero_exit_raises_the_code(monkeypatch: pytest.MonkeyPatch) -> None:
 		remote._print_remote_result(RemoteResult(returncode=3, stdout="", stderr="bad\n"))
 
 	assert excinfo.value.exit_code == 3
+
+
+def terminal_pair(monkeypatch: pytest.MonkeyPatch, width: int = 80) -> tuple[StringIO, StringIO]:
+	out = StringIO()
+	err = StringIO()
+	monkeypatch.setattr(
+		remote, "console", Console(file=out, width=width, height=24, force_terminal=True, color_system="standard")
+	)
+	monkeypatch.setattr(
+		remote, "error_console", Console(file=err, width=width, height=24, force_terminal=True, color_system="standard")
+	)
+	return out, err
+
+
+def test_stdout_is_not_highlighted(monkeypatch: pytest.MonkeyPatch) -> None:
+	out, _ = terminal_pair(monkeypatch)
+
+	remote._print_remote_result(RemoteResult(returncode=0, stdout="value 42\n", stderr=""))
+
+	assert out.getvalue() == "value 42\n"
+
+
+def strip_ansi(value: str) -> str:
+	return re.sub(r"\x1b\[[0-9;]*m", "", value)
+
+
+def test_stderr_carries_the_red_style(monkeypatch: pytest.MonkeyPatch) -> None:
+	_, err = terminal_pair(monkeypatch)
+
+	remote._print_remote_result(RemoteResult(returncode=0, stdout="", stderr="bad\n"))
+
+	value = err.getvalue()
+	assert "\x1b[31m" in value
+	assert strip_ansi(value) == "bad\n"
+
+
+def test_stderr_is_not_highlighted(monkeypatch: pytest.MonkeyPatch) -> None:
+	_, err = terminal_pair(monkeypatch)
+
+	remote._print_remote_result(RemoteResult(returncode=0, stdout="", stderr="value 42\n"))
+
+	value = err.getvalue()
+	assert "\x1b[1;36m" not in value
+	assert strip_ansi(value) == "value 42\n"
+
+
+def test_stderr_does_not_wrap_long_lines(monkeypatch: pytest.MonkeyPatch) -> None:
+	_, err = terminal_pair(monkeypatch, width=20)
+	line = "x" * 50 + "\n"
+
+	remote._print_remote_result(RemoteResult(returncode=0, stdout="", stderr=line))
+
+	assert strip_ansi(err.getvalue()) == line

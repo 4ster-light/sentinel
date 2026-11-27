@@ -76,11 +76,20 @@ class TestDaemonCommands:
 
 	def test_get_daemon_pid_reused_by_other_process(self, temp_state_dir: Path) -> None:
 		"""PID reuse guard: a live pid that is not the daemon is treated as stale"""
-		daemon.DAEMON_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
-		daemon.DAEMON_PID_FILE.write_text(str(os.getpid()))
+		import subprocess
 
-		assert daemon._get_daemon_pid() is None
-		assert not daemon.DAEMON_PID_FILE.exists()
+		child = subprocess.Popen(["sleep", "30"])
+		try:
+			daemon.DAEMON_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+			daemon.DAEMON_PID_FILE.write_text(str(child.pid))
+
+			assert daemon._get_daemon_pid() is None
+			assert not daemon.DAEMON_PID_FILE.exists()
+			with pytest.raises(subprocess.TimeoutExpired):
+				child.wait(timeout=0.2)
+		finally:
+			child.kill()
+			child.wait()
 
 	def test_is_daemon_running_not_running(self, temp_state_dir: Path) -> None:
 		"""Test is_daemon_running when daemon is not running"""

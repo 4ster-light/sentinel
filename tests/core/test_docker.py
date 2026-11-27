@@ -7,6 +7,7 @@ import signal
 
 import pytest
 
+import sentinel_core.process as process
 from sentinel_core.docker import build_run_line, build_stop_command, container_name, resolve_engine
 from sentinel_core.models import DockerConfig, ProcessInfo
 from sentinel_core.process import managed_process, restart_process, start_process, stop_process
@@ -157,6 +158,11 @@ def kill_leftover_containers(state: State):
 		if info.pid > 0 and not info.stopped:
 			with contextlib.suppress(ProcessLookupError, PermissionError):
 				os.killpg(info.pid, signal.SIGKILL)
+
+
+@pytest.fixture(autouse=True)
+def short_container_stop_wait(monkeypatch: pytest.MonkeyPatch) -> None:
+	monkeypatch.setattr(process, "_CONTAINER_STOP_WAIT_SECONDS", 0.3)
 
 
 class TestDockerLifecycle:

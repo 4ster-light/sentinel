@@ -190,3 +190,11 @@ def pytest_configure() -> None:
 		from mutmut.configuration import config
 
 		config()
+
+
+@pytest.fixture(autouse=True)
+def short_container_stop_wait(monkeypatch: pytest.MonkeyPatch) -> None:
+	"""Bound the container stop poll so a wrong stop command fails fast."""
+	import sentinel_core.process as process
+
+	monkeypatch.setattr(process, "_CONTAINER_STOP_WAIT_SECONDS", 0.3)

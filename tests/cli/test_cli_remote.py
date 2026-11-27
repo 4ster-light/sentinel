@@ -137,3 +137,13 @@ class TestRemoteCommands:
 			mock_run.return_value = RemoteResult(returncode=1, stdout="", stderr="error\n")
 			result = runner.invoke(app, ["remote", "stop", "remotehost", "myproc"])
 		assert result.exit_code == 1
+
+	def test_remote_run_with_shell(self, state: State):
+		state.add_remote(RemoteInfo(host="remotehost"))
+		with patch("sentinel_cli.remote.run_remote_sentinel") as mock_run:
+			mock_run.return_value = RemoteResult(returncode=0, stdout="ran\n", stderr="")
+			result = runner.invoke(app, ["remote", "run", "--shell", "remotehost", "echo hi"])
+
+		assert result.exit_code == 0
+		assert "ran" in result.stdout
+		mock_run.assert_called_once_with(state.get_remote("remotehost"), ["run", "--shell", "--", "echo hi"])
