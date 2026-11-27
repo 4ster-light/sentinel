@@ -2,7 +2,8 @@
 
 import asyncio
 import json
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
+from typing import cast
 
 import pytest
 from fastapi import FastAPI
@@ -98,5 +99,40 @@ class TestEventBroadcaster:
 			await broadcaster.close()
 
 			assert samples == ["x"]
+
+		asyncio.run(scenario())
+
+
+class TestBroadcasterDetails:
+	def test_default_interval_is_two_seconds(self) -> None:
+		assert EventBroadcaster(lambda: "{}")._interval == 2.0
+
+	def test_close_cancels_the_sampler_and_clears_it(self) -> None:
+		async def scenario() -> None:
+			broadcaster = EventBroadcaster(lambda: "{}", interval=0.05)
+			await broadcaster.subscribe()
+			task = broadcaster._sampler
+			assert task is not None
+
+			await broadcaster.close()
+
+			assert broadcaster._sampler is None
+			assert task.done()
+			assert task.cancelled()
+
+		asyncio.run(scenario())
+
+	def test_closing_the_stream_removes_its_queue(self) -> None:
+		async def scenario() -> None:
+			broadcaster = EventBroadcaster(lambda: "{}", interval=0.05)
+			stream = cast(AsyncGenerator[str], broadcaster.stream())
+			first = await stream.__anext__()
+			assert first == "data: {}\n\n"
+			assert len(broadcaster._subscribers) == 1
+
+			await stream.aclose()
+
+			assert broadcaster._subscribers == set()
+			await broadcaster.close()
 
 		asyncio.run(scenario())

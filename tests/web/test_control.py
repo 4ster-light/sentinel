@@ -174,3 +174,18 @@ class TestControlToken:
 		start, _events = read_events(app, count=1)
 
 		assert start["status"] == 200
+
+
+class TestControlDetails:
+	def test_unknown_process_reports_the_exact_detail(self, control_client: TestClient) -> None:
+		response = control_client.post("/api/processes/999/stop")
+
+		assert response.status_code == 404
+		assert response.json()["detail"] == "Process not found: 999"
+
+	def test_a_placeholder_token_still_needs_a_header(self, state: State) -> None:
+		with TestClient(create_dashboard_app(lambda: state, control_token="XXXX")) as client:
+			response = client.post("/api/processes/1/stop")
+
+		assert response.status_code == 401
+		assert response.json()["detail"] == "Control requires a valid token"

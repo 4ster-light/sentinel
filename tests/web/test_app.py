@@ -56,3 +56,20 @@ class TestDashboardApp:
 
 	def test_unknown_path_returns_404(self, client: TestClient) -> None:
 		assert client.get("/metrics").status_code == 404
+
+
+class TestAppSettings:
+	def test_sets_the_title_and_disables_the_docs(self, state: State) -> None:
+		app = create_dashboard_app(lambda: state)
+
+		assert app.title == "Sentinel dashboard"
+		assert app.docs_url is None
+		assert app.redoc_url is None
+		assert app.openapi_url is None
+
+	def test_mounts_the_static_assets_under_a_name(self, state: State) -> None:
+		app = create_dashboard_app(lambda: state)
+
+		names = [getattr(route, "name", None) for route in app.routes]
+
+		assert "static" in names
